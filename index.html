@@ -10,9 +10,9 @@
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--gr)}
 
 header{background:var(--or);padding:16px 16px 0;position:sticky;top:0;z-index:100;box-shadow:0 3px 12px rgba(232,103,26,.35)}
-.hdr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.hdr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .hdr-top h1{font-size:18px;font-weight:800;color:#fff}
-.hdr-date{font-size:11px;color:rgba(255,255,255,.8);background:rgba(255,255,255,.15);padding:3px 8px;border-radius:20px}
+.update-bar{font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.15);border-radius:6px;padding:5px 10px;margin-bottom:12px;display:inline-block}
 
 .search-box{position:relative;margin-bottom:12px}
 .search-box input{width:100%;padding:14px 44px 14px 46px;border:none;border-radius:12px;font-size:16px;font-weight:500;background:#fff;color:var(--gr);outline:none;box-shadow:0 2px 12px rgba(0,0,0,.15)}
@@ -25,13 +25,13 @@ header{background:var(--or);padding:16px 16px 0;position:sticky;top:0;z-index:10
 .chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:none;background:rgba(255,255,255,.25);color:rgba(255,255,255,.9);white-space:nowrap;cursor:pointer;transition:all .15s}
 .chip.active{background:#fff;color:var(--or)}
 
-.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--bd)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--bd)}
 .kpi{background:var(--bg);border-radius:var(--rad);padding:10px 12px}
 .kpi-lbl{font-size:10px;color:var(--gr2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
-.kpi-val{font-size:18px;font-weight:800;color:var(--or);line-height:1}
+.kpi-val{font-size:17px;font-weight:800;color:var(--or);line-height:1}
 .kpi-sub{font-size:10px;color:var(--gr2);margin-top:2px}
 
-.bar{padding:7px 16px;font-size:12px;color:var(--gr2);background:#fff;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between}
+.bar{padding:7px 16px;font-size:12px;color:var(--gr2);background:#fff;border-bottom:1px solid var(--bd)}
 
 .list{padding:10px 12px 80px}
 .sec-hdr{display:flex;align-items:center;gap:8px;padding:10px 2px 5px;font-size:11px;font-weight:800;color:var(--or);text-transform:uppercase;letter-spacing:.6px}
@@ -73,8 +73,8 @@ header{background:var(--or);padding:16px 16px 0;position:sticky;top:0;z-index:10
 <header>
   <div class="hdr-top">
     <h1>🏭 Anteii · Inventario</h1>
-    <span class="hdr-date">02/06/2026</span>
   </div>
+  <div class="update-bar">📅 Datos actualizados al: 02/06/2026</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input type="search" id="search" placeholder="Buscar clave o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -96,10 +96,9 @@ header{background:var(--or);padding:16px 16px 0;position:sticky;top:0;z-index:10
   <div class="kpi"><div class="kpi-lbl">Existencia total</div><div class="kpi-val" id="k-exist">—</div><div class="kpi-sub">unidades</div></div>
   <div class="kpi"><div class="kpi-lbl">Lotes</div><div class="kpi-val" id="k-lotes">—</div><div class="kpi-sub">registrados</div></div>
   <div class="kpi"><div class="kpi-lbl">Claves únicas</div><div class="kpi-val" id="k-claves">—</div><div class="kpi-sub">artículos</div></div>
-  <div class="kpi"><div class="kpi-lbl">Almacenes</div><div class="kpi-val" id="k-alm">—</div><div class="kpi-sub">en este filtro</div></div>
 </div>
 
-<div class="bar"><span id="bar-info"></span><span id="bar-alm"></span></div>
+<div class="bar" id="bar-info"></div>
 <div class="list" id="list"></div>
 <div class="empty" id="empty" style="display:none"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="empty-q"></span>"</p></div>
 <button class="fab" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑ Subir</button>
@@ -148,15 +147,10 @@ function render(){
   const items=getF();
   const lotes=items.reduce((s,p)=>s+p.lotes.length,0);
   const exist=items.reduce((s,p)=>s+p.totalExist,0);
-  const almsSet=new Set(items.flatMap(p=>p.alms));
   document.getElementById('k-exist').textContent=fmt(exist);
   document.getElementById('k-lotes').textContent=lotes.toLocaleString('es-MX');
   document.getElementById('k-claves').textContent=items.length.toLocaleString('es-MX');
-  document.getElementById('k-alm').textContent=[...almsSet].join(' + ')||'—';
-  const ej=items.filter(p=>p.alms.includes('EYEJAL')).length;
-  const e4=items.filter(p=>p.alms.includes('40EYE')).length;
   document.getElementById('bar-info').textContent=items.length+' artículos · '+lotes+' lotes';
-  document.getElementById('bar-alm').textContent='EYEJAL:'+ej+' · 40EYE:'+e4;
 
   const list=document.getElementById('list'),empty=document.getElementById('empty');
   if(!items.length){list.innerHTML='';empty.style.display='block';document.getElementById('empty-q').textContent=fS;return;}
