@@ -20,6 +20,15 @@
 .c40-reg{font-size:10px;color:var(--gr2);font-style:italic}
 .c40-nocount{background:#FFF3E0;border-radius:6px;padding:2px 8px;font-size:10px;color:#E65100;font-weight:600}
 .loading-msg{padding:40px;text-align:center;color:var(--gr2);font-size:14px}
+.c40-input-wrap{display:flex;gap:6px;margin-top:8px;align-items:center}
+.c40-input{flex:1;padding:8px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:15px;font-weight:600;color:var(--gr);outline:none;min-width:0}
+.c40-input:focus{border-color:var(--pu)}
+.c40-btn{background:var(--pu);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.c40-btn:active{opacity:.8}
+.c40-btn.saving{background:#aaa}
+.c40-saved{font-size:11px;color:#2E7D32;font-weight:600;margin-top:4px}
+.c40-error{font-size:11px;color:#C62828;font-weight:600;margin-top:4px}
+
 
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--gr);padding-bottom:70px}
 
@@ -309,7 +318,12 @@ function switchTab(t){
     document.getElementById('nb-'+x).className='nav-btn'+(x===t?' a-'+x:'');
   });
   document.getElementById('fab').style.background=cols[t];
-  if(t==='inv')renderInv();else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic')renderCic();else renderHist();
+  if(t==='inv')renderInv();
+// Pedir nombre al equipo si no lo tiene guardado
+if(!localStorage.getItem('cic_nombre')){
+  const n=prompt('¿Cuál es tu nombre? (para registrar quién hizo el conteo)');
+  if(n&&n.trim())localStorage.setItem('cic_nombre',n.trim());
+}else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic')renderCic();else renderHist();
 }
 
 function getFiltA(){
@@ -413,6 +427,7 @@ function renderQ40(){
 }
 
 
+const APPS_URL='https://script.google.com/macros/s/AKfycbzFUxvXU0u3pywMG3KIkJqKOlbuyJ2is20KaFhjqd_xVHcGmHt2Q1qPdtjC468ZYuY/exec';
 const CIC_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=440919640&single=true&output=csv';
 let cicData=[],cicLoaded=false,fCic='TODOS',sCic='';
 
@@ -513,6 +528,40 @@ function _renderCicData(){
       </div>
     </div>`;
   }).join('');
+}
+
+
+function registrarConteo(clave,lote,inpId,btnId,msgId){
+  const inp=document.getElementById(inpId);
+  const msg=document.getElementById(msgId);
+  const cantidad=inp.value.trim();
+  if(!cantidad||isNaN(parseFloat(cantidad))){
+    msg.innerHTML='<div class="c40-error">Escribe una cantidad válida</div>';
+    return;
+  }
+  const btn=document.getElementById(btnId);
+  if(btn)btn.classList.add('saving');
+  if(btn)btn.textContent='Guardando...';
+  msg.innerHTML='';
+
+  const now=new Date();
+  const fechaConteo=now.toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const nombre=localStorage.getItem('cic_nombre')||'';
+
+  const payload={clave,lote,cantidad:parseFloat(cantidad),fechaConteo,registrado:nombre};
+
+  fetch(APPS_URL,{method:'POST',body:JSON.stringify(payload)})
+    .then(r=>r.text())
+    .then(()=>{
+      if(btn){btn.classList.remove('saving');btn.textContent='Registrar';}
+      msg.innerHTML='<div class="c40-saved">✓ Guardado correctamente · '+fechaConteo+'</div>';
+      cicLoaded=false;
+      setTimeout(()=>loadCic(),1500);
+    })
+    .catch(()=>{
+      if(btn){btn.classList.remove('saving');btn.textContent='Registrar';}
+      msg.innerHTML='<div class="c40-error">Error al guardar. Intenta de nuevo.</div>';
+    });
 }
 
 function getFiltH(){
