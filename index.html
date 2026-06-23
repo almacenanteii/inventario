@@ -471,12 +471,7 @@ function cambiarSemana(sem){
   _renderCicData();
 }
 
-function loadHistFromStorage(){
-  try{
-    const saved=localStorage.getItem('cic_historial');
-    if(saved)cicHist=JSON.parse(saved);
-  }catch(e){cicHist=[];}
-}
+function loadHistFromStorage(){}
 function parseHistCSV(text){
   const lines=text.trim().split('\n');
   const rows=[];
@@ -498,9 +493,8 @@ function parseHistCSV(text){
 }
 
 async function loadCic(){
-  if(cicLoaded)return;
   document.getElementById('cic-loading').classList.remove('hidden');
-  loadHistFromStorage();
+  
   try{
     // Load catalog and historial in parallel
     const [rCat,rHist]=await Promise.all([fetch(CIC_URL),fetch(HIST_URL)]);
@@ -511,7 +505,7 @@ async function loadCic(){
     // Use server historial as source of truth
     if(serverHist.length>0){
       cicHist=serverHist;
-      try{localStorage.setItem('cic_historial',JSON.stringify(cicHist));}catch(e){}
+      
     }
     cicLoaded=true;
     document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos registrados';
@@ -617,11 +611,15 @@ function _renderCicData(){
 
   // Render schedule header
   const schedHdr=document.getElementById('sched-hdr');
-  if(schedHdr) schedHdr.innerHTML=renderSchedHeader(semActual,contadosSet);
+  if(schedHdr){
+    schedHdr.classList.remove('hidden');
+    schedHdr.innerHTML=renderSchedHeader(semActual,contadosSet);
+  }
 
   // Render semana tabs
   const tabsEl=document.getElementById('sched-tabs');
   if(tabsEl){
+    tabsEl.classList.remove('hidden');
     let tabsHtml='';
     const prev=Math.max(1,semActual-1);
     const next=Math.min(maxSem,semActual+1);
@@ -728,10 +726,9 @@ function registrarConteo(btn){
       // Save to local historial immediately
       const histEntry={clave:clave,lote:lote,cantidad:parseFloat(cantidad),fecha:fechaConteo,registrado:nombre};
       cicHist.push(histEntry);
-      try{localStorage.setItem('cic_historial',JSON.stringify(cicHist));}catch(e){}
+      
       inp.value='';
-      cicLoaded=false;
-      setTimeout(function(){loadCic();},2000);
+      setTimeout(function(){loadCic();},2500);
     })
     .catch(()=>{
       btn.classList.remove('saving');btn.textContent='Registrar';
