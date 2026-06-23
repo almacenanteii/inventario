@@ -20,13 +20,19 @@
 .c40-reg{font-size:10px;color:var(--gr2);font-style:italic}
 .c40-nocount{background:#FFF3E0;border-radius:6px;padding:2px 8px;font-size:10px;color:#E65100;font-weight:600}
 .loading-msg{padding:40px;text-align:center;color:var(--gr2);font-size:14px}
-.c40-input-wrap{display:flex;gap:6px;margin-top:8px;align-items:center}
-.c40-input{flex:1;padding:8px 12px;border:1.5px solid var(--bd);border-radius:8px;font-size:15px;font-weight:600;color:var(--gr);outline:none;min-width:0}
+.c40-input-wrap{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.c40-input{width:100%;padding:14px 12px;border:2px solid var(--bd);border-radius:10px;font-size:22px;font-weight:700;color:var(--gr);outline:none;min-width:0;text-align:center}
 .c40-input:focus{border-color:var(--pu)}
-.c40-btn{background:var(--pu);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.c40-btn{background:var(--pu);color:#fff;border:none;border-radius:10px;padding:14px;font-size:15px;font-weight:700;cursor:pointer;width:100%}
 .c40-btn:active{opacity:.8}
 .c40-btn.saving{background:#aaa}
 .c40-saved{font-size:11px;color:#2E7D32;font-weight:600;margin-top:4px}
+.hist-section{margin-top:10px;border-top:1px solid var(--bd);padding-top:8px}
+.hist-title{font-size:10px;font-weight:700;color:var(--gr2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.hist-row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f5f5f5;font-size:11px}
+.hist-row:last-child{border-bottom:none}
+.hist-qty{font-weight:700;font-size:13px;color:var(--pu)}
+.hist-info{color:var(--gr2)}
 .c40-error{font-size:11px;color:#C62828;font-weight:600;margin-top:4px}
 
 
@@ -423,9 +429,10 @@ function renderQ40(){
 }
 
 
-const APPS_URL='https://script.google.com/macros/s/AKfycbzFUxvXU0u3pywMG3KIkJqKOlbuyJ2is20KaFhjqd_xVHcGmHt2Q1qPdtjC468ZYuY/exec';
+const APPS_URL='https://script.google.com/macros/s/AKfycbylNIRiVU9WU_Lg0dWEtreOG-0Xjfu0yzyoKYpCHZ2NyNA5dCfsoPNljdH4MospB-w/exec';
+const HIST_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=135260082&single=true&output=csv';
 const CIC_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=440919640&single=true&output=csv';
-let cicData=[],cicLoaded=false,fCic='TODOS',sCic='';
+let cicData=[],cicHist=[],cicLoaded=false,fCic='TODOS',sCic='';
 
 function parseCicCSV(text){
   const lines=text.trim().split('\n');
@@ -445,27 +452,69 @@ function parseCicCSV(text){
   return rows;
 }
 
+function loadHistFromStorage(){
+  try{
+    const saved=localStorage.getItem('cic_historial');
+    if(saved)cicHist=JSON.parse(saved);
+  }catch(e){cicHist=[];}
+}
+function parseHistCSV(text){
+  const lines=text.trim().split('\n');
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].split(',');
+    if(cols.length<4)continue;
+    const clean=function(c){return (c||'').replace(/^"|"$/g,'').trim();};
+    const qty=parseFloat(clean(cols[3]));
+    if(!clean(cols[1])||isNaN(qty))continue;
+    rows.push({
+      fecha:clean(cols[0]),
+      clave:clean(cols[1]),
+      lote:clean(cols[2]),
+      cantidad:qty,
+      registrado:clean(cols[4]||'')
+    });
+  }
+  return rows;
+}
+
 async function loadCic(){
   if(cicLoaded)return;
   document.getElementById('cic-loading').classList.remove('hidden');
+  loadHistFromStorage();
   try{
-    const r=await fetch(CIC_URL);
-    const text=await r.text();
-    cicData=parseCicCSV(text);
+    // Load catalog and historial in parallel
+    const [rCat,rHist]=await Promise.all([fetch(CIC_URL),fetch(HIST_URL)]);
+    const [textCat,textHist]=await Promise.all([rCat.text(),rHist.text()]);
+    cicData=parseCicCSV(textCat);
+    // Merge server historial with local (server wins for same entries)
+    const serverHist=parseHistCSV(textHist);
+    // Use server historial as source of truth
+    if(serverHist.length>0){
+      cicHist=serverHist;
+      try{localStorage.setItem('cic_historial',JSON.stringify(cicHist));}catch(e){}
+    }
     cicLoaded=true;
-    document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · Tiempo real desde Google Sheets';
+    document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos registrados';
     document.getElementById('cic-loading').classList.add('hidden');
     _renderCicData();
   }catch(e){
-    document.getElementById('cic-loading').textContent='❌ Error al cargar datos. Verifica la conexión.';
+    console.error(e);
+    document.getElementById('cic-loading').textContent='❌ Error al cargar. Verifica conexión.';
+    if(cicData.length>0){_renderCicData();}
   }
 }
 
 function getFiltCic(){
   const q=sCic.toLowerCase().trim();
-  return cicData.filter(p=>{
-    const contado=p.cantidad&&p.cantidad!=='';
-    const diff=contado?parseFloat(p.cantidad)-p.existSAI:null;
+  const histMap={};
+  cicHist.forEach(function(h){const k=h.clave+'|'+h.lote;if(!histMap[k])histMap[k]=[];histMap[k].push(h);});
+  return cicData.filter(function(p){
+    const k=p.clave+'|'+p.lote;
+    const hist=histMap[k]||[];
+    const contado=hist.length>0;
+    const ultimo=contado?hist.sort(function(a,b){return b.fecha.localeCompare(a.fecha);})[0]:null;
+    const diff=contado?parseFloat(ultimo.cantidad)-p.existSAI:null;
     if(fCic==='CONTADO'&&!contado)return false;
     if(fCic==='PENDIENTE'&&contado)return false;
     if(fCic==='DIFERENCIA'&&(diff===null||diff===0))return false;
@@ -481,12 +530,30 @@ function renderCic(){
 
 function _renderCicData(){
   const items=getFiltCic();
-  const contados=cicData.filter(p=>p.cantidad&&p.cantidad!=='').length;
-  const conDiff=cicData.filter(p=>{
-    if(!p.cantidad||p.cantidad==='')return false;
-    return Math.abs(parseFloat(p.cantidad)-p.existSAI)>0.01;
+
+  // Build historial map: clave+lote -> array of {fecha, cantidad, registrado}
+  const histMap={};
+  cicHist.forEach(function(h){
+    const k=h.clave+'|'+h.lote;
+    if(!histMap[k])histMap[k]=[];
+    histMap[k].push(h);
+  });
+  // Sort each by fecha desc
+  Object.values(histMap).forEach(function(arr){
+    arr.sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+  });
+
+  // Count stats using historial (most recent conteo per clave+lote)
+  const contadosSet=new Set(cicHist.map(function(h){return h.clave+'|'+h.lote;}));
+  const contados=contadosSet.size;
+  const conDiff=cicData.filter(function(p){
+    const k=p.clave+'|'+p.lote;
+    if(!histMap[k])return false;
+    const ultimo=histMap[k][0];
+    return Math.abs(parseFloat(ultimo.cantidad)-p.existSAI)>0.01;
   }).length;
   const ok=contados-conDiff;
+
   document.getElementById('ci-contados').textContent=contados;
   document.getElementById('ci-total').textContent=cicData.length;
   document.getElementById('ci-dif').textContent=conDiff;
@@ -498,14 +565,34 @@ function _renderCicData(){
   empty.classList.add('hidden');
 
   list.innerHTML=items.map(function(p){
-    const contado=p.cantidad&&p.cantidad!=='';
-    const cantNum=contado?parseFloat(p.cantidad):null;
-    const diff=cantNum!==null?cantNum-p.existSAI:null;
+    const k=p.clave+'|'+p.lote;
+    const hist=histMap[k]||[];
+    const contado=hist.length>0;
+    const ultimo=contado?hist[0]:null;
+    const cantNum=contado?parseFloat(ultimo.cantidad):null;
+    const diff=contado?cantNum-p.existSAI:null;
     const diffCls=diff===null?'':(diff===0?'c40-diff-ok':diff>0?'c40-diff-pos':'c40-diff-neg');
     const diffStr=diff===null?'':(diff===0?'✓ Coincide':(diff>0?'+':'')+diff.toFixed(2)+' pzas');
     const cardId='cic_'+p.clave.replace(/[^a-z0-9]/gi,'_')+'_'+p.lote.replace(/[^a-z0-9]/gi,'_');
 
-    return '<div class="c40-card">'+
+    // Historial rows (max 3)
+    const histRows=hist.slice(0,3).map(function(h){
+      const hDiff=parseFloat(h.cantidad)-p.existSAI;
+      const hCls=hDiff===0?'c40-diff-ok':hDiff>0?'c40-diff-pos':'c40-diff-neg';
+      return '<div class="hist-row">'+
+        '<span class="hist-info">'+h.fecha+(h.registrado?' · '+h.registrado:'')+'</span>'+
+        '<span class="hist-qty '+hCls+'">'+parseFloat(h.cantidad).toLocaleString('es-MX')+'</span>'+
+      '</div>';
+    }).join('');
+
+    const histSection=hist.length>0?
+      '<div class="hist-section">'+
+        '<div class="hist-title">Historial de conteos ('+hist.length+')</div>'+
+        histRows+
+        (hist.length>3?'<div style="font-size:10px;color:var(--gr2);margin-top:4px">+ '+(hist.length-3)+' conteos anteriores</div>':'')+
+      '</div>':'';
+
+    return '<div class="c40-card" id="'+cardId+'">'+
       '<div class="c40-row1">'+
         '<span class="clave" style="color:var(--pu)">'+p.clave+'</span>'+
         (contado
@@ -513,20 +600,12 @@ function _renderCicData(){
           : '<span class="c40-nocount">Sin contar</span>')+
       '</div>'+
       '<div class="desc">'+p.desc+'</div>'+
-      '<div class="c40-meta">'+
-        '<div class="c40-stat"><span class="c40-stat-val">'+p.existSAI.toLocaleString('es-MX')+'</span><span class="c40-stat-lbl">SAI</span></div>'+
-        (contado
-          ? '<div class="c40-stat"><span class="c40-stat-val '+diffCls+'">'+cantNum.toLocaleString('es-MX')+'</span><span class="c40-stat-lbl">Conteo</span></div>'
-          : '<div class="c40-stat"><span class="c40-stat-val" style="color:#ccc">—</span><span class="c40-stat-lbl">Conteo</span></div>')+
-        '<div style="flex:1;min-width:100px">'+
-          '<div style="font-size:10px;color:var(--gr2)">Lote: '+p.lote+'</div>'+
-          (p.fechaConteo?'<div style="font-size:10px;color:var(--gr2)">Contado: '+p.fechaConteo+'</div>':'')+
-          (p.registrado?'<div class="c40-reg">Por: '+p.registrado+'</div>':'')+
-        '</div>'+
-      '</div>'+
+      '<div style="font-size:11px;color:var(--gr2);margin-top:2px">Lote: '+p.lote+' · SAI: '+p.existSAI.toLocaleString('es-MX')+' '+p.unidad+'</div>'+
+      (contado?'<div style="font-size:11px;color:var(--gr2);margin-top:2px">Último conteo: '+ultimo.fecha+(ultimo.registrado?' · '+ultimo.registrado:'')+'</div>':'')+
+      histSection+
       '<div class="c40-input-wrap">'+
-        '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cantidad contada" value="'+(contado?cantNum:'')+'" data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'">'+
-        '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)">Registrar</button>'+
+        '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cantidad" value="" data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'">'+
+        '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)">✓ Registrar conteo</button>'+
       '</div>'+
       '<div id="msg-'+cardId+'"></div>'+
     '</div>';
@@ -574,10 +653,15 @@ function registrarConteo(btn){
   fetch(APPS_URL,{method:'POST',body:JSON.stringify(payload)})
     .then(r=>r.text())
     .then(()=>{
-      btn.classList.remove('saving');btn.textContent='Registrar';
+      btn.classList.remove('saving');btn.textContent='✓ Registrar conteo';
       msg.innerHTML='<div class="c40-saved">✓ Guardado · '+fechaConteo+'</div>';
+      // Save to local historial immediately
+      const histEntry={clave:clave,lote:lote,cantidad:parseFloat(cantidad),fecha:fechaConteo,registrado:nombre};
+      cicHist.push(histEntry);
+      try{localStorage.setItem('cic_historial',JSON.stringify(cicHist));}catch(e){}
+      inp.value='';
       cicLoaded=false;
-      setTimeout(()=>loadCic(),1500);
+      setTimeout(function(){loadCic();},2000);
     })
     .catch(()=>{
       btn.classList.remove('saving');btn.textContent='Registrar';
