@@ -525,8 +525,8 @@ function _renderCicData(){
         '</div>'+
       '</div>'+
       '<div class="c40-input-wrap">'+
-        '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cantidad contada" value="'+(contado?cantNum:'')+'">'+
-        '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(''+p.clave+'',''+p.lote+'','inp-'+cardId+'','btn-'+cardId+'','msg-'+cardId+'')">Registrar</button>'+
+        '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cantidad contada" value="'+(contado?cantNum:'')+'" data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'">'+
+        '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)">Registrar</button>'+
       '</div>'+
       '<div id="msg-'+cardId+'"></div>'+
     '</div>';
@@ -549,17 +549,20 @@ function checkNombre(){
   }
 }
 
-function registrarConteo(clave,lote,inpId,btnId,msgId){
-  const inp=document.getElementById(inpId);
-  const msg=document.getElementById(msgId);
+function registrarConteo(btn){
+  const wrap=btn.parentElement;
+  const inp=wrap.querySelector('input');
+  const clave=inp.dataset.clave;
+  const lote=inp.dataset.lote;
+  const cardId=inp.dataset.card;
+  const msg=document.getElementById('msg-'+cardId);
   const cantidad=inp.value.trim();
   if(!cantidad||isNaN(parseFloat(cantidad))){
     msg.innerHTML='<div class="c40-error">Escribe una cantidad válida</div>';
     return;
   }
-  const btn=document.getElementById(btnId);
-  if(btn)btn.classList.add('saving');
-  if(btn)btn.textContent='Guardando...';
+  btn.classList.add('saving');
+  btn.textContent='Guardando...';
   msg.innerHTML='';
 
   const now=new Date();
@@ -571,13 +574,13 @@ function registrarConteo(clave,lote,inpId,btnId,msgId){
   fetch(APPS_URL,{method:'POST',body:JSON.stringify(payload)})
     .then(r=>r.text())
     .then(()=>{
-      if(btn){btn.classList.remove('saving');btn.textContent='Registrar';}
-      msg.innerHTML='<div class="c40-saved">✓ Guardado correctamente · '+fechaConteo+'</div>';
+      btn.classList.remove('saving');btn.textContent='Registrar';
+      msg.innerHTML='<div class="c40-saved">✓ Guardado · '+fechaConteo+'</div>';
       cicLoaded=false;
       setTimeout(()=>loadCic(),1500);
     })
     .catch(()=>{
-      if(btn){btn.classList.remove('saving');btn.textContent='Registrar';}
+      btn.classList.remove('saving');btn.textContent='Registrar';
       msg.innerHTML='<div class="c40-error">Error al guardar. Intenta de nuevo.</div>';
     });
 }
