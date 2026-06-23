@@ -319,11 +319,7 @@ function switchTab(t){
   });
   document.getElementById('fab').style.background=cols[t];
   if(t==='inv')renderInv();
-// Pedir nombre al equipo si no lo tiene guardado
-if(!localStorage.getItem('cic_nombre')){
-  const n=prompt('¿Cuál es tu nombre? (para registrar quién hizo el conteo)');
-  if(n&&n.trim())localStorage.setItem('cic_nombre',n.trim());
-}else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic')renderCic();else renderHist();
+else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic')renderCic();else renderHist();
 }
 
 function getFiltA(){
@@ -531,6 +527,21 @@ function _renderCicData(){
 }
 
 
+
+function guardarNombre(){
+  const inp=document.getElementById('modal-nombre-input');
+  const nombre=inp.value.trim();
+  if(!nombre){inp.style.borderColor='#C62828';return;}
+  localStorage.setItem('cic_nombre',nombre);
+  document.getElementById('modal-nombre').style.display='none';
+}
+function checkNombre(){
+  if(!localStorage.getItem('cic_nombre')){
+    document.getElementById('modal-nombre').style.display='flex';
+    setTimeout(()=>document.getElementById('modal-nombre-input').focus(),100);
+  }
+}
+
 function registrarConteo(clave,lote,inpId,btnId,msgId){
   const inp=document.getElementById(inpId);
   const msg=document.getElementById(msgId);
@@ -603,7 +614,7 @@ function wireSearch(id,t){
     clearTimeout(tm);tm=setTimeout(()=>{
       if(id==='inv')sInv=this.value;else if(id==='abc')sAbc=this.value;else if(id==='q40')sQ40=this.value;else if(id==='cic'){sCic=this.value;_renderCicData();}else sHist=this.value;
       document.getElementById('clr-'+id).style.display=this.value?'block':'none';
-      if(t==='inv')renderInv();else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic')renderCic();else renderHist();
+      if(t==='inv')renderInv();else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic'){checkNombre();renderCic();}else renderHist();
     },200);
   });
 }
@@ -635,5 +646,19 @@ document.querySelectorAll('#fi-hist .chip').forEach(c=>c.addEventListener('click
 }));
 renderInv();
 </script>
+
+<!-- Modal nombre -->
+<div id="modal-nombre" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px;margin:20px;width:100%;max-width:340px">
+    <h2 style="font-size:16px;font-weight:800;color:#3a3a3a;margin-bottom:8px">¿Cómo te llamas?</h2>
+    <p style="font-size:13px;color:#7a7a7a;margin-bottom:16px">Tu nombre quedará registrado en cada conteo que captures.</p>
+    <input id="modal-nombre-input" type="text" placeholder="Escribe tu nombre..." 
+      style="width:100%;padding:12px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:15px;outline:none;margin-bottom:12px">
+    <button onclick="guardarNombre()" 
+      style="width:100%;background:#6A1B9A;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">
+      Guardar y continuar
+    </button>
+  </div>
+</div>
 </body>
 </html>
