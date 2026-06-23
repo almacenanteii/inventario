@@ -497,32 +497,39 @@ function _renderCicData(){
   if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-cic').textContent=sCic;return;}
   empty.classList.add('hidden');
 
-  list.innerHTML=items.map(p=>{
+  list.innerHTML=items.map(function(p){
     const contado=p.cantidad&&p.cantidad!=='';
     const cantNum=contado?parseFloat(p.cantidad):null;
     const diff=cantNum!==null?cantNum-p.existSAI:null;
     const diffCls=diff===null?'':(diff===0?'c40-diff-ok':diff>0?'c40-diff-pos':'c40-diff-neg');
     const diffStr=diff===null?'':(diff===0?'✓ Coincide':(diff>0?'+':'')+diff.toFixed(2)+' pzas');
+    const cardId='cic_'+p.clave.replace(/[^a-z0-9]/gi,'_')+'_'+p.lote.replace(/[^a-z0-9]/gi,'_');
 
-    return`<div class="c40-card">
-      <div class="c40-row1">
-        <span class="clave" style="color:var(--pu)">${p.clave}</span>
-        ${contado
-          ? `<span class="dias-badge ${diff===0?'dias-ok':diff>0?'dias-warn':'dias-crit'}">${diffStr}</span>`
-          : `<span class="c40-nocount">Sin contar</span>`
-        }
-      </div>
-      <div class="desc">${p.desc}</div>
-      <div class="c40-meta">
-        <div class="c40-stat"><span class="c40-stat-val">${p.existSAI.toLocaleString('es-MX')}</span><span class="c40-stat-lbl">SAI</span></div>
-        ${contado?`<div class="c40-stat"><span class="c40-stat-val ${diffCls}">${cantNum.toLocaleString('es-MX')}</span><span class="c40-stat-lbl">Conteo</span></div>`:'<div class="c40-stat"><span class="c40-stat-val" style="color:#ccc">—</span><span class="c40-stat-lbl">Conteo</span></div>'}
-        <div style="flex:1;min-width:100px">
-          <div style="font-size:10px;color:var(--gr2)">Lote: ${p.lote}</div>
-          ${p.fechaConteo?`<div style="font-size:10px;color:var(--gr2)">Contado: ${p.fechaConteo}</div>`:''}
-          ${p.registrado?`<div class="c40-reg">Por: ${p.registrado}</div>`:''}
-        </div>
-      </div>
-    </div>`;
+    return '<div class="c40-card">'+
+      '<div class="c40-row1">'+
+        '<span class="clave" style="color:var(--pu)">'+p.clave+'</span>'+
+        (contado
+          ? '<span class="dias-badge '+(diff===0?'dias-ok':diff>0?'dias-warn':'dias-crit')+'">'+diffStr+'</span>'
+          : '<span class="c40-nocount">Sin contar</span>')+
+      '</div>'+
+      '<div class="desc">'+p.desc+'</div>'+
+      '<div class="c40-meta">'+
+        '<div class="c40-stat"><span class="c40-stat-val">'+p.existSAI.toLocaleString('es-MX')+'</span><span class="c40-stat-lbl">SAI</span></div>'+
+        (contado
+          ? '<div class="c40-stat"><span class="c40-stat-val '+diffCls+'">'+cantNum.toLocaleString('es-MX')+'</span><span class="c40-stat-lbl">Conteo</span></div>'
+          : '<div class="c40-stat"><span class="c40-stat-val" style="color:#ccc">—</span><span class="c40-stat-lbl">Conteo</span></div>')+
+        '<div style="flex:1;min-width:100px">'+
+          '<div style="font-size:10px;color:var(--gr2)">Lote: '+p.lote+'</div>'+
+          (p.fechaConteo?'<div style="font-size:10px;color:var(--gr2)">Contado: '+p.fechaConteo+'</div>':'')+
+          (p.registrado?'<div class="c40-reg">Por: '+p.registrado+'</div>':'')+
+        '</div>'+
+      '</div>'+
+      '<div class="c40-input-wrap">'+
+        '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cantidad contada" value="'+(contado?cantNum:'')+'">'+
+        '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(''+p.clave+'',''+p.lote+'','inp-'+cardId+'','btn-'+cardId+'','msg-'+cardId+'')">Registrar</button>'+
+      '</div>'+
+      '<div id="msg-'+cardId+'"></div>'+
+    '</div>';
   }).join('');
 }
 
