@@ -7,16 +7,29 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--or:#E8671A;--gr:#3a3a3a;--gr2:#7a7a7a;--bg:#f0f0f0;--wh:#fff;--bd:#e2e2e2;--rad:10px;
-      --bl:#1565C0;--gn:#2E7D32;--rd:#C62828}
+      --bl:#1565C0;--gn:#2E7D32;--rd:#C62828;--pu:#6A1B9A}
+.c40-card{background:#fff;border-radius:12px;margin-bottom:8px;border:1px solid var(--bd);padding:12px 14px}
+.c40-row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.c40-meta{font-size:11px;color:var(--gr2);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
+.c40-stat{display:flex;flex-direction:column;align-items:center;background:var(--bg);border-radius:8px;padding:6px 10px;min-width:60px}
+.c40-stat-val{font-size:15px;font-weight:800;color:var(--gr)}
+.c40-stat-lbl{font-size:9px;color:var(--gr2);text-transform:uppercase;letter-spacing:.4px;margin-top:1px}
+.c40-diff-pos{color:#2E7D32;font-weight:800}
+.c40-diff-neg{color:#C62828;font-weight:800}
+.c40-diff-ok{color:#2E7D32;font-weight:800}
+.c40-reg{font-size:10px;color:var(--gr2);font-style:italic}
+.c40-nocount{background:#FFF3E0;border-radius:6px;padding:2px 8px;font-size:10px;color:#E65100;font-weight:600}
+.loading-msg{padding:40px;text-align:center;color:var(--gr2);font-size:14px}
+
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--gr);padding-bottom:70px}
 
 .nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--bd);display:flex;z-index:200;box-shadow:0 -2px 10px rgba(0,0,0,.08)}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;font-size:10px;font-weight:600;color:var(--gr2);border:none;background:none;cursor:pointer;gap:3px}
-.nav-btn.a-inv{color:var(--or)} .nav-btn.a-abc{color:var(--gn)} .nav-btn.a-q40{color:var(--rd)} .nav-btn.a-hist{color:var(--bl)}
+.nav-btn.a-inv{color:var(--or)} .nav-btn.a-abc{color:var(--gn)} .nav-btn.a-q40{color:var(--rd)} .nav-btn.a-cic{color:var(--pu)} .nav-btn.a-hist{color:var(--bl)}
 .nav-ico{font-size:20px;line-height:1}
 
 header{padding:16px 16px 0;position:sticky;top:0;z-index:100;box-shadow:0 3px 12px rgba(0,0,0,.2)}
-header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q40{background:var(--rd)} header.h-hist{background:var(--bl)}
+header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q40{background:var(--rd)} header.h-cic{background:var(--pu)} header.h-hist{background:var(--bl)}
 .hdr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .hdr-top h1{font-size:17px;font-weight:800;color:#fff}
 .update-bar{font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.15);border-radius:6px;padding:5px 10px;margin-bottom:12px;display:inline-block}
@@ -30,7 +43,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .filters{display:flex;gap:6px;padding:0 0 12px;overflow-x:auto}
 .filters::-webkit-scrollbar{display:none}
 .chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:none;background:rgba(255,255,255,.25);color:rgba(255,255,255,.9);white-space:nowrap;cursor:pointer}
-.chip.a-inv{background:#fff;color:var(--or)} .chip.a-abc{background:#fff;color:var(--gn)} .chip.a-q40{background:#fff;color:var(--rd)} .chip.a-hist{background:#fff;color:var(--bl)}
+.chip.a-inv{background:#fff;color:var(--or)} .chip.a-abc{background:#fff;color:var(--gn)} .chip.a-q40{background:#fff;color:var(--rd)} .chip.a-cic{background:#fff;color:var(--pu)} .chip.a-hist{background:#fff;color:var(--bl)}
 
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--bd)}
 .kpi{background:var(--bg);border-radius:var(--rad);padding:10px 12px}
@@ -115,6 +128,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
   <button class="nav-btn a-inv" id="nb-inv" onclick="switchTab('inv')"><span class="nav-ico">📦</span>Inventario</button>
   <button class="nav-btn" id="nb-abc" onclick="switchTab('abc')"><span class="nav-ico">🔤</span>ABC</button>
   <button class="nav-btn" id="nb-q40" onclick="switchTab('q40')"><span class="nav-ico">⏳</span>40EYE</button>
+  <button class="nav-btn" id="nb-cic" onclick="switchTab('cic')"><span class="nav-ico">📊</span>Cíclicos</button>
   <button class="nav-btn" id="nb-hist" onclick="switchTab('hist')"><span class="nav-ico">📋</span>Dic 2025</button>
 </nav>
 
@@ -175,6 +189,22 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
   </div>
 </header>
 
+<header class="h-cic hidden" id="hdr-cic">
+  <div class="hdr-top"><h1>📊 Conteos Cíclicos</h1></div>
+  <div class="update-bar" id="cic-update-bar">📅 Cargando datos...</div>
+  <div class="search-box">
+    <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="search-cic" placeholder="Buscar clave o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clr" id="clr-cic" onclick="clearSearch('cic')">✕</button>
+  </div>
+  <div class="filters" id="fi-cic">
+    <div class="chip a-cic" data-f="TODOS">Todos</div>
+    <div class="chip" data-f="CONTADO">✅ Contados</div>
+    <div class="chip" data-f="PENDIENTE">⏳ Pendientes</div>
+    <div class="chip" data-f="DIFERENCIA">⚠️ Con diferencia</div>
+  </div>
+</header>
+
 <header class="h-hist hidden" id="hdr-hist">
   <div class="hdr-top"><h1>📋 Inventario Dic 2025</h1></div>
   <div class="update-bar">📅 Cierre de inventario: Diciembre 2025</div>
@@ -206,6 +236,11 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
   <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val rv" id="q-piezas">—</div><div class="kpi-sub">detenidas</div></div>
   <div class="kpi"><div class="kpi-lbl">Más antiguo</div><div class="kpi-val rv" id="q-antiguo">—</div><div class="kpi-sub">días</div></div>
 </div>
+<div class="kpis hidden" id="kpis-cic">
+  <div class="kpi"><div class="kpi-lbl">Contados</div><div class="kpi-val" style="color:var(--pu)" id="ci-contados">—</div><div class="kpi-sub">de <span id="ci-total">—</span> lotes</div></div>
+  <div class="kpi"><div class="kpi-lbl">Con diferencia</div><div class="kpi-val rv" id="ci-dif">—</div><div class="kpi-sub">lotes</div></div>
+  <div class="kpi"><div class="kpi-lbl">Coinciden</div><div class="kpi-val gv" id="ci-ok">—</div><div class="kpi-sub">lotes</div></div>
+</div>
 <div class="kpis hidden" id="kpis-hist">
   <div class="kpi"><div class="kpi-lbl">Exist. SAI</div><div class="kpi-val bv" id="h-exist">—</div><div class="kpi-sub">dic 2025</div></div>
   <div class="kpi"><div class="kpi-lbl">Conteo</div><div class="kpi-val bv" id="h-conteo">—</div><div class="kpi-sub">físico</div></div>
@@ -215,13 +250,16 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 <div class="bar" id="bar-inv"></div>
 <div class="bar hidden" id="bar-abc"></div>
 <div class="bar hidden" id="bar-q40"></div>
+<div class="bar hidden" id="bar-cic"></div>
 <div class="bar hidden" id="bar-hist"></div>
 <div class="list" id="list-inv"></div>
 <div class="list hidden" id="list-abc"></div>
 <div class="list hidden" id="list-q40"></div>
+<div class="list hidden" id="list-cic"><div class="loading-msg hidden" id="cic-loading">⏳ Cargando conteos...</div></div>
 <div class="list hidden" id="list-hist"></div>
 <div class="empty hidden" id="empty-inv"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-inv"></span>"</p></div>
 <div class="empty hidden" id="empty-abc"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-abc"></span>"</p></div>
+<div class="empty hidden" id="empty-cic"><div class="empty-ico">📊</div><p>Sin resultados para "<span id="eq-cic"></span>"</p></div>
 <div class="empty hidden" id="empty-q40"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-q40"></span>"</p></div>
 <div class="empty hidden" id="empty-hist"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-hist"></span>"</p></div>
 
@@ -265,13 +303,13 @@ function almTag(a){
 
 function switchTab(t){
   tab=t;
-  const cols={inv:'var(--or)',abc:'var(--gn)',q40:'var(--rd)',hist:'var(--bl)'};
-  ['inv','abc','q40','hist'].forEach(x=>{
+  const cols={inv:'var(--or)',abc:'var(--gn)',q40:'var(--rd)',cic:'var(--pu)',hist:'var(--bl)'};
+  ['inv','abc','q40','cic','hist'].forEach(x=>{
     ['hdr-','kpis-','bar-','list-','empty-'].forEach(p=>document.getElementById(p+x)?.classList.toggle('hidden',x!==t));
     document.getElementById('nb-'+x).className='nav-btn'+(x===t?' a-'+x:'');
   });
   document.getElementById('fab').style.background=cols[t];
-  if(t==='inv')renderInv();else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else renderHist();
+  if(t==='inv')renderInv();else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic')renderCic();else renderHist();
 }
 
 function getFiltA(){
@@ -374,6 +412,109 @@ function renderQ40(){
   }).join('');
 }
 
+
+const CIC_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=440919640&single=true&output=csv';
+let cicData=[],cicLoaded=false,fCic='TODOS',sCic='';
+
+function parseCicCSV(text){
+  const lines=text.trim().split('\n');
+  const rows=[];
+  for(let i=1;i<lines.length;i++){
+    const cols=lines[i].split(',');
+    if(cols.length<8)continue;
+    const clean=c=>c.replace(/^"|"$/g,'').trim();
+    rows.push({
+      clase:clean(cols[0]),clave:clean(cols[1]),desc:clean(cols[2]),
+      lote:clean(cols[3]),existSAI:parseFloat(clean(cols[4]))||0,
+      unidad:clean(cols[5]),caducidad:clean(cols[6]),almacen:clean(cols[7]),
+      fechaConteo:clean(cols[8]||''),cantidad:clean(cols[9]||''),
+      registrado:clean(cols[10]||'')
+    });
+  }
+  return rows;
+}
+
+async function loadCic(){
+  if(cicLoaded)return;
+  document.getElementById('cic-loading').classList.remove('hidden');
+  try{
+    const r=await fetch(CIC_URL);
+    const text=await r.text();
+    cicData=parseCicCSV(text);
+    cicLoaded=true;
+    document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · Tiempo real desde Google Sheets';
+    document.getElementById('cic-loading').classList.add('hidden');
+    _renderCicData();
+  }catch(e){
+    document.getElementById('cic-loading').textContent='❌ Error al cargar datos. Verifica la conexión.';
+  }
+}
+
+function getFiltCic(){
+  const q=sCic.toLowerCase().trim();
+  return cicData.filter(p=>{
+    const contado=p.cantidad&&p.cantidad!=='';
+    const diff=contado?parseFloat(p.cantidad)-p.existSAI:null;
+    if(fCic==='CONTADO'&&!contado)return false;
+    if(fCic==='PENDIENTE'&&contado)return false;
+    if(fCic==='DIFERENCIA'&&(diff===null||diff===0))return false;
+    if(q&&!p.clave.toLowerCase().includes(q)&&!p.desc.toLowerCase().includes(q))return false;
+    return true;
+  });
+}
+
+function renderCic(){
+  loadCic();
+  if(cicLoaded)_renderCicData();
+}
+
+function _renderCicData(){
+  const items=getFiltCic();
+  const contados=cicData.filter(p=>p.cantidad&&p.cantidad!=='').length;
+  const conDiff=cicData.filter(p=>{
+    if(!p.cantidad||p.cantidad==='')return false;
+    return Math.abs(parseFloat(p.cantidad)-p.existSAI)>0.01;
+  }).length;
+  const ok=contados-conDiff;
+  document.getElementById('ci-contados').textContent=contados;
+  document.getElementById('ci-total').textContent=cicData.length;
+  document.getElementById('ci-dif').textContent=conDiff;
+  document.getElementById('ci-ok').textContent=ok;
+  document.getElementById('bar-cic').textContent=items.length+' registros · '+contados+' contados de '+cicData.length+' totales';
+
+  const list=document.getElementById('list-cic'),empty=document.getElementById('empty-cic');
+  if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-cic').textContent=sCic;return;}
+  empty.classList.add('hidden');
+
+  list.innerHTML=items.map(p=>{
+    const contado=p.cantidad&&p.cantidad!=='';
+    const cantNum=contado?parseFloat(p.cantidad):null;
+    const diff=cantNum!==null?cantNum-p.existSAI:null;
+    const diffCls=diff===null?'':(diff===0?'c40-diff-ok':diff>0?'c40-diff-pos':'c40-diff-neg');
+    const diffStr=diff===null?'':(diff===0?'✓ Coincide':(diff>0?'+':'')+diff.toFixed(2)+' pzas');
+
+    return`<div class="c40-card">
+      <div class="c40-row1">
+        <span class="clave" style="color:var(--pu)">${p.clave}</span>
+        ${contado
+          ? `<span class="dias-badge ${diff===0?'dias-ok':diff>0?'dias-warn':'dias-crit'}">${diffStr}</span>`
+          : `<span class="c40-nocount">Sin contar</span>`
+        }
+      </div>
+      <div class="desc">${p.desc}</div>
+      <div class="c40-meta">
+        <div class="c40-stat"><span class="c40-stat-val">${p.existSAI.toLocaleString('es-MX')}</span><span class="c40-stat-lbl">SAI</span></div>
+        ${contado?`<div class="c40-stat"><span class="c40-stat-val ${diffCls}">${cantNum.toLocaleString('es-MX')}</span><span class="c40-stat-lbl">Conteo</span></div>`:'<div class="c40-stat"><span class="c40-stat-val" style="color:#ccc">—</span><span class="c40-stat-lbl">Conteo</span></div>'}
+        <div style="flex:1;min-width:100px">
+          <div style="font-size:10px;color:var(--gr2)">Lote: ${p.lote}</div>
+          ${p.fechaConteo?`<div style="font-size:10px;color:var(--gr2)">Contado: ${p.fechaConteo}</div>`:''}
+          ${p.registrado?`<div class="c40-reg">Por: ${p.registrado}</div>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
 function getFiltH(){
   const q=sHist.toLowerCase().trim();
   return ALL_H.filter(p=>{
@@ -411,18 +552,18 @@ function wireSearch(id,t){
   let tm;
   document.getElementById('search-'+id).addEventListener('input',function(){
     clearTimeout(tm);tm=setTimeout(()=>{
-      if(id==='inv')sInv=this.value;else if(id==='abc')sAbc=this.value;else if(id==='q40')sQ40=this.value;else sHist=this.value;
+      if(id==='inv')sInv=this.value;else if(id==='abc')sAbc=this.value;else if(id==='q40')sQ40=this.value;else if(id==='cic'){sCic=this.value;_renderCicData();}else sHist=this.value;
       document.getElementById('clr-'+id).style.display=this.value?'block':'none';
-      if(t==='inv')renderInv();else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else renderHist();
+      if(t==='inv')renderInv();else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic')renderCic();else renderHist();
     },200);
   });
 }
 function clearSearch(id){
   document.getElementById('search-'+id).value='';
-  if(id==='inv'){sInv='';renderInv();}else if(id==='abc'){sAbc='';renderAbc();}else if(id==='q40'){sQ40='';renderQ40();}else{sHist='';renderHist();}
+  if(id==='inv'){sInv='';renderInv();}else if(id==='abc'){sAbc='';renderAbc();}else if(id==='q40'){sQ40='';renderQ40();}else if(id==='cic'){sCic='';_renderCicData();}else{sHist='';renderHist();}
   document.getElementById('clr-'+id).style.display='none';
 }
-wireSearch('inv','inv');wireSearch('abc','abc');wireSearch('q40','q40');wireSearch('hist','hist');
+wireSearch('inv','inv');wireSearch('abc','abc');wireSearch('q40','q40');wireSearch('cic','cic');wireSearch('hist','hist');
 document.querySelectorAll('#fi-inv .chip').forEach(c=>c.addEventListener('click',function(){
   document.querySelectorAll('#fi-inv .chip').forEach(x=>x.classList.remove('a-inv'));
   this.classList.add('a-inv');fInv=this.dataset.f;renderInv();
@@ -430,6 +571,10 @@ document.querySelectorAll('#fi-inv .chip').forEach(c=>c.addEventListener('click'
 document.querySelectorAll('#fi-abc .chip').forEach(c=>c.addEventListener('click',function(){
   document.querySelectorAll('#fi-abc .chip').forEach(x=>x.classList.remove('a-abc'));
   this.classList.add('a-abc');fAbc=this.dataset.f;renderAbc();
+}));
+document.querySelectorAll('#fi-cic .chip').forEach(c=>c.addEventListener('click',function(){
+  document.querySelectorAll('#fi-cic .chip').forEach(x=>x.classList.remove('a-cic'));
+  this.classList.add('a-cic');fCic=this.dataset.f;_renderCicData();
 }));
 document.querySelectorAll('#fi-q40 .chip').forEach(c=>c.addEventListener('click',function(){
   document.querySelectorAll('#fi-q40 .chip').forEach(x=>x.classList.remove('a-q40'));
