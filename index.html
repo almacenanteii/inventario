@@ -618,7 +618,6 @@ function _renderCicData(){
   const maxSem=Math.max.apply(null,SCHED.map(function(s){return s.semana_cal;}));
   const items=getFiltCic();
 
-  // Build historial map
   const histMap={};
   cicHist.forEach(function(h){
     const k=h.clave+'|'+h.lote;
@@ -630,12 +629,13 @@ function _renderCicData(){
   });
 
   const contadosSet=new Set(cicHist.map(function(h){return h.clave+'|'+h.lote;}));
+
+  // Stats acumuladas ciclo
   const contados=contadosSet.size;
   const conDiff=cicData.filter(function(p){
     const k=p.clave+'|'+p.lote;
     if(!histMap[k])return false;
-    const ultimo=histMap[k][0];
-    return Math.abs(parseFloat(ultimo.cantidad)-p.existSAI)>0.01;
+    return Math.abs(parseFloat(histMap[k][0].cantidad)-p.existSAI)>0.01;
   }).length;
   const ok=contados-conDiff;
 
@@ -643,47 +643,32 @@ function _renderCicData(){
   document.getElementById('ci-total').textContent=cicData.length;
   document.getElementById('ci-dif').textContent=conDiff;
   document.getElementById('ci-ok').textContent=ok;
-  document.getElementById('bar-cic').textContent=items.length+' registros · '+contados+' contados de '+cicData.length+' totales';
+  document.getElementById('bar-cic').textContent=items.length+' artículos · '+contados+' lotes contados de '+cicData.length+' totales';
 
-  // Confiabilidad acumulada del ciclo completo
+  // Confiabilidad
   const confPctEl=document.getElementById('ci-conf-pct');
   const confLblEl=document.getElementById('ci-conf-lbl');
   const confSubEl=document.getElementById('ci-conf-sub');
   if(confPctEl){
     if(contados===0){
-      confPctEl.textContent='—';
-      confPctEl.style.color='#7a7a7a';
-      confLblEl.textContent='Sin conteos aún';
-      confLblEl.style.color='#7a7a7a';
+      confPctEl.textContent='—';confPctEl.style.color='#7a7a7a';
+      confLblEl.textContent='Sin conteos aún';confLblEl.style.color='#7a7a7a';
       confSubEl.textContent='0 lotes contados en el ciclo';
     } else {
       const confPct=Math.round(ok/contados*100);
       confPctEl.textContent=confPct+'%';
       confSubEl.textContent=contados+' lotes contados en el ciclo';
-      if(confPct>=95){
-        confPctEl.style.color='#2E7D32';
-        confLblEl.textContent='✅ Excelente';
-        confLblEl.style.color='#2E7D32';
-      } else if(confPct>=80){
-        confPctEl.style.color='#E65100';
-        confLblEl.textContent='⚠️ Requiere atención';
-        confLblEl.style.color='#E65100';
-      } else {
-        confPctEl.style.color='#C62828';
-        confLblEl.textContent='🔴 Crítico';
-        confLblEl.style.color='#C62828';
-      }
+      if(confPct>=95){confPctEl.style.color='#2E7D32';confLblEl.textContent='✅ Excelente';confLblEl.style.color='#2E7D32';}
+      else if(confPct>=80){confPctEl.style.color='#E65100';confLblEl.textContent='⚠️ Requiere atención';confLblEl.style.color='#E65100';}
+      else{confPctEl.style.color='#C62828';confLblEl.textContent='🔴 Crítico';confLblEl.style.color='#C62828';}
     }
   }
 
-  // Render schedule header
+  // Schedule header
   const schedHdr=document.getElementById('sched-hdr');
-  if(schedHdr){
-    schedHdr.classList.remove('hidden');
-    schedHdr.innerHTML=renderSchedHeader(semActual,contadosSet);
-  }
+  if(schedHdr){schedHdr.classList.remove('hidden');schedHdr.innerHTML=renderSchedHeader(semActual,contadosSet);}
 
-  // Render semana pills
+  // Pills
   const tabsEl=document.getElementById('sched-tabs');
   if(tabsEl){
     tabsEl.classList.remove('hidden');
@@ -697,12 +682,11 @@ function _renderCicData(){
       const isCur=sw===curCalWeek;
       const isPast=sw<curCalWeek;
       const cls=isSel?'sched-pill selected'+(isCur?' current':''):isPast?'sched-pill past':'sched-pill future';
-      const label='S'+sw+(isCur?'★':'')+(abc?' '+abc:'');
+      const label='Semana '+sw+(isCur?' ★':'')+(abc?' · '+abc:'');
       pillsHtml+='<div class="'+cls+'" onclick="cambiarSemana('+sw+')">'+label+'</div>';
     });
     pillsHtml+='</div>';
     tabsEl.innerHTML=pillsHtml;
-    // Scroll to selected pill
     setTimeout(function(){
       const wrap=document.getElementById('sched-pills-wrap');
       const sel=wrap?wrap.querySelector('.selected'):null;
@@ -714,50 +698,63 @@ function _renderCicData(){
   if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-cic').textContent=sCic;return;}
   empty.classList.add('hidden');
 
-  list.innerHTML=items.map(function(p){
-    const k=p.clave+'|'+p.lote;
-    const hist=histMap[k]||[];
-    const contado=hist.length>0;
-    const ultimo=contado?hist[0]:null;
-    const cantNum=contado?parseFloat(ultimo.cantidad):null;
-    const diff=contado?cantNum-p.existSAI:null;
-    const diffCls=diff===null?'':(diff===0?'c40-diff-ok':diff>0?'c40-diff-pos':'c40-diff-neg');
-    const diffStr=diff===null?'':(diff===0?'✓ Coincide':(diff>0?'+':'')+diff.toFixed(2)+' pzas');
-    const cardId='cic_'+p.clave.replace(/[^a-z0-9]/gi,'_')+'_'+p.lote.replace(/[^a-z0-9]/gi,'_');
+  // Group by clave
+  const claveMap={};
+  items.forEach(function(p){
+    if(!claveMap[p.clave])claveMap[p.clave]={clave:p.clave,desc:p.desc,lotes:[]};
+    claveMap[p.clave].lotes.push(p);
+  });
 
-    // Historial rows (max 3)
-    const histRows=hist.slice(0,3).map(function(h){
-      const hDiff=parseFloat(h.cantidad)-p.existSAI;
-      const hCls=hDiff===0?'c40-diff-ok':hDiff>0?'c40-diff-pos':'c40-diff-neg';
-      return '<div class="hist-row">'+
-        '<span class="hist-info">'+h.fecha+(h.registrado?' · '+h.registrado:'')+'</span>'+
-        '<span class="hist-qty '+hCls+'">'+parseFloat(h.cantidad).toLocaleString('es-MX')+'</span>'+
+  list.innerHTML=Object.values(claveMap).map(function(g){
+    // Check if all lotes counted
+    const totalLotes=g.lotes.length;
+    const contadosLotes=g.lotes.filter(function(p){return histMap[p.clave+'|'+p.lote];}).length;
+    const allDone=contadosLotes===totalLotes;
+    const noneDone=contadosLotes===0;
+    const badgeCls=allDone?'dias-ok':noneDone?'c40-nocount':'dias-warn';
+    const badgeTxt=allDone?'✓ Completo':noneDone?'Sin contar':contadosLotes+'/'+totalLotes+' lotes';
+
+    const lotRows=g.lotes.map(function(p){
+      const k=p.clave+'|'+p.lote;
+      const hist=histMap[k]||[];
+      const contado=hist.length>0;
+      const ultimo=contado?hist[0]:null;
+      const cantNum=contado?parseFloat(ultimo.cantidad):null;
+      const diff=contado?cantNum-p.existSAI:null;
+      const diffCls=diff===null?'':(diff===0?'c40-diff-ok':diff>0?'c40-diff-pos':'c40-diff-neg');
+      const diffStr=diff===null?'':(diff===0?'✓':'')+(diff>0?'+':'')+( diff!==0?(diff.toFixed(0)):'' );
+      const cardId='cic_'+p.clave.replace(/[^a-z0-9]/gi,'_')+'_'+p.lote.replace(/[^a-z0-9]/gi,'_');
+
+      return '<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 14px;border-bottom:1px solid #f5f5f5">'+
+        // Lote + SAI info
+        '<div>'+
+          '<div style="font-family:monospace;font-size:11px;color:#7a7a7a">'+p.lote+'</div>'+
+          '<div style="font-size:11px;color:#3a3a3a">SAI: <b>'+p.existSAI.toLocaleString('es-MX')+'</b> '+p.unidad+
+            (contado?' · <span class="'+diffCls+'" style="font-size:11px">'+cantNum.toLocaleString('es-MX')+(diffStr?' ('+diffStr+')':'')+'</span>':'')+
+          '</div>'+
+          (contado?'<div style="font-size:10px;color:#9e9e9e">'+ultimo.fecha+(ultimo.registrado?' · '+ultimo.registrado:'')+'</div>':'')+
+        '</div>'+
+        // Input
+        '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="0" '+
+          'value="'+(contado?cantNum:'')+'" '+
+          'data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'" '+
+          'style="width:80px;padding:8px;font-size:14px;text-align:center">'+
+        // Button
+        '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)" '+
+          'style="padding:8px 12px;font-size:12px;width:auto;border-radius:8px">✓</button>'+
+        '<div id="msg-'+cardId+'" style="grid-column:1/-1;font-size:10px;color:#2E7D32;margin-top:-4px"></div>'+
       '</div>';
     }).join('');
 
-    const histSection=hist.length>0?
-      '<div class="hist-section">'+
-        '<div class="hist-title">Historial de conteos ('+hist.length+')</div>'+
-        histRows+
-        (hist.length>3?'<div style="font-size:10px;color:var(--gr2);margin-top:4px">+ '+(hist.length-3)+' conteos anteriores</div>':'')+
-      '</div>':'';
-
-    return '<div class="c40-card" id="'+cardId+'">'+
-      '<div class="c40-row1">'+
-        '<span class="clave" style="color:var(--pu)">'+p.clave+'</span>'+
-        (contado
-          ? '<span class="dias-badge '+(diff===0?'dias-ok':diff>0?'dias-warn':'dias-crit')+'">'+diffStr+'</span>'
-          : '<span class="c40-nocount">Sin contar</span>')+
+    return '<div class="c40-card" style="padding:0;overflow:hidden">'+
+      '<div style="padding:12px 14px 8px;display:flex;justify-content:space-between;align-items:flex-start">'+
+        '<div>'+
+          '<div class="clave" style="color:var(--pu);margin-bottom:2px">'+g.clave+'</div>'+
+          '<div class="desc">'+g.desc+'</div>'+
+        '</div>'+
+        '<span class="'+(allDone?'dias-badge dias-ok':noneDone?'c40-nocount':'dias-badge dias-warn')+'">'+badgeTxt+'</span>'+
       '</div>'+
-      '<div class="desc">'+p.desc+'</div>'+
-      '<div style="font-size:11px;color:var(--gr2);margin-top:2px">Lote: '+p.lote+' · SAI: '+p.existSAI.toLocaleString('es-MX')+' '+p.unidad+'</div>'+
-      (contado?'<div style="font-size:11px;color:var(--gr2);margin-top:2px">Último conteo: '+ultimo.fecha+(ultimo.registrado?' · '+ultimo.registrado:'')+'</div>':'')+
-      histSection+
-      '<div class="c40-input-wrap">'+
-        '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cantidad" value="" data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'">'+
-        '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)">✓ Registrar conteo</button>'+
-      '</div>'+
-      '<div id="msg-'+cardId+'"></div>'+
+      lotRows+
     '</div>';
   }).join('');
 }
