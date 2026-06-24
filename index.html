@@ -375,13 +375,29 @@ function switchTab(t){
 }
 
 
+
+function smartMatch(text, query){
+  if(!query) return true;
+  // Normalize: lowercase, remove hyphens and spaces
+  const norm=function(s){return s.toLowerCase().replace(/[-\s]/g,'');};
+  const t=norm(text); const q=norm(query);
+  // Try full normalized match first
+  if(t.includes(q)) return true;
+  // Try each word separately (all words must match)
+  const words=query.toLowerCase().trim().split(/\s+/);
+  return words.every(function(w){
+    const wn=norm(w);
+    return t.includes(wn)||text.toLowerCase().includes(w);
+  });
+}
+
 function getFiltA(){
   const q=sInv.toLowerCase().trim();
   const ALMS=['EYEJAL','40EYE','REPROJAL','40PT'];
   return ALL_A.filter(p=>{
     if(ALMS.includes(fInv)&&!p.alms.includes(fInv))return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
-    if(q&&!p.clave.toLowerCase().includes(q)&&!p.desc.toLowerCase().includes(q)&&!p.loc.toLowerCase().includes(q))return false;
+    if(q&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!smartMatch(p.loc||'',sInv))return false;
     return true;
   });
 }
@@ -413,7 +429,7 @@ function getFiltAbc(){
     if(fAbc==='B'&&p.abc!=='B')return false;
     if(fAbc==='C'&&p.abc!=='C')return false;
     if(['EYE','GRA','MAQ','PT'].includes(fAbc)&&p.clase!==fAbc)return false;
-    if(q&&!p.clave.toLowerCase().includes(q)&&!p.desc.toLowerCase().includes(q))return false;
+    if(q&&!smartMatch(p.clave,sAbc)&&!smartMatch(p.desc,sAbc))return false;
     return true;
   });
 }
@@ -450,7 +466,7 @@ function getFiltQ40(){
       const info=diasInfo(p.dias_cuarentena);
       if(info.cat!==fQ40)return false;
     }
-    if(q&&!p.clave.toLowerCase().includes(q)&&!p.desc.toLowerCase().includes(q))return false;
+    if(q&&!smartMatch(p.clave,sQ40)&&!smartMatch(p.desc,sQ40))return false;
     return true;
   });
 }
@@ -605,7 +621,7 @@ function getFiltCic(){
     if(fCic==='CONTADO'&&!contado)return false;
     if(fCic==='PENDIENTE'&&contado)return false;
     if(fCic==='DIFERENCIA'&&(diff===null||diff===0))return false;
-    if(q&&!p.clave.toLowerCase().includes(q)&&!p.desc.toLowerCase().includes(q))return false;
+    if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic))return false;
     return true;
   });
 }
@@ -815,7 +831,7 @@ function getFiltH(){
   const q=sHist.toLowerCase().trim();
   return ALL_H.filter(p=>{
     if(['EYE','PT','MAQ'].includes(fHist)&&p.clase!==fHist)return false;
-    if(q&&!p.clave.toLowerCase().includes(q)&&!p.desc.toLowerCase().includes(q))return false;
+    if(q&&!smartMatch(p.clave,sHist)&&!smartMatch(p.desc,sHist))return false;
     return true;
   });
 }
