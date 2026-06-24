@@ -263,6 +263,18 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
   <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val rv" id="q-piezas">—</div><div class="kpi-sub">detenidas</div></div>
   <div class="kpi"><div class="kpi-lbl">Más antiguo</div><div class="kpi-val rv" id="q-antiguo">—</div><div class="kpi-sub">días</div></div>
 </div>
+<div style="padding:12px 16px 0;background:#fff">
+  <div style="background:#f8f0ff;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border:1px solid #e0c8f0">
+    <div>
+      <div style="font-size:10px;color:#7a7a7a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">🎯 Confiabilidad del ciclo</div>
+      <div style="font-size:11px;color:#7a7a7a" id="ci-conf-sub">— lotes contados</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:32px;font-weight:800;line-height:1" id="ci-conf-pct">—</div>
+      <div style="font-size:10px;font-weight:600;margin-top:2px" id="ci-conf-lbl">calculando...</div>
+    </div>
+  </div>
+</div>
 <div class="kpis hidden" id="kpis-cic">
   <div class="kpi"><div class="kpi-lbl">Contados</div><div class="kpi-val" style="color:var(--pu)" id="ci-contados">—</div><div class="kpi-sub">de <span id="ci-total">—</span> lotes</div></div>
   <div class="kpi"><div class="kpi-lbl">Con diferencia</div><div class="kpi-val rv" id="ci-dif">—</div><div class="kpi-sub">lotes</div></div>
@@ -333,14 +345,30 @@ function almTag(a){
 function switchTab(t){
   tab=t;
   const cols={inv:'var(--or)',abc:'var(--gn)',q40:'var(--rd)',cic:'var(--pu)',hist:'var(--bl)'};
-  ['inv','abc','q40','cic','hist'].forEach(x=>{
-    ['hdr-','kpis-','bar-','list-','empty-'].forEach(p=>document.getElementById(p+x)?.classList.toggle('hidden',x!==t));
+  // Show/hide standard sections
+  ['inv','abc','q40','hist'].forEach(function(x){
+    ['hdr-','kpis-','bar-','list-','empty-'].forEach(function(p){
+      document.getElementById(p+x)?.classList.toggle('hidden',x!==t);
+    });
     document.getElementById('nb-'+x).className='nav-btn'+(x===t?' a-'+x:'');
   });
-  document.getElementById('fab').style.background=cols[t];
+  // Handle cic separately (has extra elements)
+  ['hdr-cic','kpis-cic','bar-cic','list-cic','empty-cic'].forEach(function(id){
+    document.getElementById(id)?.classList.toggle('hidden',t!=='cic');
+  });
+  document.getElementById('nb-cic').className='nav-btn'+(t==='cic'?' a-cic':'');
+  const schedHdrEl=document.getElementById('sched-hdr');
+  const schedTabsEl=document.getElementById('sched-tabs');
+  if(schedHdrEl) schedHdrEl.classList.toggle('hidden',t!=='cic');
+  if(schedTabsEl) schedTabsEl.classList.toggle('hidden',t!=='cic');
+  document.getElementById('fab').style.background=cols[t]||'var(--or)';
   if(t==='inv')renderInv();
-else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic')renderCic();else renderHist();
+  else if(t==='abc')renderAbc();
+  else if(t==='q40')renderQ40();
+  else if(t==='cic'){checkNombre();renderCic();}
+  else renderHist();
 }
+
 
 function getFiltA(){
   const q=sInv.toLowerCase().trim();
@@ -614,6 +642,37 @@ function _renderCicData(){
   document.getElementById('ci-ok').textContent=ok;
   document.getElementById('bar-cic').textContent=items.length+' registros · '+contados+' contados de '+cicData.length+' totales';
 
+  // Confiabilidad acumulada del ciclo completo
+  const confPctEl=document.getElementById('ci-conf-pct');
+  const confLblEl=document.getElementById('ci-conf-lbl');
+  const confSubEl=document.getElementById('ci-conf-sub');
+  if(confPctEl){
+    if(contados===0){
+      confPctEl.textContent='—';
+      confPctEl.style.color='#7a7a7a';
+      confLblEl.textContent='Sin conteos aún';
+      confLblEl.style.color='#7a7a7a';
+      confSubEl.textContent='0 lotes contados en el ciclo';
+    } else {
+      const confPct=Math.round(ok/contados*100);
+      confPctEl.textContent=confPct+'%';
+      confSubEl.textContent=contados+' lotes contados en el ciclo';
+      if(confPct>=95){
+        confPctEl.style.color='#2E7D32';
+        confLblEl.textContent='✅ Excelente';
+        confLblEl.style.color='#2E7D32';
+      } else if(confPct>=80){
+        confPctEl.style.color='#E65100';
+        confLblEl.textContent='⚠️ Requiere atención';
+        confLblEl.style.color='#E65100';
+      } else {
+        confPctEl.style.color='#C62828';
+        confLblEl.textContent='🔴 Crítico';
+        confLblEl.style.color='#C62828';
+      }
+    }
+  }
+
   // Render schedule header
   const schedHdr=document.getElementById('sched-hdr');
   if(schedHdr){
@@ -742,8 +801,6 @@ function registrarConteo(btn){
       msg.innerHTML='<div class="c40-saved">✓ Guardado · '+fechaConteo+'</div>';
       // Save to local historial immediately
       const histEntry={clave:clave,lote:lote,cantidad:parseFloat(cantidad),fecha:fechaConteo,registrado:nombre};
-      cicHist.push(histEntry);
-      
       inp.value='';
       setTimeout(function(){loadCic();},2500);
     })
@@ -795,6 +852,7 @@ function wireSearch(id,t){
       if(t==='inv')renderInv();else if(t==='abc')renderAbc();else if(t==='q40')renderQ40();else if(t==='cic'){
     document.getElementById('sched-hdr').classList.remove('hidden');
     document.getElementById('sched-tabs').classList.remove('hidden');
+    document.getElementById('kpis-cic').classList.remove('hidden');
     checkNombre();renderCic();
   }else{
     document.getElementById('sched-hdr').classList.add('hidden');
