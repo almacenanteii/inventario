@@ -269,7 +269,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 <div id="conf-block" class="hidden" style="padding:12px 16px 0;background:#fff">
   <div style="background:#f8f0ff;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border:1px solid #e0c8f0">
     <div>
-      <div style="font-size:10px;color:#7a7a7a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">🎯 Confiabilidad del inventario</div>
+      <div style="font-size:10px;color:#7a7a7a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">🔄 Cobertura del ciclo</div>
       <div style="font-size:11px;color:#7a7a7a" id="ci-conf-sub">— lotes contados</div>
     </div>
     <div style="text-align:right">
@@ -563,7 +563,7 @@ async function loadCic(){
       
     }
     cicLoaded=true;
-    document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos registrados';
+    document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos en historial';
     document.getElementById('cic-loading').classList.add('hidden');
     _renderCicData();
   }catch(e){
@@ -668,22 +668,27 @@ function _renderCicData(){
   document.getElementById('ci-ok').textContent=ok;
   document.getElementById('bar-cic').textContent=items.length+' artículos · '+contados+' lotes contados de '+cicData.length+' totales';
 
-  // Confiabilidad
+  // Confiabilidad = cobertura del ciclo (cuántos lotes ya fueron contados)
   const confPctEl=document.getElementById('ci-conf-pct');
   const confLblEl=document.getElementById('ci-conf-lbl');
   const confSubEl=document.getElementById('ci-conf-sub');
   if(confPctEl){
+    const totalLotes=cicData.length;
+    const cobertura=totalLotes>0?Math.round(contados/totalLotes*100):0;
+    confPctEl.textContent=cobertura+'%';
+    confSubEl.textContent=contados+' de '+totalLotes+' lotes contados en el ciclo';
     if(contados===0){
-      confPctEl.textContent='—';confPctEl.style.color='#7a7a7a';
+      confPctEl.style.color='#7a7a7a';
       confLblEl.textContent='Sin conteos aún';confLblEl.style.color='#7a7a7a';
-      confSubEl.textContent='0 lotes contados en el ciclo';
+    } else if(cobertura>=80){
+      confPctEl.style.color='#2E7D32';
+      confLblEl.textContent='✅ Excelente avance';confLblEl.style.color='#2E7D32';
+    } else if(cobertura>=40){
+      confPctEl.style.color='#E65100';
+      confLblEl.textContent='⏳ En progreso';confLblEl.style.color='#E65100';
     } else {
-      const confPct=Math.round(ok/contados*100);
-      confPctEl.textContent=confPct+'%';
-      confSubEl.textContent=contados+' lotes contados en el ciclo';
-      if(confPct>=95){confPctEl.style.color='#2E7D32';confLblEl.textContent='✅ Excelente';confLblEl.style.color='#2E7D32';}
-      else if(confPct>=80){confPctEl.style.color='#E65100';confLblEl.textContent='⚠️ Requiere atención';confLblEl.style.color='#E65100';}
-      else{confPctEl.style.color='#C62828';confLblEl.textContent='🔴 Crítico';confLblEl.style.color='#C62828';}
+      confPctEl.style.color='#6A1B9A';
+      confLblEl.textContent='🔄 Iniciando ciclo';confLblEl.style.color='#6A1B9A';
     }
   }
 
