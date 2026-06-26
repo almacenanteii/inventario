@@ -524,10 +524,13 @@ function cambiarSemana(calWeek){
 function loadHistFromStorage(){}
 function parseHistCSV(text){
   const lines=text.trim().split('\n');
+  console.log('Historial CSV lines:', lines.length);
+  if(lines.length>1) console.log('Sample line:', lines[1]);
   const rows=[];
   for(let i=1;i<lines.length;i++){
-    const cols=lines[i].split(',');
-    if(cols.length<4)continue;
+    // Handle quoted CSV properly
+    const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||lines[i].split(',');
+    if(!cols||cols.length<4)continue;
     const clean=function(c){return (c||'').replace(/^"|"$/g,'').trim();};
     const qty=parseFloat(clean(cols[3]));
     if(!clean(cols[1])||isNaN(qty))continue;
@@ -539,6 +542,8 @@ function parseHistCSV(text){
       registrado:clean(cols[4]||'')
     });
   }
+  console.log('Historial rows parsed:', rows.length);
+  if(rows.length>0) console.log('First row:', JSON.stringify(rows[0]));
   return rows;
 }
 
