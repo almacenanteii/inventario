@@ -637,26 +637,26 @@ function cambiarSemana(calWeek){
 function loadHistFromStorage(){}
 function parseHistCSV(text){
   const lines=text.trim().split('\n');
-  console.log('Historial CSV lines:', lines.length);
-  if(lines.length>1) console.log('Sample line:', lines[1]);
   const rows=[];
   for(let i=1;i<lines.length;i++){
-    // Handle quoted CSV properly
-    const cols=lines[i].match(/(".*?"|[^,]+)(?=,|$)/g)||lines[i].split(',');
-    if(!cols||cols.length<4)continue;
-    const clean=function(c){return (c||'').replace(/^"|"$/g,'').trim();};
+    const line=lines[i];
+    if(!line.trim())continue;
+    const cols=[];
+    let cur='',inQ=false;
+    for(let c=0;c<line.length;c++){
+      if(line[c]==='"'){inQ=!inQ;}
+      else if(line[c]===','&&!inQ){cols.push(cur.trim());cur='';}
+      else{cur+=line[c];}
+    }
+    cols.push(cur.trim());
+    if(cols.length<4)continue;
+    const clean=function(s){return (s||'').replace(/^"|"$/g,'').trim();};
     const qty=parseFloat(clean(cols[3]));
-    if(!clean(cols[1])||isNaN(qty))continue;
-    rows.push({
-      fecha:clean(cols[0]),
-      clave:clean(cols[1]),
-      lote:clean(cols[2]),
-      cantidad:qty,
-      registrado:clean(cols[4]||'')
-    });
+    const clave=clean(cols[1]);
+    const lote=clean(cols[2]);
+    if(!clave||!lote||isNaN(qty))continue;
+    rows.push({fecha:clean(cols[0]),clave:clave,lote:lote,cantidad:qty,registrado:clean(cols[4]||'')});
   }
-  console.log('Historial rows parsed:', rows.length);
-  if(rows.length>0) console.log('First row:', JSON.stringify(rows[0]));
   return rows;
 }
 
