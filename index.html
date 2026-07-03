@@ -678,8 +678,8 @@ async function loadCic(){
     document.getElementById('cic-loading').classList.add('hidden');
     _renderCicData();
   }catch(e){
-    console.error(e);
-    document.getElementById('cic-loading').textContent='❌ Error al cargar. Verifica conexión.';
+    console.error('loadCic error:', e);
+    document.getElementById('cic-loading').textContent='❌ Error: '+e.message+' — verifica conexión';
     if(cicData.length>0){_renderCicData();}
   }
 }
@@ -732,7 +732,9 @@ function getFiltCic(){
     const k=p.clave+'|'+p.lote;
     const hist=histMap[k]||[];
     const contado=hist.length>0;
-    const ultimo=contado?hist.sort(function(a,b){return b.fecha.localeCompare(a.fecha);})[0]:null;
+    const ultimo=contado?hist.sort(function(a,b){
+      var pd=function(s){try{var p=s.split(',')[0].trim().split('/');var t=s.split(',')[1]||'';var pm=t.toLowerCase().includes('p.m.')||t.toLowerCase().includes('pm');var tp=t.trim().replace(/[ap]\.?m\.?/gi,'').trim().split(':');var h=parseInt(tp[0])||0,mn=parseInt(tp[1])||0;if(pm&&h<12)h+=12;if(!pm&&h===12)h=0;return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]),h,mn);}catch(e){return new Date(0);}};
+      return pd(b.fecha)-pd(a.fecha);})[0]:null;
     const diff=contado?parseFloat(ultimo.cantidad)-p.existSAI:null;
     if(fCic==='CONTADO'&&!contado)return false;
     if(fCic==='PENDIENTE'&&contado)return false;
@@ -759,7 +761,23 @@ function _renderCicData(){
     histMap[k].push(h);
   });
   Object.values(histMap).forEach(function(arr){
-    arr.sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+    arr.sort(function(a,b){
+      // Parse date format "DD/MM/YYYY, H:MM p.m."
+      var parseDate=function(s){
+        try{
+          var parts=s.split(',')[0].trim().split('/');
+          var timePart=s.split(',')[1]||'';
+          var isPM=timePart.toLowerCase().includes('p.m.')||timePart.toLowerCase().includes('pm');
+          var timeParts=timePart.trim().replace(/[ap]\.?m\.?/gi,'').trim().split(':');
+          var h=parseInt(timeParts[0])||0;
+          var m=parseInt(timeParts[1])||0;
+          if(isPM&&h<12)h+=12;
+          if(!isPM&&h===12)h=0;
+          return new Date(parseInt(parts[2]),parseInt(parts[1])-1,parseInt(parts[0]),h,m);
+        }catch(e){return new Date(0);}
+      };
+      return parseDate(b.fecha)-parseDate(a.fecha);
+    });
   });
 
   const contadosSet=new Set(cicHist.map(function(h){return h.clave+'|'+h.lote;}));
