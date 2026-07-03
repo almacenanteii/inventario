@@ -522,15 +522,27 @@ let cicData=[],cicHist=[],cicLoaded=false,fCic='TODOS',sCic='';
 function parseCicCSV(text){
   const lines=text.trim().split('\n');
   const rows=[];
+  const parseNum=function(s){return parseFloat((s||'').replace(/[^0-9.\-]/g,''))||0;};
+  const parseCols=function(line){
+    var cols=[],cur='',inQ=false;
+    for(var c=0;c<line.length;c++){
+      if(line[c]==='"'){inQ=!inQ;}
+      else if(line[c]===','&&!inQ){cols.push(cur.trim());cur='';}
+      else{cur+=line[c];}
+    }
+    cols.push(cur.trim());
+    return cols;
+  };
   for(let i=1;i<lines.length;i++){
-    const cols=lines[i].split(',');
-    if(cols.length<8)continue;
-    const clean=c=>c.replace(/^"|"$/g,'').trim();
+    if(!lines[i].trim())continue;
+    const cols=parseCols(lines[i]);
+    const clean=function(s){return (s||'').replace(/^"|"$/g,'').trim();};
+    if(cols.length<4)continue;
     rows.push({
       clase:clean(cols[0]),clave:clean(cols[1]),desc:clean(cols[2]),
-      lote:clean(cols[3]),existSAI:(function(s){return parseFloat(s.replace(/[,]/g,"").replace(/(\d)\s+(\d)/g,"$1$2"));})(clean(cols[4]))||0,
+      lote:clean(cols[3]),existSAI:parseNum(cols[4]),
       unidad:clean(cols[5]),caducidad:clean(cols[6]),almacen:clean(cols[7]),
-      fechaConteo:clean(cols[8]||''),cantidad:clean(cols[9]||'').replace(/[,\s]/g,''),
+      fechaConteo:clean(cols[8]||''),cantidad:clean(cols[9]||''),
       registrado:clean(cols[10]||'')
     });
   }
