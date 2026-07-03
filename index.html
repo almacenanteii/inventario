@@ -349,7 +349,7 @@ HIST.forEach(r=>{
 const ALL_H=Object.values(hm).map(p=>({...p,totalSAI:p.lotes.reduce((s,l)=>s+(l.existSAI||0),0),totalConteo:p.lotes.reduce((s,l)=>s+(l.conteo||0),0)}));
 
 let tab='inv',fInv='TODOS',fAbc='TODOS',fHist='TODOS',sInv='',sAbc='',sHist='';
-const fmt=n=>n.toLocaleString('es-MX',{minimumFractionDigits:0,maximumFractionDigits:2});
+const fmt=function(n){if(n===null||n===undefined)return '—';return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});};
 
 function cadInfo(s){
   if(!s)return{cls:'cad-ok',txt:''};
@@ -426,8 +426,8 @@ function renderInv(){
   const items=getFiltA();
   const lotes=items.reduce((s,p)=>s+p.lotes.length,0);
   document.getElementById('k-exist').textContent=fmt(items.reduce((s,p)=>s+p.totalExist,0));
-  document.getElementById('k-lotes').textContent=lotes.toLocaleString('es-MX');
-  document.getElementById('k-claves').textContent=items.length.toLocaleString('es-MX');
+  document.getElementById('k-lotes').textContent=lotes.toLocaleString('en-US');
+  document.getElementById('k-claves').textContent=items.length.toLocaleString('en-US');
   document.getElementById('bar-inv').textContent=items.length+' artículos · '+lotes+' lotes';
   const list=document.getElementById('list-inv'),empty=document.getElementById('empty-inv');
   if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-inv').textContent=sInv;return;}
@@ -570,9 +570,9 @@ function imprimirSemana(semana){
       '<td style="font-family:monospace;font-size:11px;font-weight:700;color:#E8671A">'+p.clave+'</td>'+
       '<td style="font-size:11px">'+p.desc+'</td>'+
       '<td style="font-family:monospace;font-size:11px;text-align:center">'+p.lote+'</td>'+
-      '<td style="text-align:right;font-size:11px">'+p.existSAI.toLocaleString('es-MX')+'</td>'+
+      '<td style="text-align:right;font-size:11px">'+p.existSAI.toLocaleString('en-US')+'</td>'+
       '<td style="text-align:center;font-size:11px;color:'+(ultimo?'#2E7D32':'#999')+'">'+
-        (ultimo?ultimo.cantidad.toLocaleString('es-MX'):'')+'</td>'+
+        (ultimo?ultimo.cantidad.toLocaleString('en-US'):'')+'</td>'+
       '<td style="border-bottom:1px solid #ccc;min-width:60px"></td>'+
       '<td style="border-bottom:1px solid #ccc;min-width:80px"></td>'+
     '</tr>';
@@ -895,7 +895,7 @@ function _renderCicData(){
         const hDiffStr=(hDiff===0?'✓':(hDiff>0?'+':'')+hDiff.toFixed(0));
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f9f9f9;font-size:11px">'+
           '<span style="color:#999">'+h.fecha+(h.registrado?' · <b style=color:#4a4a4a>'+h.registrado+'</b>':'')+'</span>'+
-          '<span class="'+hCls+'" style="font-weight:700">'+parseFloat(h.cantidad).toLocaleString('es-MX')+' <span style="font-size:10px">('+hDiffStr+')</span></span>'+
+          '<span class="'+hCls+'" style="font-weight:700">'+parseFloat(h.cantidad).toLocaleString('en-US')+' <span style="font-size:10px">('+hDiffStr+')</span></span>'+
         '</div>';
       }).join('');
 
@@ -909,8 +909,8 @@ function _renderCicData(){
       return '<div style="display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap">'+
         '<div>'+
           '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+'</div>'+
-          '<div style="font-size:12px;color:#7a7a7a">SAI: '+p.existSAI.toLocaleString('es-MX')+' '+p.unidad+
-            (contado?' &nbsp;<span class="'+diffCls+'">→ '+cantNum.toLocaleString('es-MX')+(diffStr?' ('+diffStr+')':'')+'</span>':'')+
+          '<div style="font-size:12px;color:#7a7a7a">SAI: '+p.existSAI.toLocaleString('en-US')+' '+p.unidad+
+            (contado?' &nbsp;<span class="'+diffCls+'">→ '+cantNum.toLocaleString('en-US')+(diffStr?' ('+diffStr+')':'')+'</span>':'')+
           '</div>'+
           (contado?'<div style="font-size:10px;color:#b0b0b0;margin-top:2px">'+ultimo.fecha+(ultimo.registrado?' · '+ultimo.registrado:'')+'</div>':'')+
         '</div>'+
@@ -1003,7 +1003,7 @@ function renderHist(){
   const items=getFiltH();
   document.getElementById('h-exist').textContent=fmt(items.reduce((s,p)=>s+p.totalSAI,0));
   document.getElementById('h-conteo').textContent=fmt(items.reduce((s,p)=>s+p.totalConteo,0));
-  document.getElementById('h-claves').textContent=items.length.toLocaleString('es-MX');
+  document.getElementById('h-claves').textContent=items.length.toLocaleString('en-US');
   document.getElementById('bar-hist').textContent=items.length+' artículos · '+items.reduce((s,p)=>s+p.lotes.length,0)+' registros';
   const list=document.getElementById('list-hist'),empty=document.getElementById('empty-hist');
   if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-hist').textContent=sHist;return;}
