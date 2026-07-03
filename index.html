@@ -528,7 +528,7 @@ function parseCicCSV(text){
     const clean=c=>c.replace(/^"|"$/g,'').trim();
     rows.push({
       clase:clean(cols[0]),clave:clean(cols[1]),desc:clean(cols[2]),
-      lote:clean(cols[3]),existSAI:parseFloat(clean(cols[4]).replace(/[,\s]/g,""))||0,
+      lote:clean(cols[3]),existSAI:(function(s){return parseFloat(s.replace(/[,]/g,"").replace(/(\d)\s+(\d)/g,"$1$2"));})(clean(cols[4]))||0,
       unidad:clean(cols[5]),caducidad:clean(cols[6]),almacen:clean(cols[7]),
       fechaConteo:clean(cols[8]||''),cantidad:clean(cols[9]||'').replace(/[,\s]/g,''),
       registrado:clean(cols[10]||'')
