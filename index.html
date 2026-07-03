@@ -888,7 +888,25 @@ function _renderCicData(){
       const diffStr=diff===null?'':(diff===0?'✓':'')+(diff>0?'+':'')+( diff!==0?(diff.toFixed(0)):'' );
       const cardId='cic_'+p.clave.replace(/[^a-z0-9]/gi,'_')+'_'+p.lote.replace(/[^a-z0-9]/gi,'_');
 
-      return '<div style="display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f5">'+
+      // Build history rows
+      const histRows=hist.map(function(h){
+        const hDiff=parseFloat(h.cantidad)-p.existSAI;
+        const hCls=hDiff===0?'c40-diff-ok':hDiff>0?'c40-diff-pos':'c40-diff-neg';
+        const hDiffStr=(hDiff===0?'✓':(hDiff>0?'+':'')+hDiff.toFixed(0));
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f9f9f9;font-size:11px">'+
+          '<span style="color:#999">'+h.fecha+(h.registrado?' · <b style=color:#4a4a4a>'+h.registrado+'</b>':'')+'</span>'+
+          '<span class="'+hCls+'" style="font-weight:700">'+parseFloat(h.cantidad).toLocaleString('es-MX')+' <span style="font-size:10px">('+hDiffStr+')</span></span>'+
+        '</div>';
+      }).join('');
+
+      const histSection=hist.length>0?
+        '<div style="grid-column:1/-1;background:#fafafa;border-radius:6px;padding:6px 10px;margin-top:4px;border-left:3px solid #E8671A">'+
+          '<div style="font-size:10px;font-weight:700;color:#E8671A;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+
+            '📋 Historial ('+hist.length+' conteo'+(hist.length>1?'s':'')+')'+
+          '</div>'+histRows+
+        '</div>':'';
+
+      return '<div style="display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap">'+
         '<div>'+
           '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+'</div>'+
           '<div style="font-size:12px;color:#7a7a7a">SAI: '+p.existSAI.toLocaleString('es-MX')+' '+p.unidad+
@@ -903,6 +921,7 @@ function _renderCicData(){
         '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)" '+
           'style="padding:8px;font-size:16px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center">✓</button>'+
         '<div id="msg-'+cardId+'" style="grid-column:1/-1;font-size:10px;color:#2E7D32;margin-top:-4px;padding-bottom:2px"></div>'+
+        histSection+
       '</div>';
     }).join('');
 
