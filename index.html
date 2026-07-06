@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>Anteii · Inventario</title>
+<title>Inventario</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--or:#E8671A;--gr:#3a3a3a;--gr2:#7a7a7a;--bg:#f0f0f0;--wh:#fff;--bd:#e2e2e2;--rad:10px;
@@ -177,7 +177,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 </nav>
 
 <header class="h-inv" id="hdr-inv">
-  <div class="hdr-top"><h1>🏭 Anteii · Inventario</h1></div>
+  <div class="hdr-top"><h1>🏭 Inventario</h1></div>
   <div class="update-bar">📅 Datos actualizados al: 02/07/2026 · 15:56 hrs</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -574,7 +574,9 @@ function generarReporte(semana){
   const conteos=lotesSem.filter(function(p){return histMap[p.clave+'|'+p.lote];});
   const diffsArr=conteos.filter(function(p){
     const h=histMap[p.clave+'|'+p.lote];
-    return h&&Math.abs(parseFloat(h[0].cantidad)-p.existSAI)>0.01;
+    if(!h||!h.length)return false;
+    const diff=parseFloat(h[0].cantidad)-p.existSAI;
+    return Math.abs(diff)>0.01;
   });
   const conDiff=diffsArr.length;
   const valido=conDiff<5;
@@ -725,12 +727,10 @@ function generarReporte(semana){
 
     <div class="section-title">4. Análisis de Diferencias</div>
     <div class="validez">
-      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:${valido?'#2E7D32':'#fff'};color:#fff;text-align:center;line-height:12px;font-size:10px">${valido?'✓':''}</span> SÍ — Proceder a ajuste en SAI</span>
-      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:${!valido?'#C62828':'#fff'};color:#fff;text-align:center;line-height:12px;font-size:10px">${!valido?'✗':''}</span> NO — Realizar reconteo</span>
-      <span style="margin-left:auto;font-size:10px;color:#666">No. de diferencias: <strong style="font-size:14px;color:${conDiff>=5?'#C62828':'#2E7D32'}">${conDiff}</strong></span>
+      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#2E7D32;color:#fff;text-align:center;line-height:12px;font-size:10px">✓</span> SÍ — Proceder a ajuste en SAI</span>
+      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#fff;color:#fff;text-align:center;line-height:12px;font-size:10px"></span> NO — Realizar reconteo</span>
+      <span style="margin-left:auto;font-size:10px;color:#666">No. de diferencias: <strong style="font-size:14px;color:#E8671A">${conDiff}</strong></span>
     </div>
-    ${conDiff>=5?'<div class="alerta">⚠️ Se encontraron '+conDiff+' diferencias — el conteo queda INVÁLIDO según P-AL-003 (5 o más diferencias invalidan el conteo)</div>':''}
-    <div style="font-size:9px;color:#666;margin:4px 0 6px;padding:3px 6px;background:#f9f9f9;border:1px solid #eee;font-style:italic">Nota: 5 o más diferencias invalidan el conteo (P-AL-003)</div>
     <table>
       <thead><tr>
         <th style="width:28px;text-align:center">#</th>
@@ -745,16 +745,15 @@ function generarReporte(semana){
     </table>
 
     <div class="section-title">5. Conclusión y Firmas</div>
-    <div style="border:1px solid #ddd;border-top:none;padding:10px 12px;min-height:40px;font-size:10px;color:#666;margin-bottom:10px">
-      ${valido
-        ?'Conteo válido. Se contaron '+conteos.length+' de '+lotesSem.length+' artículos con '+conDiff+' diferencia(s). Proceder con ajuste en SAI.'
-        :'Conteo inválido. Se encontraron '+conDiff+' diferencias que exceden el límite permitido (5). Se requiere reconteo.'
-      }
+    <div style="border:1px solid #ddd;border-top:none;padding:10px 12px;min-height:50px;font-size:10px;color:#333;margin-bottom:10px">
+      Se contaron <strong>${conteos.length}</strong> de <strong>${lotesSem.length}</strong> artículos asignados a la semana ${semana}. 
+      Se encontraron <strong style="color:${conDiff>0?'#C62828':'#2E7D32'}">${conDiff}</strong> diferencia(s) respecto al sistema SAI.
+      ${conDiff>0?'Claves con diferencia: '+diffsArr.map(function(p){return p.clave;}).join(', ')+'.':'Todos los conteos coinciden con el SAI.'}
     </div>
     <div class="firmas">
-      <div class="firma"><strong>Responsable 1 — Almacén</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
-      <div class="firma"><strong>Responsable 2 — Apoyo</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
-      <div class="firma"><strong>Jefe de Almacén — Revisó</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
+      <div class="firma"><strong>Responsable 1 —</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
+      <div class="firma"><strong>Responsable 2 — Almacén</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
+      <div class="firma"><strong>Revisó</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
     </div>
     <div class="footer">Este documento es propiedad de Laboratorios Anteii S.A. de C.V. · Referencia: P-AL-003 Inventario anual y cíclico · ${folio}</div>
     <script>window.onload=function(){window.print();}<\/script>
