@@ -319,7 +319,8 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 <div class="list hidden" id="list-q40"></div>
 <div id="sched-hdr" class="hidden" style="padding:10px 12px 0"></div>
 <div id="sched-tabs" class="hidden" style="padding:0 12px"></div>
-<div class="list hidden" id="list-cic"><div class="loading-msg hidden" id="cic-loading">⏳ Cargando conteos...</div></div>
+<div class="loading-msg hidden" id="cic-loading">⏳ Cargando conteos...</div>
+<div class="list hidden" id="list-cic"></div>
 <div class="list hidden" id="list-hist"></div>
 <div class="empty hidden" id="empty-inv"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-inv"></span>"</p></div>
 <div class="empty hidden" id="empty-abc"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-abc"></span>"</p></div>
@@ -390,8 +391,6 @@ function switchTab(t){
 
   document.getElementById('fab').style.background=cols[t]||'var(--or)';
   if(t==='inv')renderInv();
-  
-  
   else if(t==='cic'){checkNombre();renderCic();}
   else renderHist();
 }
@@ -926,7 +925,8 @@ function parseHistCSV(text){
 }
 
 async function loadCic(){
-  document.getElementById('cic-loading').classList.remove('hidden');
+  const loadEl=document.getElementById('cic-loading');
+  if(loadEl) loadEl.classList.remove('hidden');
   try{
     const [rCat,rHist]=await Promise.all([fetch(CIC_URL),fetch(HIST_URL)]);
     const [textCat,textHist]=await Promise.all([rCat.text(),rHist.text()]);
@@ -934,11 +934,11 @@ async function loadCic(){
     cicHist=parseHistCSV(textHist);
     cicLoaded=true;
     document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos en historial';
-    document.getElementById('cic-loading').classList.add('hidden');
+    if(document.getElementById('cic-loading')) document.getElementById('cic-loading').classList.add('hidden');
     _renderCicData();
   }catch(e){
     console.error('loadCic error:',e);
-    document.getElementById('cic-loading').textContent='❌ Error al cargar. Verifica conexión.';
+    if(document.getElementById('cic-loading')) document.getElementById('cic-loading').textContent='❌ Error al cargar. Verifica conexión.';
     if(cicData.length>0){_renderCicData();}
   }
 }
