@@ -514,7 +514,7 @@ function renderQ40(){
 }
 
 
-const APPS_URL='https://script.google.com/macros/s/AKfycbwrZhX5X8nQenLI46pMcM7ghRq-fi16WXeWCXJRPb0R7tlHMqMXEdKMjDOzuPkHZxU/exec';
+const APPS_URL='https://script.google.com/macros/s/AKfycbyq1gQNwWI-hCKPdAXeBMhCHWg2NTHFzX3hW5JM2_sl4XPwv3GEWH76KYbzYMCkFXA/exec';
 const AJUSTE_URL='https://script.google.com/macros/s/AKfycbz2pD8FvpTJiLCUV7pmEq3o1AIDUzGDCN6PJsnxFi94We-GxHyFkXnN-HLfjy7qeAg/exec';
 const AJUSTE_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1589452588&single=true&output=csv';
 const HIST_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=135260082&single=true&output=csv';
@@ -920,7 +920,7 @@ function parseHistCSV(text){
     const clave=clean(cols[1]);
     const lote=clean(cols[2]);
     if(!clave||!lote||isNaN(qty))continue;
-    rows.push({fecha:clean(cols[0]),clave:clave,lote:lote,cantidad:qty,registrado:clean(cols[4]||'')});
+    rows.push({fecha:clean(cols[0]),clave:clave,lote:lote,cantidad:qty,registrado:clean(cols[4]||''),causa:clean(cols[5]||'')});
   }
   return rows;
 }
@@ -1150,9 +1150,12 @@ function _renderCicData(){
         const hDiff=parseFloat(h.cantidad)-p.existSAI;
         const hCls=hDiff===0?'c40-diff-ok':hDiff>0?'c40-diff-pos':'c40-diff-neg';
         const hDiffStr=(hDiff===0?'✓':(hDiff>0?'+':'')+hDiff.toFixed(0));
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f9f9f9;font-size:11px">'+
+        return '<div style="display:flex;flex-direction:column;padding:4px 0;border-bottom:1px solid #f9f9f9;font-size:11px">'+
+          '<div style="display:flex;justify-content:space-between">'+
           '<span style="color:#999">'+h.fecha+(h.registrado?' · <b style=color:#4a4a4a>'+h.registrado+'</b>':'')+'</span>'+
           '<span class="'+hCls+'" style="font-weight:700">'+parseFloat(h.cantidad).toLocaleString('en-US')+' <span style="font-size:10px">('+hDiffStr+')</span></span>'+
+          '</div>'+
+          (h.causa?'<div style="font-size:10px;color:#E8671A;margin-top:2px">📝 '+h.causa+'</div>':'')+
         '</div>';
       }).join('');
 
@@ -1212,40 +1215,84 @@ function checkNombre(){
 }
 
 function registrarConteo(btn){
-  const wrap=btn.parentElement;
-  const inp=wrap.querySelector('input');
+  const inp=btn.parentElement.querySelector('input');
   const clave=inp.dataset.clave;
   const lote=inp.dataset.lote;
   const cardId=inp.dataset.card;
   const msg=document.getElementById('msg-'+cardId);
   const cantidad=inp.value.trim();
-  if(!cantidad||isNaN(parseFloat(cantidad))){
-    msg.innerHTML='<div class="c40-error">Escribe una cantidad válida</div>';
+  if(!cantidad||isNaN(cantidad)){
+    if(msg) msg.innerHTML='<span style="color:#C62828;font-size:10px">Ingresa una cantidad válida</span>';
     return;
   }
-  btn.classList.add('saving');
-  btn.textContent='Guardando...';
-  msg.innerHTML='';
+  const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
+  const fechaConteo=new Date().toLocaleString('es-MX');
 
-  const now=new Date();
-  const fechaConteo=now.toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-  const nombre=localStorage.getItem('cic_nombre')||'';
+  // Find SAI value for this lot
+  const lotData=cicData.find(function(p){return p.clave===clave&&p.lote===lote;});
+  const sai=lotData?lotData.existSAI:0;
+  const diff=Math.abs(parseFloat(cantidad)-sai);
 
-  const payload={clave,lote,cantidad:parseFloat(cantidad),fechaConteo,registrado:nombre};
+  // If diff > 3000 ask for causa
+  if(diff>3000){
+    // Check if causa modal exists for this card
+    const modalId='causa-modal-'+cardId;
+    let modal=document.getElementById(modalId);
+    if(!modal){
+      modal=document.createElement('div');
+      modal.id=modalId;
+      modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+      modal.innerHTML=
+        '<div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px">'+
+          '<div style="font-size:14px;font-weight:800;color:#C62828;margin-bottom:4px">⚠️ Diferencia mayor a 3,000 piezas</div>'+
+          '<div style="font-size:12px;color:#7a7a7a;margin-bottom:12px">'+clave+' · '+lote+'<br>Diferencia: <b>'+(parseFloat(cantidad)-sai).toFixed(0)+'</b> piezas</div>'+
+          '<div style="font-size:12px;font-weight:700;color:#4a4a4a;margin-bottom:6px">Causa de la diferencia *</div>'+
+          '<textarea id="causa-input-'+cardId+'" placeholder="Describe la causa de la diferencia..." '+
+            'style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;resize:none;height:80px;outline:none;font-family:Arial"></textarea>'+
+          '<div style="display:flex;gap:8px;margin-top:12px">'+
+            '<button onclick="document.getElementById(''+modalId+'').remove()" '+
+              'style="flex:1;padding:11px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#7a7a7a">Cancelar</button>'+
+            '<button onclick="confirmarConteo(''+clave+'',''+lote+'',''+cardId+'',''+cantidad+'',''+nombre+'',''+fechaConteo+'',''+modalId+'')" '+
+              'style="flex:2;padding:11px;border:none;border-radius:8px;font-size:13px;font-weight:700;background:#E8671A;color:#fff;cursor:pointer">Guardar con causa</button>'+
+          '</div>'+
+        '</div>';
+      document.body.appendChild(modal);
+    }
+    document.getElementById('causa-input-'+cardId).focus();
+    return;
+  }
 
+  // No causa needed - register directly
+  enviarConteo(clave,lote,cardId,cantidad,nombre,fechaConteo,'',btn,inp,msg);
+}
+
+function confirmarConteo(clave,lote,cardId,cantidad,nombre,fechaConteo,modalId){
+  const causa=document.getElementById('causa-input-'+cardId).value.trim();
+  if(!causa){
+    document.getElementById('causa-input-'+cardId).style.borderColor='#C62828';
+    return;
+  }
+  document.getElementById(modalId).remove();
+  const btn=document.getElementById('btn-'+cardId);
+  const inp=document.getElementById('inp-'+cardId);
+  const msg=document.getElementById('msg-'+cardId);
+  enviarConteo(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,inp,msg);
+}
+
+function enviarConteo(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,inp,msg){
+  if(btn){btn.classList.add('saving');btn.textContent='...';}
+  const payload={fechaConteo:fechaConteo,clave:clave,lote:lote,cantidad:parseFloat(cantidad),registrado:nombre,causa:causa};
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)})
-    .then(()=>{
-      btn.classList.remove('saving');btn.textContent='✓ Registrar conteo';
-      msg.innerHTML='<div class="c40-saved">✓ Guardado · '+fechaConteo+'</div>';
-      // Save to local historial immediately
-      const histEntry={clave:clave,lote:lote,cantidad:parseFloat(cantidad),fecha:fechaConteo,registrado:nombre};
-      inp.value='';
+    .then(function(){
+      if(btn){btn.classList.remove('saving');btn.textContent='✓';}
+      if(msg) msg.innerHTML='<div style="font-size:10px;color:#2E7D32;margin-top:2px">✓ Guardado · '+fechaConteo+'</div>';
+      if(inp) inp.value='';
       cicLoaded=false;
       setTimeout(function(){loadCic();},2000);
     })
-    .catch(()=>{
-      btn.classList.remove('saving');btn.textContent='Registrar';
-      msg.innerHTML='<div class="c40-error">Error al guardar. Intenta de nuevo.</div>';
+    .catch(function(){
+      if(btn){btn.classList.remove('saving');btn.textContent='✓';}
+      if(msg) msg.innerHTML='<span style="color:#C62828;font-size:10px">Error al guardar. Intenta de nuevo.</span>';
     });
 }
 
