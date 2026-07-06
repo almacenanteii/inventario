@@ -928,24 +928,19 @@ function parseHistCSV(text){
 async function loadCic(){
   document.getElementById('cic-loading').classList.remove('hidden');
   try{
-    const rCat=await fetch(CIC_URL);
-    cicData=parseCicCSV(await rCat.text());
+    const [rCat,rHist]=await Promise.all([fetch(CIC_URL),fetch(HIST_URL)]);
+    const [textCat,textHist]=await Promise.all([rCat.text(),rHist.text()]);
+    cicData=parseCicCSV(textCat);
+    cicHist=parseHistCSV(textHist);
+    cicLoaded=true;
+    document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos en historial';
+    document.getElementById('cic-loading').classList.add('hidden');
+    _renderCicData();
   }catch(e){
-    document.getElementById('cic-loading').textContent='❌ Error al cargar catálogo.';
-    return;
+    console.error('loadCic error:',e);
+    document.getElementById('cic-loading').textContent='❌ Error al cargar. Verifica conexión.';
+    if(cicData.length>0){_renderCicData();}
   }
-  try{
-    const rHist=await fetch(HIST_URL);
-    cicHist=parseHistCSV(await rHist.text());
-  }catch(e){cicHist=[];}
-  try{
-    const rAjust=await fetch(AJUSTE_CSV);
-    cicAjustes=parseHistCSV(await rAjust.text());
-  }catch(e){cicAjustes=[];}
-  cicLoaded=true;
-  document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos en historial';
-  document.getElementById('cic-loading').classList.add('hidden');
-  _renderCicData();
 }
 
 
@@ -1161,16 +1156,6 @@ function _renderCicData(){
         '</div>';
       }).join('');
 
-      // Ajuste button - show only if contado and not yet adjusted
-      const ajusteBtn=contado&&!yaAjustado?
-        '<div style="grid-column:1/-1;margin-top:4px">'+
-          '<button data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-cant="'+cantNum+'" data-sai="'+p.existSAI+'" '+
-            'onclick="marcarAjustado(this)" '+
-            'style="background:#E8671A;color:#fff;border:none;border-radius:8px;padding:7px 14px;font-size:11px;font-weight:700;cursor:pointer">'+
-            '⚙️ Marcar ajuste en SAI'+
-          '</button>'+
-        '</div>':'';
-
       const histSection=hist.length>0?
         '<div style="grid-column:1/-1;background:#fafafa;border-radius:6px;padding:6px 10px;margin-top:4px;border-left:3px solid #E8671A">'+
           '<div style="font-size:10px;font-weight:700;color:#E8671A;text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px">'+
@@ -1178,15 +1163,9 @@ function _renderCicData(){
           '</div>'+histRows+
         '</div>':'';
 
-      // Check if already adjusted
-      const yaAjustado=cicAjustes.some(function(a){return a.clave===p.clave&&a.lote===p.lote;});
-
       return '<div style="display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap">'+
         '<div>'+
-          '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+
-            (cicAjustes.some(function(a){return a.clave===p.clave&&a.lote===p.lote;})?
-              ' <span style="background:#E8F5E9;color:#2E7D32;font-size:10px;padding:2px 6px;border-radius:10px;font-family:sans-serif">✓ Ajustado en SAI</span>':'')+
-          '</div>'+
+          '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+'</div>'+
           '<div style="font-size:12px;color:#7a7a7a">SAI: '+p.existSAI.toLocaleString('en-US')+' '+p.unidad+
             (contado?' &nbsp;<span class="'+diffCls+'">→ '+cantNum.toLocaleString('en-US')+(diffStr?' ('+diffStr+')':'')+'</span>':'')+
           '</div>'+
@@ -1200,7 +1179,6 @@ function _renderCicData(){
           'style="padding:8px;font-size:16px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center">✓</button>'+
         '<div id="msg-'+cardId+'" style="grid-column:1/-1;font-size:10px;color:#2E7D32;margin-top:-4px;padding-bottom:2px"></div>'+
         histSection+
-        ajusteBtn+
       '</div>';
     }).join('');
 
