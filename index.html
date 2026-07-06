@@ -927,28 +927,25 @@ function parseHistCSV(text){
 
 async function loadCic(){
   document.getElementById('cic-loading').classList.remove('hidden');
-  
   try{
-    // Load catalog and historial in parallel
-    const [rCat,rHist,rAjust]=await Promise.all([fetch(CIC_URL,{mode:'cors'}),fetch(HIST_URL,{mode:'cors'}),fetch(AJUSTE_CSV,{mode:'cors'})]);
-    const [textCat,textHist]=await Promise.all([rCat.text(),rHist.text()]);
-    cicData=parseCicCSV(textCat);
-    // Merge server historial with local (server wins for same entries)
-    const serverHist=parseHistCSV(textHist);
-    // Use server historial as source of truth
-    if(serverHist.length>0){
-      cicHist=serverHist;
-      
-    }
-    cicLoaded=true;
-    document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos en historial';
-    document.getElementById('cic-loading').classList.add('hidden');
-    _renderCicData();
+    const rCat=await fetch(CIC_URL);
+    cicData=parseCicCSV(await rCat.text());
   }catch(e){
-    console.error('loadCic error:', e);
-    document.getElementById('cic-loading').textContent='❌ Error: '+e.message+' — verifica conexión';
-    if(cicData.length>0){_renderCicData();}
+    document.getElementById('cic-loading').textContent='❌ Error al cargar catálogo.';
+    return;
   }
+  try{
+    const rHist=await fetch(HIST_URL);
+    cicHist=parseHistCSV(await rHist.text());
+  }catch(e){cicHist=[];}
+  try{
+    const rAjust=await fetch(AJUSTE_CSV);
+    cicAjustes=parseHistCSV(await rAjust.text());
+  }catch(e){cicAjustes=[];}
+  cicLoaded=true;
+  document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos en historial';
+  document.getElementById('cic-loading').classList.add('hidden');
+  _renderCicData();
 }
 
 
@@ -1265,7 +1262,8 @@ function registrarConteo(btn){
       // Save to local historial immediately
       const histEntry={clave:clave,lote:lote,cantidad:parseFloat(cantidad),fecha:fechaConteo,registrado:nombre};
       inp.value='';
-      setTimeout(function(){loadCic();},2500);
+      cicLoaded=false;
+      setTimeout(function(){loadCic();},2000);
     })
     .catch(()=>{
       btn.classList.remove('saving');btn.textContent='Registrar';
