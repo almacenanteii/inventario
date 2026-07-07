@@ -1308,6 +1308,42 @@ function enviarConteo(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,in
       if(msg)msg.innerHTML='<span style="color:#C62828;font-size:10px">Error al guardar. Intenta de nuevo.</span>';
     });
 }
+
+function getFiltH(){
+  const q=sHist.toLowerCase().trim();
+  return ALL_H.filter(function(p){
+    if(['EYE','PT','MAQ'].includes(fHist)&&p.clase!==fHist)return false;
+    if(q&&!smartMatch(p.clave,sHist)&&!smartMatch(p.desc,sHist))return false;
+    return true;
+  });
+}
+
+function renderHist(){
+  const items=getFiltH();
+  document.getElementById('h-exist').textContent=fmt(items.reduce(function(s,p){return s+p.totalSAI;},0));
+  document.getElementById('h-conteo').textContent=fmt(items.reduce(function(s,p){return s+p.totalConteo;},0));
+  document.getElementById('h-claves').textContent=items.length.toLocaleString('en-US');
+  document.getElementById('bar-hist').textContent=items.length+' artículos · '+items.reduce(function(s,p){return s+p.lotes.length;},0)+' registros';
+  const list=document.getElementById('list-hist'),empty=document.getElementById('empty-hist');
+  if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-hist').textContent=sHist;return;}
+  empty.classList.add('hidden');
+  const order=['EYE','PT','MAQ'],groups={};
+  items.forEach(function(p){if(!groups[p.clase])groups[p.clase]=[];groups[p.clase].push(p);});
+  list.innerHTML=order.filter(function(c){return groups[c];}).map(function(c){
+    return '<div class="sec-hdr bh"><span class="sec-badge sb-bl">'+c+'</span>'+groups[c].length+' artículos</div>'+
+    groups[c].map(function(p){
+      const lots=p.lotes.map(function(l){
+        const diff=l.diferencia;
+        const diffH=diff!==null&&diff!==undefined?'<span class="'+(diff>0?'diff-pos':'diff-neg')+'">'+(diff>0?'+':'')+fmt(diff)+'</span>':'';
+        const cH=l.conteo!==null&&l.conteo!==undefined?'<div class="hlot-conteo">Conteo: '+fmt(l.conteo)+' '+diffH+'</div>':'';
+        const coH=l.comentario&&l.comentario!=='nan'?'<div class="hlot-coment">'+l.comentario+'</div>':'';
+        return '<div class="hlot"><div><div class="hlot-lote">'+l.lote+'</div><div class="hlot-alm">'+almTag(l.almacen)+'</div>'+cH+coH+'</div><div class="hlot-right"><div class="hlot-label">SAI</div><div class="hlot-sai">'+fmt(l.existSAI)+'</div></div></div>';
+      }).join('');
+      return '<div class="card"><div class="card-head"><div class="card-row1"><span class="clave c-bl">'+p.clave+'</span><span class="pill p-bl">'+fmt(p.totalSAI)+'</span></div><div class="desc">'+p.desc+'</div><div class="card-meta">'+p.lotes.length+' registro'+(p.lotes.length>1?'s':'')+'</div></div><div class="lots">'+lots+'</div></div>';
+    }).join('');
+  }).join('');
+}
+
 // Search event listeners
 document.getElementById('search-inv').addEventListener('input',function(){sInv=this.value;renderInv();});
 document.getElementById('search-cic').addEventListener('input',function(){sCic=this.value;cicLoaded=false;loadCic();});
