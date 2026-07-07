@@ -757,7 +757,7 @@ function generarReporte(semana){
       <div class="firma"><strong>Revisó</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
     </div>
     <div class="footer">Este documento es propiedad de Laboratorios Anteii S.A. de C.V. · Referencia: P-AL-003 Inventario anual y cíclico · ${folio}</div>
-    </body></html>`);
+</body></html>`);
   win.document.close();
   win.focus();
   setTimeout(function(){win.print();},500);
@@ -891,7 +891,16 @@ function imprimirSemana(semana){
       <span>Firma: _______________________</span>
       <span>Fecha: _______________________</span>
     </div>
-    </body></html>`);
+
+<div id="modal-nombre" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border-radius:16px;padding:24px;margin:20px;width:100%;max-width:340px">
+    <h2 style="font-size:16px;font-weight:800;color:#3a3a3a;margin-bottom:8px">¿Cómo te llamas?</h2>
+    <p style="font-size:13px;color:#7a7a7a;margin-bottom:16px">Tu nombre quedará registrado en cada conteo que captures.</p>
+    <input id="modal-nombre-input" type="text" placeholder="Escribe tu nombre..." style="width:100%;padding:12px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:15px;outline:none;margin-bottom:12px">
+    <button onclick="guardarNombre()" style="width:100%;background:#6A1B9A;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Guardar y continuar</button>
+  </div>
+</div>
+</body></html>`);
   win.document.close();
   win.focus();
   setTimeout(function(){win.print();},500);
@@ -1215,9 +1224,18 @@ function guardarNombre(){
 }
 function checkNombre(){
   if(!localStorage.getItem('cic_nombre')){
-    document.getElementById('modal-nombre').style.display='flex';
-    setTimeout(()=>document.getElementById('modal-nombre-input').focus(),100);
+    const m=document.getElementById('modal-nombre');
+    if(m){m.style.display='flex';setTimeout(function(){const i=document.getElementById('modal-nombre-input');if(i)i.focus();},100);}
   }
+}
+
+function guardarNombre(){
+  const inp=document.getElementById('modal-nombre-input');
+  const nombre=(inp?inp.value:'').trim();
+  if(!nombre){if(inp)inp.style.borderColor='#C62828';return;}
+  localStorage.setItem('cic_nombre',nombre);
+  const m=document.getElementById('modal-nombre');
+  if(m)m.style.display='none';
 }
 
 function registrarConteo(btn){
