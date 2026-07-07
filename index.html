@@ -1308,6 +1308,15 @@ function enviarConteo(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,in
       if(msg)msg.innerHTML='<span style="color:#C62828;font-size:10px">Error al guardar. Intenta de nuevo.</span>';
     });
 }
+// Search event listeners
+document.getElementById('search-inv').addEventListener('input',function(){sInv=this.value;renderInv();});
+document.getElementById('search-cic').addEventListener('input',function(){sCic=this.value;cicLoaded=false;loadCic();});
+if(document.getElementById('search-hist')) document.getElementById('search-hist').addEventListener('input',function(){sHist=this.value;renderHist();});
+
+// Chip filters
+document.querySelectorAll('#fi-inv .chip').forEach(c=>c.addEventListener('click',function(){fInv=this.dataset.v;document.querySelectorAll('#fi-inv .chip').forEach(x=>x.classList.remove('active'));this.classList.add('active');renderInv();}));
+document.querySelectorAll('#fi-cic .chip').forEach(c=>c.addEventListener('click',function(){fCic=this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(x=>x.classList.remove('active'));this.classList.add('active');if(cicData.length)_renderCicData();}));
+
 // Init
 renderInv();
 </script>
