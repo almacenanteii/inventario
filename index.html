@@ -1447,8 +1447,8 @@ document.getElementById('search-cic').addEventListener('input',function(){sCic=t
 if(document.getElementById('search-hist')) document.getElementById('search-hist').addEventListener('input',function(){sHist=this.value;renderHist();});
 
 // Chip filters
-document.querySelectorAll('#fi-inv .chip').forEach(c=>c.addEventListener('click',function(){fInv=this.dataset.v;document.querySelectorAll('#fi-inv .chip').forEach(x=>x.classList.remove('active'));this.classList.add('active');renderInv();}));
-document.querySelectorAll('#fi-cic .chip').forEach(c=>c.addEventListener('click',function(){fCic=this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(x=>x.classList.remove('active'));this.classList.add('active');if(cicData.length)_renderCicData();}));
+document.querySelectorAll('#fi-inv .chip').forEach(c=>c.addEventListener('click',function(){fInv=this.dataset.f;document.querySelectorAll('#fi-inv .chip').forEach(x=>x.classList.remove('active'));this.classList.add('active');renderInv();}));
+document.querySelectorAll('#fi-cic .chip').forEach(c=>c.addEventListener('click',function(){fCic=this.dataset.f||this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(x=>x.classList.remove('active'));this.classList.add('active');if(cicData.length){_renderCicData();}else{loadCic();}}));
 
 // Init
 loadInventario();
