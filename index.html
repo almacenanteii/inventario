@@ -89,7 +89,10 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .filters{display:flex;gap:6px;padding:0 0 12px;overflow-x:auto}
 .filters::-webkit-scrollbar{display:none}
 .chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:none;background:rgba(255,255,255,.25);color:rgba(255,255,255,.9);white-space:nowrap;cursor:pointer}
-.chip.a-inv{background:#fff;color:var(--or)} .chip.a-abc{background:#fff;color:var(--gn)} .chip.a-q40{background:#fff;color:var(--rd)} .chip.a-cic{background:#fff;color:var(--pu)} .chip.a-hist{background:#fff;color:var(--bl)}
+.chip.a-inv{background:#fff;color:var(--or)}
+.chip.a-cic{background:#fff;color:var(--pu)}
+.chip.a-hist{background:#fff;color:var(--bl)}
+.chip.active{background:rgba(255,255,255,.95);color:#333;font-weight:800} .chip.a-abc{background:#fff;color:var(--gn)} .chip.a-q40{background:#fff;color:var(--rd)} .chip.a-cic{background:#fff;color:var(--pu)} .chip.a-hist{background:#fff;color:var(--bl)}
 
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 16px;background:#fff;border-bottom:1px solid var(--bd)}
 .kpi{background:var(--bg);border-radius:var(--rad);padding:10px 12px}
@@ -1447,9 +1450,10 @@ document.getElementById('search-cic').addEventListener('input',function(){sCic=t
 if(document.getElementById('search-hist')) document.getElementById('search-hist').addEventListener('input',function(){sHist=this.value;renderHist();});
 
 // Chip filters
-document.querySelectorAll('#fi-inv .chip').forEach(c=>c.addEventListener('click',function(){fInv=this.dataset.f;document.querySelectorAll('#fi-inv .chip').forEach(x=>x.classList.remove('active'));this.classList.add('active');renderInv();}));
-document.querySelectorAll('#fi-cic .chip').forEach(c=>c.addEventListener('click',function(){fCic=this.dataset.f||this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(x=>x.classList.remove('active'));this.classList.add('active');if(cicData.length){_renderCicData();}else{loadCic();}}));
+document.querySelectorAll('#fi-inv .chip').forEach(function(c){c.addEventListener('click',function(){fInv=this.dataset.f;document.querySelectorAll('#fi-inv .chip').forEach(function(x){x.classList.remove('active','a-inv');});this.classList.add('active');renderInv();});});
+document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListener('click',function(){fCic=this.dataset.f||this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(function(x){x.classList.remove('active','a-cic');});this.classList.add('active');if(cicData.length){_renderCicData();}else{loadCic();}});});
 
+document.querySelectorAll('#fi-hist .chip').forEach(function(c){c.addEventListener('click',function(){fHist=this.dataset.f;document.querySelectorAll('#fi-hist .chip').forEach(function(x){x.classList.remove('active','a-hist');});this.classList.add('active');renderHist();});});
 // Init
 loadInventario();
 </script>
