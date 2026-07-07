@@ -760,6 +760,10 @@ function generarReporte(semana){
     <scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>
   </body></html>`);
   win.document.close();
+  win.focus();
+  setTimeout(function(){win.print();},500);
+  win.focus();
+  setTimeout(function(){win.print();},500);
 }
 
 
@@ -891,6 +895,10 @@ function imprimirSemana(semana){
     <scr'+'ipt>window.onload=function(){window.print();}</scr'+'ipt>
   </body></html>`);
   win.document.close();
+  win.focus();
+  setTimeout(function(){win.print();},500);
+  win.focus();
+  setTimeout(function(){win.print();},500);
 }
 
 function cambiarSemana(calWeek){
