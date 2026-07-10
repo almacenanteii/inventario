@@ -726,8 +726,8 @@ function generarReporte(semana){
 
     <div class="section-title">4. Análisis de Diferencias</div>
     <div class="validez">
-      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#2E7D32;color:#fff;text-align:center;line-height:12px;font-size:10px">✓</span> SÍ — Proceder a ajuste en SAI</span>
-      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#fff;color:#fff;text-align:center;line-height:12px;font-size:10px"></span> NO — Realizar reconteo</span>
+      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#fff"></span> SÍ — Proceder a ajuste en SAI</span>
+      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#fff"></span> NO — Realizar reconteo</span>
       <span style="margin-left:auto;font-size:10px;color:#666">No. de diferencias: <strong style="font-size:14px;color:#E8671A">${conDiff}</strong></span>
     </div>
     <table>
@@ -750,8 +750,8 @@ function generarReporte(semana){
       ${conDiff>0?'Claves con diferencia: '+diffsArr.map(function(p){return p.clave;}).join(', ')+'.':'Todos los conteos coinciden con el SAI.'}
     </div>
     <div class="firmas">
-      <div class="firma"><strong>Responsable 1 —</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
-      <div class="firma"><strong>Responsable 2 — Almacén</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
+      <div class="firma"><strong>Responsable 1</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
+      <div class="firma"><strong>Responsable 2</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
       <div class="firma"><strong>Revisó</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
     </div>
     <div class="footer">Este documento es propiedad de Laboratorios Anteii S.A. de C.V. · Referencia: P-AL-003 Inventario anual y cíclico · ${folio}</div>
@@ -1249,9 +1249,11 @@ function _renderCicData(){
         '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cant." '+
           'value="'+(contado?cantNum:'')+'" '+
           'data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'" '+
-          'style="width:90px;padding:8px;font-size:15px;text-align:center;font-weight:600">'+
-        '<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)" '+
-          'style="padding:8px;font-size:16px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center">✓</button>'+
+          'style="width:90px;padding:8px;font-size:15px;text-align:center;font-weight:600"'+
+          (semCerradaLote?' readonly':'')+'>'+ 
+        (!semCerradaLote?'<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)" '+
+          'style="padding:8px;font-size:16px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center">✓</button>':
+          '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#2E7D32;font-size:18px">🔒</div>')+
         '<div id="msg-'+cardId+'" style="grid-column:1/-1;font-size:10px;color:#2E7D32;margin-top:-4px;padding-bottom:2px"></div>'+
         histSection+
       '</div>';
