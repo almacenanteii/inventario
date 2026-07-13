@@ -512,6 +512,7 @@ function renderQ40(){
 
 const APPS_URL='https://script.google.com/macros/s/AKfycbyq1gQNwWI-hCKPdAXeBMhCHWg2NTHFzX3hW5JM2_sl4XPwv3GEWH76KYbzYMCkFXA/exec';
 const INV_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1010346624&single=true&output=csv';
+const CONFIG_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=342417661&single=true&output=csv';
 const AJUSTE_URL='https://script.google.com/macros/s/AKfycbyq1gQNwWI-hCKPdAXeBMhCHWg2NTHFzX3hW5JM2_sl4XPwv3GEWH76KYbzYMCkFXA/exec';
 const AJUSTE_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1589452588&single=true&output=csv';
 const HIST_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=135260082&single=true&output=csv';
@@ -1479,24 +1480,17 @@ function parseInvCSV(text){
 
 async function loadInventario(){
   try{
-    const r=await fetch(INV_CSV_URL+'&t='+Date.now());
-    const text=await r.text();
-    const lines=text.trim().split('\n');
-    // Parse fecha from col J of header row
-    const parseCols=function(line){var cols=[],cur='',inQ=false;for(var c=0;c<line.length;c++){if(line[c]==='"'){inQ=!inQ;}else if(line[c]===','&&!inQ){cols.push(cur.trim());cur='';}else{cur+=line[c];}}cols.push(cur.trim());return cols;};
-    const headerCols=parseCols(lines[0]);
-    const fechaActual=headerCols[9]?headerCols[9].replace(/^"|"$/g,'').trim():'';
-    ACTUAL_LOADED=parseInvCSV(text);
+    const [rInv, rConf]=await Promise.all([
+      fetch(INV_CSV_URL+'&t='+Date.now()),
+      fetch(CONFIG_URL+'&t='+Date.now())
+    ]);
+    const [textInv, textConf]=await Promise.all([rInv.text(), rConf.text()]);
+    ACTUAL_LOADED=parseInvCSV(textInv);
+    const fechaActual=textConf.trim().split('\n')[0].replace(/^"|"$/g,'').trim();
     console.log('Inventario cargado:', ACTUAL_LOADED.length, 'registros. Fecha:', fechaActual);
     buildAllA();
     const el=document.getElementById('inv-update-bar');
-    if(el){
-      if(fechaActual&&fechaActual!==''){
-        el.textContent='📅 Datos actualizados al: '+fechaActual;
-      } else {
-        el.textContent='📅 '+ACTUAL_LOADED.length+' registros cargados';
-      }
-    }
+    if(el) el.textContent='📅 Datos actualizados al: '+(fechaActual||ACTUAL_LOADED.length+' registros');
     renderInv();
   }catch(e){
     console.error('Error cargando inventario:', e);
