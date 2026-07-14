@@ -332,7 +332,7 @@ const ABC=[{"clave": "EYE-ETI-907", "clase": "EYE", "desc": "STICKER GENERICO ME
 const am={};
 ACTUAL.forEach(r=>{
   if(!am[r.clave])am[r.clave]={clase:r.clase,clave:r.clave,desc:r.desc,loc:r.loc||'',lotes:[],alms:new Set()};
-  am[r.clave].lotes.push(r);am[r.clave].alms.add(r.almacen);
+  am[r.clave].lotes.push(r);am[r.clave].alms.add((r.almacen||'').replace(/\s+/g,''));
 });
 // ALL_A built dynamically in buildAllA()
 
@@ -536,7 +536,7 @@ function parseCicCSV(text){
     rows.push({
       clase:clean(cols[0]),clave:clean(cols[1]),desc:clean(cols[2]),
       lote:clean(cols[3]),existSAI:num(cols[4]),
-      unidad:clean(cols[5]),caducidad:clean(cols[6]),almacen:clean(cols[7]),
+      unidad:clean(cols[5]),caducidad:clean(cols[6]),almacen:clean(cols[7]).replace(/\s+/g,''),
       fechaConteo:clean(cols[8]||''),cantidad:clean(cols[9]||''),
       registrado:clean(cols[10]||'')
     });
@@ -1460,7 +1460,7 @@ function parseInvCSV(text){
     const cols=parseCols(lines[i]);
     if(cols.length<8)continue;
     rows.push({
-      almacen:clean(cols[7]),
+      almacen:clean(cols[7]).replace(/\s+/g,''),
       clase:clean(cols[0]),
       clave:clean(cols[1]),
       desc:clean(cols[2]),
@@ -1501,7 +1501,7 @@ function buildAllA(){
   ACTUAL_LOADED.forEach(function(r){
     if(!am[r.clave])am[r.clave]={clase:r.clase,clave:r.clave,desc:r.desc,loc:r.loc||'',lotes:[],alms:new Set()};
     am[r.clave].lotes.push(r);
-    am[r.clave].alms.add(r.almacen);
+    am[r.clave].alms.add((r.almacen||'').replace(/\s+/g,''));
   });
   window._ALL_A=Object.values(am).map(function(p){
     return Object.assign({},p,{alms:[...p.alms],totalExist:p.lotes.reduce(function(s,l){return s+l.exist;},0)});
