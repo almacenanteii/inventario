@@ -162,6 +162,36 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .empty-ico{font-size:44px;margin-bottom:10px}
 .hidden{display:none}
 .fab{position:fixed;bottom:72px;right:16px;color:#fff;border:none;border-radius:12px;padding:10px 16px;font-size:12px;font-weight:700;box-shadow:0 4px 14px rgba(0,0,0,.2);cursor:pointer;z-index:99}
+
+/* ===== Embarque tab ===== */
+header.h-emb{background:var(--gn)}
+.nav-btn.a-emb{color:var(--gn)}
+.chip.a-emb{background:#fff;color:var(--gn)}
+.tag-PTJAL{background:#efebe9;color:#5d4037}
+.emb-lots{border-top:1px solid var(--bd)}
+.emb-lote-row{display:grid;grid-template-columns:1fr 100px;gap:8px;padding:9px 14px;border-bottom:1px solid #f5f5f5;align-items:center}
+.emb-lote-row:last-child{border-bottom:none}
+.emb-lote-top{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.emb-lote-qty{font-size:11px;color:var(--gr2);margin-top:2px}
+.emb-lote-tarima{display:flex;flex-direction:column;align-items:stretch;gap:3px}
+.emb-qty-input{width:100%;padding:8px 6px;border:2px solid var(--bd);border-radius:8px;font-size:16px;font-weight:800;text-align:center;color:var(--gr);outline:none}
+.emb-qty-input:focus{border-color:var(--gn)}
+.emb-letters{font-size:9.5px;color:var(--gn);font-weight:700;text-align:center;line-height:1.2;min-height:11px}
+.emb-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end;justify-content:center}
+.emb-modal-box{background:#fff;border-radius:16px 16px 0 0;max-height:82vh;width:100%;max-width:560px;display:flex;flex-direction:column;overflow:hidden}
+.emb-modal-head{padding:14px 16px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
+.emb-modal-head h2{font-size:15px;font-weight:800;color:var(--gr)}
+.emb-modal-sub{font-size:11px;color:var(--gr2)}
+.emb-modal-body{overflow-y:auto;padding:0 16px}
+.emb-resumen-table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
+.emb-resumen-table th{text-align:left;font-size:10px;text-transform:uppercase;color:var(--gr2);border-bottom:2px solid var(--bd);padding:6px 6px}
+.emb-resumen-table td{padding:6px 6px;border-bottom:1px solid #f0f0f0}
+.emb-resumen-table td.t-letter{font-weight:800;color:var(--gn);font-family:monospace;text-align:center}
+.emb-resumen-table td.t-clave{font-family:monospace;font-weight:700;color:var(--or)}
+.emb-modal-foot{padding:10px 16px;border-top:1px solid var(--bd);display:flex;gap:8px}
+.emb-modal-foot button{flex:1;padding:12px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;border:none}
+.btn-emb-close{background:var(--bg);color:var(--gr)}
+.btn-emb-print{background:var(--gn);color:#fff}
 </style>
 </head>
 <body>
@@ -170,6 +200,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
   <button class="nav-btn a-inv" id="nb-inv" onclick="switchTab('inv')"><span class="nav-ico">📦</span>Inventario</button>
   <button class="nav-btn" id="nb-cic" onclick="switchTab('cic')"><span class="nav-ico">📊</span>Cíclicos</button>
   <button class="nav-btn" id="nb-hist" onclick="switchTab('hist')"><span class="nav-ico">📋</span>Dic 2025</button>
+  <button class="nav-btn" id="nb-emb" onclick="switchTab('emb')"><span class="nav-ico">🚚</span>Embarque</button>
 </nav>
 
 <header class="h-inv" id="hdr-inv">
@@ -261,6 +292,25 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
   </div>
 </header>
 
+<header class="h-emb hidden" id="hdr-emb">
+  <div class="hdr-top">
+    <h1>🚚 Armar Embarque</h1>
+    <button onclick="openEmbResumen()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">📋 Lista tarimas</button>
+    <button onclick="clearEmbTarimas()" style="background:#fff;color:var(--gn);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🗑️</button>
+  </div>
+  <div class="update-bar">📅 Solo 40PT y PTJAL · producto que puede viajar</div>
+  <div class="search-box">
+    <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="search-emb" placeholder="Buscar clave o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clr" id="clr-emb" onclick="document.getElementById('search-emb').value='';sEmb='';renderEmb();">✕</button>
+  </div>
+  <div class="filters" id="fi-emb">
+    <div class="chip a-emb" data-f="TODOS">Todos</div>
+    <div class="chip" data-f="40PT">40 PT</div>
+    <div class="chip" data-f="PTJAL">PTJAL</div>
+  </div>
+</header>
+
 <div class="kpis" id="kpis-inv">
   <div class="kpi"><div class="kpi-lbl">Existencia</div><div class="kpi-val ov" id="k-exist">—</div><div class="kpi-sub">unidades</div></div>
   <div class="kpi"><div class="kpi-lbl">Lotes</div><div class="kpi-val ov" id="k-lotes">—</div><div class="kpi-sub">registrados</div></div>
@@ -301,11 +351,18 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
   <div class="kpi"><div class="kpi-lbl">Claves</div><div class="kpi-val bv" id="h-claves">—</div><div class="kpi-sub">únicas</div></div>
 </div>
 
+<div class="kpis hidden" id="kpis-emb">
+  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-emb-piezas">—</div><div class="kpi-sub">40PT + PTJAL</div></div>
+  <div class="kpi"><div class="kpi-lbl">Claves</div><div class="kpi-val gv" id="k-emb-claves">—</div><div class="kpi-sub">en este filtro</div></div>
+  <div class="kpi"><div class="kpi-lbl">Tarimas</div><div class="kpi-val gv" id="k-emb-tarimas">0</div><div class="kpi-sub">anotadas</div></div>
+</div>
+
 <div class="bar" id="bar-inv"></div>
 <div class="bar hidden" id="bar-abc"></div>
 <div class="bar hidden" id="bar-q40"></div>
 <div class="bar hidden" id="bar-cic"></div>
 <div class="bar hidden" id="bar-hist"></div>
+<div class="bar hidden" id="bar-emb"></div>
 <div class="list" id="list-inv"></div>
 <div class="list hidden" id="list-abc"></div>
 <div class="list hidden" id="list-q40"></div>
@@ -314,11 +371,30 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 <div class="loading-msg hidden" id="cic-loading">⏳ Cargando conteos...</div>
 <div class="list hidden" id="list-cic"></div>
 <div class="list hidden" id="list-hist"></div>
+<div class="list hidden" id="list-emb"></div>
 <div class="empty hidden" id="empty-inv"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-inv"></span>"</p></div>
 <div class="empty hidden" id="empty-abc"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-abc"></span>"</p></div>
 <div class="empty hidden" id="empty-cic"><div class="empty-ico">📊</div><p>Sin resultados para "<span id="eq-cic"></span>"</p></div>
 <div class="empty hidden" id="empty-q40"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-q40"></span>"</p></div>
 <div class="empty hidden" id="empty-hist"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-hist"></span>"</p></div>
+<div class="empty hidden" id="empty-emb"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-emb"></span>"</p></div>
+
+<div class="emb-modal" id="modal-emb-resumen">
+  <div class="emb-modal-box">
+    <div class="emb-modal-head">
+      <div>
+        <h2>📋 Lista de tarimas</h2>
+        <div class="emb-modal-sub" id="emb-resumen-count">0 tarimas</div>
+      </div>
+      <button onclick="closeEmbResumen()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gr2)">✕</button>
+    </div>
+    <div class="emb-modal-body" id="emb-resumen-body"></div>
+    <div class="emb-modal-foot">
+      <button class="btn-emb-close" onclick="closeEmbResumen()">Cerrar</button>
+      <button class="btn-emb-print" onclick="imprimirEmbResumen()">🖨️ Imprimir</button>
+    </div>
+  </div>
+</div>
 
 <button class="fab" id="fab" style="background:var(--or)" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑ Subir</button>
 
@@ -343,7 +419,11 @@ HIST.forEach(r=>{
 });
 const ALL_H=Object.values(hm).map(p=>({...p,totalSAI:p.lotes.reduce((s,l)=>s+(l.existSAI||0),0),totalConteo:p.lotes.reduce((s,l)=>s+(l.conteo||0),0)}));
 
-let tab='inv',fInv='TODOS',fAbc='TODOS',fHist='TODOS',sInv='',sAbc='',sHist='';
+let tab='inv',fInv='TODOS',fAbc='TODOS',fHist='TODOS',fEmb='TODOS',sInv='',sAbc='',sHist='',sEmb='';
+const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
+let embQty={};
+try{embQty=JSON.parse(localStorage.getItem(EMB_STORAGE_KEY)||'{}');}catch(e){embQty={};}
+let embItemsCount=0,embLotesCount=0;
 const fmt=function(n){if(n===null||n===undefined)return '—';return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});};
 
 function cadInfo(s){
@@ -361,9 +441,9 @@ function almTag(a){
 
 function switchTab(t){
   tab=t;
-  const cols={inv:'var(--or)',cic:'var(--pu)',hist:'var(--bl)'};
+  const cols={inv:'var(--or)',cic:'var(--pu)',hist:'var(--bl)',emb:'var(--gn)'};
   // Show/hide standard sections
-  ['inv','hist'].forEach(function(x){
+  ['inv','hist','emb'].forEach(function(x){
     ['hdr-','kpis-','bar-','list-','empty-'].forEach(function(p){
       document.getElementById(p+x)?.classList.toggle('hidden',x!==t);
     });
@@ -385,6 +465,7 @@ function switchTab(t){
   document.getElementById('fab').style.background=cols[t]||'var(--or)';
   if(t==='inv')renderInv();
   else if(t==='cic'){checkNombre();renderCic();}
+  else if(t==='emb')renderEmb();
   else renderHist();
 }
 
@@ -1488,11 +1569,13 @@ async function loadInventario(){
     const el=document.getElementById('inv-update-bar');
     if(el) el.textContent='📅 Datos actualizados al: '+(fechaActual||ACTUAL_LOADED.length+' registros');
     renderInv();
+    if(tab==='emb')renderEmb();
   }catch(e){
     console.error('Error cargando inventario:', e);
     ACTUAL_LOADED=[];
     buildAllA();
     renderInv();
+    if(tab==='emb')renderEmb();
   }
 }
 
@@ -1508,6 +1591,198 @@ function buildAllA(){
   });
 }
 
+// ===== Embarque (40PT + PTJAL) =====
+function embLetter(n){
+  let x=n,s='';
+  while(x>0){ x--; s=String.fromCharCode(65+(x%26))+s; x=Math.floor(x/26); }
+  return s;
+}
+
+function escAttr(s){
+  return String(s==null?'':s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+function embParseCad(s){
+  if(!s) return null;
+  const p=s.split('/');
+  if(p.length<3) return null;
+  const d=new Date(+p[2],+p[1]-1,+p[0]);
+  return isNaN(d.getTime())?null:d.getTime();
+}
+
+function getFiltEmb(){
+  const q=sEmb.toLowerCase().trim();
+  return (ACTUAL_LOADED||[]).filter(function(r){
+    const alm=(r.almacen||'').toUpperCase();
+    if(alm!=='40PT'&&alm!=='PTJAL')return false;
+    if(fEmb!=='TODOS'&&alm!==fEmb)return false;
+    if(q&&!smartMatch(r.clave,sEmb)&&!smartMatch(r.desc,sEmb))return false;
+    return true;
+  });
+}
+
+function buildEmbGroups(){
+  const rows=getFiltEmb();
+  const gm={};
+  rows.forEach(function(r){
+    if(!gm[r.clave])gm[r.clave]={clase:r.clase,clave:r.clave,desc:r.desc,lotes:[],alms:new Set()};
+    gm[r.clave].lotes.push(r);
+    gm[r.clave].alms.add((r.almacen||'').toUpperCase());
+  });
+  return Object.values(gm).map(function(g){
+    g.lotes=g.lotes.slice().sort(function(a,b){
+      const da=embParseCad(a.caducidad),db=embParseCad(b.caducidad);
+      if(da===null&&db===null)return 0;
+      if(da===null)return 1;
+      if(db===null)return -1;
+      return da-db;
+    });
+    g.totalExist=g.lotes.reduce(function(s,l){return s+l.exist;},0);
+    g.alms=[...g.alms];
+    return g;
+  });
+}
+
+function renderEmb(){
+  const groups=buildEmbGroups();
+  const order=['EYE','GRA','MAQ','PT','GTO'];
+  const byClase={};
+  groups.forEach(function(g){ if(!byClase[g.clase])byClase[g.clase]=[]; byClase[g.clase].push(g); });
+  order.forEach(function(c){ if(byClase[c])byClase[c].sort(function(a,b){return a.clave.localeCompare(b.clave);}); });
+
+  embItemsCount=groups.length;
+  embLotesCount=groups.reduce(function(s,g){return s+g.lotes.length;},0);
+  const totalExist=groups.reduce(function(s,g){return s+g.totalExist;},0);
+  const kPiezas=document.getElementById('k-emb-piezas'); if(kPiezas)kPiezas.textContent=fmt(totalExist);
+  const kClaves=document.getElementById('k-emb-claves'); if(kClaves)kClaves.textContent=embItemsCount.toLocaleString('en-US');
+
+  const list=document.getElementById('list-emb'),empty=document.getElementById('empty-emb');
+  if(!list)return;
+  if(!groups.length){
+    list.innerHTML='';
+    if(empty){empty.classList.remove('hidden');const eq=document.getElementById('eq-emb');if(eq)eq.textContent=sEmb;}
+    const barEl=document.getElementById('bar-emb'); if(barEl)barEl.textContent='0 artículos';
+    const kT=document.getElementById('k-emb-tarimas'); if(kT)kT.textContent='0';
+    return;
+  }
+  if(empty)empty.classList.add('hidden');
+
+  list.innerHTML=order.filter(function(c){return byClase[c];}).map(function(c){
+    return '<div class="sec-hdr gh"><span class="sec-badge sb-gn">'+c+'</span>'+byClase[c].length+' artículos</div>'+
+      byClase[c].map(function(g){
+        const lots=g.lotes.map(function(l){
+          const almU=(l.almacen||'').toUpperCase();
+          const key=g.clave+'|'+l.lote+'|'+almU;
+          const qty=embQty[key]||'';
+          const cad=cadInfo(l.caducidad);
+          return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'">'
+            +'<div class="emb-lote-info">'
+              +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+'</div>'
+              +(cad.txt?'<div class="lot-cad '+cad.cls+'">'+cad.txt+'</div>':'')
+              +'<div class="emb-lote-qty">'+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
+            +'</div>'
+            +'<div class="emb-lote-tarima">'
+              +'<input type="number" min="0" step="1" inputmode="numeric" class="emb-qty-input" placeholder="0" value="'+qty+'" oninput="onEmbQtyInput(this)">'
+              +'<span class="emb-letters"></span>'
+            +'</div>'
+          +'</div>';
+        }).join('');
+        return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span class="clave c-gn">'+g.clave+'</span><span class="pill p-gn">'+fmt(g.totalExist)+'</span></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
+      }).join('');
+  }).join('');
+
+  recalcEmbLetters();
+}
+
+function recalcEmbLetters(){
+  let counter=0;
+  const assign=[];
+  document.querySelectorAll('.emb-lote-row').forEach(function(row){
+    const inp=row.querySelector('.emb-qty-input');
+    const n=parseInt(inp&&inp.value,10)||0;
+    const span=row.querySelector('.emb-letters');
+    if(n<=0){ if(span)span.textContent=''; return; }
+    const letters=[];
+    for(let i=0;i<n;i++){
+      counter++;
+      const L=embLetter(counter);
+      letters.push(L);
+      assign.push({letter:L,clave:row.dataset.clave,desc:row.dataset.desc,lote:row.dataset.lote,almacen:row.dataset.almacen,exist:row.dataset.exist});
+    }
+    if(span)span.textContent=letters.length===1?('Tarima '+letters[0]):(letters.length+' tarimas: '+letters[0]+'–'+letters[letters.length-1]);
+  });
+  window._embAssign=assign;
+  const kT=document.getElementById('k-emb-tarimas'); if(kT)kT.textContent=counter.toLocaleString('en-US');
+  const barEl=document.getElementById('bar-emb');
+  if(barEl)barEl.textContent=embItemsCount+' artículos · '+embLotesCount+' lotes · '+counter+' tarima'+(counter!==1?'s':'');
+}
+
+function onEmbQtyInput(inp){
+  const row=inp.closest('.emb-lote-row');
+  if(!row)return;
+  const key=row.dataset.clave+'|'+row.dataset.lote+'|'+row.dataset.almacen;
+  const v=parseInt(inp.value,10)||0;
+  if(v>0)embQty[key]=v; else delete embQty[key];
+  try{localStorage.setItem(EMB_STORAGE_KEY,JSON.stringify(embQty));}catch(e){}
+  recalcEmbLetters();
+}
+
+function clearEmbTarimas(){
+  if(!confirm('¿Borrar todas las cantidades de tarimas anotadas?'))return;
+  embQty={};
+  try{localStorage.removeItem(EMB_STORAGE_KEY);}catch(e){}
+  renderEmb();
+}
+
+function openEmbResumen(){
+  recalcEmbLetters();
+  const assign=window._embAssign||[];
+  const body=document.getElementById('emb-resumen-body');
+  if(!body)return;
+  if(!assign.length){
+    body.innerHTML='<p style="padding:24px 4px;text-align:center;color:var(--gr2);font-size:13px">Aún no has anotado cantidades de tarimas.</p>';
+  }else{
+    body.innerHTML='<table class="emb-resumen-table"><thead><tr><th>Tarima</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Almacén</th></tr></thead><tbody>'+
+      assign.map(function(a){
+        return '<tr><td class="t-letter">'+a.letter+'</td><td class="t-clave">'+a.clave+'</td><td>'+a.desc+'</td><td>'+a.lote+'</td><td>'+a.almacen+'</td></tr>';
+      }).join('')+
+      '</tbody></table>';
+  }
+  const cnt=document.getElementById('emb-resumen-count');
+  if(cnt)cnt.textContent=assign.length+' tarima'+(assign.length!==1?'s':'');
+  const modal=document.getElementById('modal-emb-resumen');
+  if(modal)modal.style.display='flex';
+}
+
+function closeEmbResumen(){
+  const modal=document.getElementById('modal-emb-resumen');
+  if(modal)modal.style.display='none';
+}
+
+function imprimirEmbResumen(){
+  const assign=window._embAssign||[];
+  if(!assign.length){ alert('No hay tarimas anotadas todavía.'); return; }
+  const rows=assign.map(function(a){
+    return '<tr><td style="font-weight:800;text-align:center;font-family:monospace;font-size:13px">'+a.letter+'</td>'+
+      '<td style="font-family:monospace;color:#1F7A4D;font-weight:700">'+a.clave+'</td>'+
+      '<td>'+a.desc+'</td>'+
+      '<td style="font-family:monospace;text-align:center">'+a.lote+'</td>'+
+      '<td style="text-align:center">'+a.almacen+'</td></tr>';
+  }).join('');
+  const win=window.open('','_blank');
+  if(!win)return;
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lista de Tarimas · Embarque</title>'+
+    '<style>body{font-family:Arial,sans-serif;margin:24px;color:#222}h1{font-size:18px;margin-bottom:4px}'+
+    '.sub{font-size:12px;color:#666;margin-bottom:16px}table{width:100%;border-collapse:collapse;font-size:12px}'+
+    'th{text-align:left;background:#f0f0f0;padding:6px 8px;border-bottom:2px solid #ccc}td{padding:6px 8px;border-bottom:1px solid #ddd}</style>'+
+    '</head><body><h1>🚚 Lista de tarimas · Embarque</h1>'+
+    '<div class="sub">Generado: '+new Date().toLocaleString('es-MX')+' · Total: '+assign.length+' tarimas</div>'+
+    '<table><thead><tr><th>Tarima</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Almacén</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<script>window.onload=function(){window.print();}<\/script>'+
+    '</body></html>');
+  win.document.close();
+}
+
 // Search event listeners
 document.getElementById('search-inv').addEventListener('input',function(){sInv=this.value;renderInv();});
 document.getElementById('search-cic').addEventListener('input',function(){sCic=this.value;cicLoaded=false;loadCic();});
@@ -1518,6 +1793,8 @@ document.querySelectorAll('#fi-inv .chip').forEach(function(c){c.addEventListene
 document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListener('click',function(){fCic=this.dataset.f||this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(function(x){x.classList.remove('active','a-cic');});this.classList.add('active');if(cicData.length){_renderCicData();}else{loadCic();}});});
 
 document.querySelectorAll('#fi-hist .chip').forEach(function(c){c.addEventListener('click',function(){fHist=this.dataset.f;document.querySelectorAll('#fi-hist .chip').forEach(function(x){x.classList.remove('active','a-hist');});this.classList.add('active');renderHist();});});
+document.getElementById('search-emb').addEventListener('input',function(){sEmb=this.value;renderEmb();});
+document.querySelectorAll('#fi-emb .chip').forEach(function(c){c.addEventListener('click',function(){fEmb=this.dataset.f;document.querySelectorAll('#fi-emb .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
 // Init
 loadInventario();
 </script>
