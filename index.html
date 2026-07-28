@@ -299,6 +299,7 @@ header.h-emb{background:var(--gn)}
     <button onclick="clearEmbTarimas()" style="background:#fff;color:var(--gn);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🗑️</button>
   </div>
   <div class="update-bar">📅 Solo 40PT y PTJAL · producto que puede viajar</div>
+  <div class="update-bar" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">🚫 No viajan: PT-S.O-071, PT-S.O-072, PT-S.O-127</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input type="search" id="search-emb" placeholder="Buscar clave o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -1610,10 +1611,12 @@ function embParseCad(s){
   return isNaN(d.getTime())?null:d.getTime();
 }
 
+const EMB_NO_VIAJA=['PT-S.O-071','PT-S.O-072','PT-S.O-127'];
 function getFiltEmb(){
   const q=sEmb.toLowerCase().trim();
   return (ACTUAL_LOADED||[]).filter(function(r){
     const alm=(r.almacen||'').toUpperCase();
+    if(EMB_NO_VIAJA.includes(String(r.clave||'').trim().toUpperCase()))return false;
     if(alm!=='40PT'&&alm!=='PTJAL')return false;
     if(fEmb!=='TODOS'&&alm!==fEmb)return false;
     if(q&&!smartMatch(r.clave,sEmb)&&!smartMatch(r.desc,sEmb))return false;
@@ -1694,6 +1697,18 @@ function renderEmb(){
   recalcEmbLetters();
 }
 
+function splitQty(total,n){
+  if(n<=0)return[];
+  const arr=[];
+  if(Number.isInteger(total)){
+    const base=Math.floor(total/n),extra=total-base*n;
+    for(let i=0;i<n;i++)arr.push(base+(i<extra?1:0));
+  }else{
+    const avg=Math.round((total/n)*100)/100;
+    for(let i=0;i<n;i++)arr.push(avg);
+  }
+  return arr;
+}
 function recalcEmbLetters(){
   let counter=0;
   const assign=[];
@@ -1702,12 +1717,14 @@ function recalcEmbLetters(){
     const n=parseInt(inp&&inp.value,10)||0;
     const span=row.querySelector('.emb-letters');
     if(n<=0){ if(span)span.textContent=''; return; }
+    const total=parseFloat(row.dataset.exist)||0;
+    const pieces=splitQty(total,n);
     const letters=[];
     for(let i=0;i<n;i++){
       counter++;
       const L=embLetter(counter);
       letters.push(L);
-      assign.push({letter:L,clave:row.dataset.clave,desc:row.dataset.desc,lote:row.dataset.lote,almacen:row.dataset.almacen,exist:row.dataset.exist});
+      assign.push({letter:L,clave:row.dataset.clave,desc:row.dataset.desc,lote:row.dataset.lote,almacen:row.dataset.almacen,exist:row.dataset.exist,piezas:pieces[i]});
     }
     if(span)span.textContent=letters.length===1?('Tarima '+letters[0]):(letters.length+' tarimas: '+letters[0]+'–'+letters[letters.length-1]);
   });
@@ -1742,9 +1759,9 @@ function openEmbResumen(){
   if(!assign.length){
     body.innerHTML='<p style="padding:24px 4px;text-align:center;color:var(--gr2);font-size:13px">Aún no has anotado cantidades de tarimas.</p>';
   }else{
-    body.innerHTML='<table class="emb-resumen-table"><thead><tr><th>Tarima</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Almacén</th></tr></thead><tbody>'+
+    body.innerHTML='<table class="emb-resumen-table"><thead><tr><th>Tarima</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Piezas</th><th>Almacén</th></tr></thead><tbody>'+
       assign.map(function(a){
-        return '<tr><td class="t-letter">'+a.letter+'</td><td class="t-clave">'+a.clave+'</td><td>'+a.desc+'</td><td>'+a.lote+'</td><td>'+a.almacen+'</td></tr>';
+        return '<tr><td class="t-letter">'+a.letter+'</td><td class="t-clave">'+a.clave+'</td><td>'+a.desc+'</td><td>'+a.lote+'</td><td>'+fmt(a.piezas)+'</td><td>'+a.almacen+'</td></tr>';
       }).join('')+
       '</tbody></table>';
   }
@@ -1767,6 +1784,7 @@ function imprimirEmbResumen(){
       '<td style="font-family:monospace;color:#1F7A4D;font-weight:700">'+a.clave+'</td>'+
       '<td>'+a.desc+'</td>'+
       '<td style="font-family:monospace;text-align:center">'+a.lote+'</td>'+
+      '<td style="text-align:center;font-weight:700">'+fmt(a.piezas)+'</td>'+
       '<td style="text-align:center">'+a.almacen+'</td></tr>';
   }).join('');
   const win=window.open('','_blank');
@@ -1777,7 +1795,7 @@ function imprimirEmbResumen(){
     'th{text-align:left;background:#f0f0f0;padding:6px 8px;border-bottom:2px solid #ccc}td{padding:6px 8px;border-bottom:1px solid #ddd}</style>'+
     '</head><body><h1>🚚 Lista de tarimas · Embarque</h1>'+
     '<div class="sub">Generado: '+new Date().toLocaleString('es-MX')+' · Total: '+assign.length+' tarimas</div>'+
-    '<table><thead><tr><th>Tarima</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Almacén</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<table><thead><tr><th>Tarima</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Piezas</th><th>Almacén</th></tr></thead><tbody>'+rows+'</tbody></table>'+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>');
   win.document.close();
