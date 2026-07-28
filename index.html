@@ -216,8 +216,6 @@ header.h-emb{background:var(--gn)}
     <div class="chip" data-f="EYEJAL">EYEJAL</div>
     <div class="chip" data-f="40EYE">40 EYE</div>
     <div class="chip" data-f="REPROJAL">REPROJAL</div>
-    <div class="chip" data-f="40PT">40 PT</div>
-    <div class="chip" data-f="PTJAL">PTJAL</div>
   </div>
 </header>
 
@@ -298,7 +296,7 @@ header.h-emb{background:var(--gn)}
     <button onclick="openEmbResumen()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">📋 Lista tarimas</button>
     <button onclick="clearEmbTarimas()" style="background:#fff;color:var(--gn);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🗑️</button>
   </div>
-  <div class="update-bar">📅 Solo 40PT y PTJAL · producto que puede viajar</div>
+  <div class="update-bar" id="emb-update-bar">📅 Cargando InventarioPT...</div>
   <div class="update-bar" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">🚫 No viajan: PT-S.O-071, PT-S.O-072, PT-S.O-127</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -422,6 +420,7 @@ const ALL_H=Object.values(hm).map(p=>({...p,totalSAI:p.lotes.reduce((s,l)=>s+(l.
 
 let tab='inv',fInv='TODOS',fAbc='TODOS',fHist='TODOS',fEmb='TODOS',sInv='',sAbc='',sHist='',sEmb='';
 const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
+let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
 let embQty={};
 try{embQty=JSON.parse(localStorage.getItem(EMB_STORAGE_KEY)||'{}');}catch(e){embQty={};}
 let embItemsCount=0,embLotesCount=0;
@@ -466,7 +465,7 @@ function switchTab(t){
   document.getElementById('fab').style.background=cols[t]||'var(--or)';
   if(t==='inv')renderInv();
   else if(t==='cic'){checkNombre();renderCic();}
-  else if(t==='emb')renderEmb();
+  else if(t==='emb')loadEmbarque();
   else renderHist();
 }
 
@@ -489,7 +488,7 @@ function smartMatch(text, query){
 
 function getFiltA(){
   const q=sInv.toLowerCase().trim();
-  const ALMS=['EYEJAL','40EYE','REPROJAL','40PT','PTJAL'];
+  const ALMS=['EYEJAL','40EYE','REPROJAL'];
   const ALL_A=window._ALL_A||[];return ALL_A.filter(p=>{
     if(ALMS.includes(fInv)&&!p.alms.includes(fInv))return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
@@ -591,6 +590,7 @@ function renderQ40(){
 const APPS_URL='https://script.google.com/macros/s/AKfycbyq1gQNwWI-hCKPdAXeBMhCHWg2NTHFzX3hW5JM2_sl4XPwv3GEWH76KYbzYMCkFXA/exec';
 const INV_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1010346624&single=true&output=csv';
 const CONFIG_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=342417661&single=true&output=csv';
+const PT_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=2121915166&single=true&output=csv';
 const AJUSTE_URL='https://script.google.com/macros/s/AKfycbyq1gQNwWI-hCKPdAXeBMhCHWg2NTHFzX3hW5JM2_sl4XPwv3GEWH76KYbzYMCkFXA/exec';
 const AJUSTE_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1589452588&single=true&output=csv';
 const HIST_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=135260082&single=true&output=csv';
@@ -1565,18 +1565,35 @@ async function loadInventario(){
     const [textInv, textConf]=await Promise.all([rInv.text(), rConf.text()]);
     ACTUAL_LOADED=parseInvCSV(textInv);
     const fechaActual=textConf.trim().split('\n')[0].replace(/^"|"$/g,'').trim();
+    fechaGlobal=fechaActual;
     console.log('Inventario cargado:', ACTUAL_LOADED.length, 'registros. Fecha:', fechaActual);
     buildAllA();
     const el=document.getElementById('inv-update-bar');
     if(el) el.textContent='📅 Datos actualizados al: '+(fechaActual||ACTUAL_LOADED.length+' registros');
     renderInv();
-    if(tab==='emb')renderEmb();
   }catch(e){
     console.error('Error cargando inventario:', e);
     ACTUAL_LOADED=[];
     buildAllA();
     renderInv();
-    if(tab==='emb')renderEmb();
+  }
+}
+
+async function loadEmbarque(){
+  const bar=document.getElementById('emb-update-bar');
+  try{
+    const r=await fetch(PT_CSV_URL+'&t='+Date.now());
+    const text=await r.text();
+    EMB_LOADED=parseInvCSV(text);
+    embLoaded=true;
+    console.log('InventarioPT cargado:', EMB_LOADED.length, 'registros.');
+    if(bar) bar.textContent='📅 InventarioPT'+(fechaGlobal?' · actualizado al '+fechaGlobal:'')+' · '+EMB_LOADED.length+' registros';
+    renderEmb();
+  }catch(e){
+    console.error('Error cargando InventarioPT:', e);
+    if(!embLoaded){ EMB_LOADED=[]; }
+    if(bar) bar.textContent='❌ Error al cargar InventarioPT. Verifica conexión.';
+    renderEmb();
   }
 }
 
@@ -1614,7 +1631,7 @@ function embParseCad(s){
 const EMB_NO_VIAJA=['PT-S.O-071','PT-S.O-072','PT-S.O-127'];
 function getFiltEmb(){
   const q=sEmb.toLowerCase().trim();
-  return (ACTUAL_LOADED||[]).filter(function(r){
+  return (EMB_LOADED||[]).filter(function(r){
     const alm=(r.almacen||'').toUpperCase();
     if(EMB_NO_VIAJA.includes(String(r.clave||'').trim().toUpperCase()))return false;
     if(alm!=='40PT'&&alm!=='PTJAL')return false;
