@@ -499,7 +499,7 @@ function getFiltA(){
   const ALL_A=window._ALL_A||[];return ALL_A.filter(p=>{
     if(ALMS.includes(fInv)&&!p.alms.includes(fInv))return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
-    if(q&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!smartMatch(p.loc||'',sInv))return false;
+    if(q&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!smartMatch(p.loc||'',sInv)&&!p.lotes.some(function(l){return smartMatch(l.lote,sInv);}))return false;
     return true;
   });
 }
@@ -1103,13 +1103,35 @@ async function loadCic(){
 
 // Schedule helpers
 function getCurrentSemana(){
-  // Returns calendar week number
+  // Deriva la semana actual de las fechas reales de planeación (SCHED),
+  // en vez de una fórmula fija que se puede desincronizar del calendario real.
+  const parseDMY=function(s){
+    if(!s)return null;
+    const p=s.split('/');
+    if(p.length<3)return null;
+    const d=new Date(+p[2],+p[1]-1,+p[0]);
+    return isNaN(d.getTime())?null:d;
+  };
+  if(SCHED && SCHED.length){
+    const hoy=new Date();
+    hoy.setHours(0,0,0,0);
+    const match=SCHED.find(function(s){
+      const ini=parseDMY(s.fecha_ini),fin=parseDMY(s.fecha_fin);
+      return ini&&fin&&hoy>=ini&&hoy<=fin;
+    });
+    if(match) return match.semana_cal;
+    const pasadas=SCHED.map(function(s){return {sem:s.semana_cal,fin:parseDMY(s.fecha_fin)};})
+      .filter(function(x){return x.fin&&x.fin<hoy;});
+    if(pasadas.length) return Math.max.apply(null,pasadas.map(function(x){return x.sem;}));
+    const todas=SCHED.map(function(s){return s.semana_cal;});
+    if(todas.length) return Math.min.apply(null,todas);
+  }
+  // Respaldo mientras SCHED aún no carga (antes de abrir Cíclicos por primera vez)
   const hoy=new Date();
-  const start=new Date('2026-06-23'); // Week 26
-  const diffMs=hoy-start;
-  const diffDays=Math.floor(diffMs/(1000*60*60*24));
+  const start=new Date('2026-06-23'); // Semana 26
+  const diffDays=Math.floor((hoy-start)/(1000*60*60*24));
   const cicloSem=Math.max(1,Math.floor(diffDays/7)+1);
-  return 25+cicloSem; // calendar week
+  return 25+cicloSem;
 }
 
 function getSchedForSemana(calWeek){
@@ -1154,7 +1176,7 @@ function getFiltCic(){
     if(fCic==='CONTADO'&&!contado)return false;
     if(fCic==='PENDIENTE'&&contado)return false;
     if(fCic==='DIFERENCIA'&&(diff===null||diff===0))return false;
-    if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic))return false;
+    if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic)&&!smartMatch(p.lote,sCic))return false;
     return true;
   });
 }
@@ -1315,6 +1337,7 @@ function _renderCicData(){
     const noneDone=contadosLotes===0;
     const badgeCls=allDone?'dias-ok':noneDone?'c40-nocount':'dias-warn';
     const badgeTxt=allDone?'✓ Completo':noneDone?'Sin contar':contadosLotes+'/'+totalLotes+' lotes';
+    const schedInfo=SCHED.find(function(s){return s.clave===g.clave;});
 
     const lotRows=g.lotes.map(function(p){
       const k=p.clave+'|'+p.lote;
@@ -1383,6 +1406,7 @@ function _renderCicData(){
         '<div>'+
           '<div style="font-size:15px;font-weight:800;color:var(--pu);font-family:monospace;letter-spacing:.3px;margin-bottom:3px">'+g.clave+'</div>'+
           '<div style="font-size:13px;font-weight:500;color:#3a3a3a;line-height:1.3">'+g.desc+'</div>'+
+          (schedInfo?'<div style="font-size:10.5px;color:#6A1B9A;font-weight:700;margin-top:3px">📅 Semana '+schedInfo.semana_cal+' · Clase '+schedInfo.abc+'</div>':'')+
         '</div>'+
         '<span class="'+(allDone?'dias-badge dias-ok':noneDone?'c40-nocount':'dias-badge dias-warn')+'">'+badgeTxt+'</span>'+
       '</div>'+
@@ -1672,7 +1696,7 @@ function getFiltEmb(){
     if(EMB_NO_VIAJA.includes(String(r.clave||'').trim().toUpperCase()))return false;
     if(alm!=='40PT'&&alm!=='PTJAL')return false;
     if(fEmb!=='TODOS'&&alm!==fEmb)return false;
-    if(q&&!smartMatch(r.clave,sEmb)&&!smartMatch(r.desc,sEmb))return false;
+    if(q&&!smartMatch(r.clave,sEmb)&&!smartMatch(r.desc,sEmb)&&!smartMatch(r.lote,sEmb))return false;
     return true;
   });
 }
