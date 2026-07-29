@@ -275,6 +275,8 @@ header.h-emb{background:var(--gn)}
     <div class="chip" data-f="CONTADO">✅ Contados</div>
     <div class="chip" data-f="PENDIENTE">⏳ Pendientes</div>
     <div class="chip" data-f="DIFERENCIA">⚠️ Con diferencia</div>
+    <div class="chip" data-f="ATRASADO">🔴 Atrasados</div>
+    <div class="chip" data-f="NUEVO">🆕 Sin clasificar</div>
   </div>
 </header>
 
@@ -1080,15 +1082,40 @@ function parseHistCSV(text){
   return rows;
 }
 
+function parseAjustesCSV(text){
+  const lines=text.trim().split('\n');
+  const rows=[];
+  const clean=function(s){return (s||'').replace(/^"|"$/g,'').trim();};
+  for(let i=1;i<lines.length;i++){
+    if(!lines[i].trim())continue;
+    const cols=[];
+    let cur='',inQ=false;
+    for(let c=0;c<lines[i].length;c++){
+      if(lines[i][c]==='"'){inQ=!inQ;}
+      else if(lines[i][c]===','&&!inQ){cols.push(cur.trim());cur='';}
+      else{cur+=lines[i][c];}
+    }
+    cols.push(cur.trim());
+    if(cols.length<6)continue;
+    rows.push({
+      fecha:clean(cols[0]),clave:clean(cols[1]),lote:clean(cols[2]),
+      cantidadContada:clean(cols[3]),cantidadSAI:clean(cols[4]),
+      registrado:clean(cols[5]),causa:clean(cols[6]||'')
+    });
+  }
+  return rows;
+}
+
 async function loadCic(){
   const loadEl=document.getElementById('cic-loading');
   if(loadEl) loadEl.classList.remove('hidden');
   try{
-    const [rCat,rHist]=await Promise.all([fetch(CIC_URL),fetch(HIST_URL)]);
-    const [textCat,textHist]=await Promise.all([rCat.text(),rHist.text()]);
+    const [rCat,rHist,rAj]=await Promise.all([fetch(CIC_URL),fetch(HIST_URL),fetch(AJUSTE_CSV)]);
+    const [textCat,textHist,textAj]=await Promise.all([rCat.text(),rHist.text(),rAj.text()]);
     cicData=parseCicCSV(textCat);
     buildSchedFromCic();
     cicHist=parseHistCSV(textHist);
+    cicAjustes=parseAjustesCSV(textAj);
     cicLoaded=true;
     document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos en historial';
     if(document.getElementById('cic-loading')) document.getElementById('cic-loading').classList.add('hidden');
@@ -1140,9 +1167,33 @@ function getSchedForSemana(calWeek){
 
 
 
+function calcMetaSemanal(){
+  const activeData=cicData.filter(function(p){return p.estatus!=='Agotado';});
+  const contadosSet=new Set(cicHist.map(function(h){return h.clave+'|'+h.lote;}));
+  const loteKeysByClave={};
+  activeData.forEach(function(p){
+    if(!loteKeysByClave[p.clave])loteKeysByClave[p.clave]=[];
+    loteKeysByClave[p.clave].push(p.clave+'|'+p.lote);
+  });
+  const claves=Object.keys(loteKeysByClave);
+  const totalClaves=claves.length;
+  const clavesCompletas=claves.filter(function(c){
+    return loteKeysByClave[c].every(function(k){return contadosSet.has(k);});
+  });
+  const pendientes=totalClaves-clavesCompletas.length;
+  const semanaActual=getCurrentSemana();
+  const semanasSched=SCHED.map(function(s){return s.semana_cal;});
+  const semanaTope=semanasSched.length?Math.max.apply(null,semanasSched):semanaActual;
+  const semanasRestantes=Math.max(1,semanaTope-semanaActual+1);
+  const meta=Math.ceil(pendientes/semanasRestantes);
+  return {pendientes:pendientes,totalClaves:totalClaves,semanasRestantes:semanasRestantes,semanaTope:semanaTope,meta:meta};
+}
+
 function renderSchedHeader(calWeek, contadosSet){
   const items=getSchedForSemana(calWeek);
-  if(!items.length) return '<div class="sched-header"><div class="sched-semana">📅 Semana '+calWeek+' — sin claves asignadas</div></div>';
+  const meta=calcMetaSemanal();
+  const metaHtml='<div style="font-size:11px;color:#6A1B9A;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px dashed #e0c8f0">🎯 Meta recalculada: '+meta.meta+' códigos/semana para terminar en semana '+meta.semanaTope+' <span style="font-weight:400;color:#7a7a7a">('+meta.pendientes+' pendientes de '+meta.totalClaves+' · '+meta.semanasRestantes+' semanas restantes)</span></div>';
+  if(!items.length) return '<div class="sched-header"><div class="sched-semana">📅 Semana '+calWeek+' — sin claves asignadas</div>'+metaHtml+'</div>';
   const contadosEnSemana=items.filter(function(s){
     return Array.from(contadosSet).some(function(k){return k.startsWith(s.clave+'|');});
   }).length;
@@ -1154,6 +1205,7 @@ function renderSchedHeader(calWeek, contadosSet){
     '<div class="sched-fechas">'+items[0].fecha_ini+' – '+items[0].fecha_fin+' · '+items.length+' claves asignadas</div>'+
     '<div class="sched-progress-wrap"><div class="sched-progress-bar" style="width:'+pct+'%"></div></div>'+
     '<div class="sched-progress-txt"><span>'+contadosEnSemana+' de '+items.length+' contadas</span><span>'+pct+'% completado</span></div>'+
+    metaHtml+
   '</div>';
 }
 
@@ -1163,9 +1215,18 @@ function getFiltCic(){
   cicHist.forEach(function(h){const k=h.clave+'|'+h.lote;if(!histMap[k])histMap[k]=[];histMap[k].push(h);});
   const semActual=fCicSemana===0?getCurrentSemana():fCicSemana;
   const semClaves=new Set(getSchedForSemana(semActual).map(function(s){return s.clave;}));
+  const spanTodasSemanas=fCic==='ATRASADO'||fCic==='NUEVO';
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const parseDMY=function(s){
+    if(!s)return null;
+    const p=s.split('/');
+    if(p.length<3)return null;
+    const d=new Date(+p[2],+p[1]-1,+p[0]);
+    return isNaN(d.getTime())?null:d;
+  };
   return cicData.filter(function(p){
     if(p.estatus==='Agotado'&&!q)return false;
-    if(!q&&!semClaves.has(p.clave))return false;
+    if(!q&&!spanTodasSemanas&&!semClaves.has(p.clave))return false;
     const k=p.clave+'|'+p.lote;
     const hist=histMap[k]||[];
     const contado=hist.length>0;
@@ -1176,6 +1237,16 @@ function getFiltCic(){
     if(fCic==='CONTADO'&&!contado)return false;
     if(fCic==='PENDIENTE'&&contado)return false;
     if(fCic==='DIFERENCIA'&&(diff===null||diff===0))return false;
+    if(fCic==='NUEVO'||fCic==='ATRASADO'){
+      const schedInfo=SCHED.find(function(s){return s.clave===p.clave;});
+      if(fCic==='NUEVO'&&schedInfo)return false;
+      if(fCic==='ATRASADO'){
+        if(!schedInfo)return false;
+        const fin=parseDMY(schedInfo.fecha_fin);
+        if(!fin||fin>=hoy)return false;
+        if(contado)return false;
+      }
+    }
     if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic)&&!smartMatch(p.lote,sCic))return false;
     return true;
   });
@@ -1184,6 +1255,31 @@ function getFiltCic(){
 function renderCic(){
   loadCic();
   if(cicLoaded)_renderCicData();
+}
+
+function parseFechaSimple(s){
+  if(!s)return null;
+  const datePart=s.split(',')[0].trim();
+  const p=datePart.split('/');
+  if(p.length<3)return null;
+  const d=new Date(+p[2],+p[1]-1,+p[0]);
+  return isNaN(d.getTime())?null:d;
+}
+function getUltimoAjusteFecha(clave,lote){
+  let latest=null;
+  cicAjustes.forEach(function(a){
+    if(a.clave!==clave||a.lote!==lote)return;
+    const d=parseFechaSimple(a.fecha);
+    if(d&&(!latest||d>latest))latest=d;
+  });
+  return latest;
+}
+function bloqueadoHasta(clave,lote){
+  const u=getUltimoAjusteFecha(clave,lote);
+  if(!u)return null;
+  const limite=new Date(u.getFullYear(),u.getMonth()+3,u.getDate());
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  return hoy<limite?limite:null;
 }
 
 function _renderCicData(){
@@ -1371,18 +1467,22 @@ function _renderCicData(){
           '</div>'+histRows+
         '</div>':'';
 
-      // Check if semana is closed
+      // Check if semana is closed o si sigue bloqueado por un ajuste reciente (<3 meses)
       const lotSched=SCHED.find(function(s){return s.clave===p.clave;});
       const semCerradaLote=lotSched?cicAjustes.some(function(a){return a.causa==='SEMANA_CERRADA_'+lotSched.semana_cal;}):false;
+      const bloqueoAjuste=bloqueadoHasta(p.clave,p.lote);
+      const lockedLote=semCerradaLote||!!bloqueoAjuste;
+      const bloqueoTxt=bloqueoAjuste?bloqueoAjuste.toLocaleDateString('es-MX'):'';
 
       const agotado=p.estatus==='Agotado';
       return '<div style="display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap'+(agotado?';opacity:.55':'')+'">'+
         '<div>'+
-          '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+(agotado?' <span class="c40-nocount">Agotado</span>':'')+'</div>'+
+          '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+(agotado?' <span class="c40-nocount">Agotado</span>':'')+(!agotado&&bloqueoAjuste?' <span class="c40-nocount" style="background:#FFEBEE;color:#C62828">Bloqueado</span>':'')+'</div>'+
           '<div style="font-size:12px;color:#7a7a7a">SAI: '+p.existSAI.toLocaleString('en-US')+' '+p.unidad+
             (contado?' &nbsp;<span class="'+diffCls+'">→ '+cantNum.toLocaleString('en-US')+(diffStr?' ('+diffStr+')':'')+'</span>':'')+
           '</div>'+
           (contado?'<div style="font-size:10px;color:#b0b0b0;margin-top:2px">'+ultimo.fecha+(ultimo.registrado?' · '+ultimo.registrado:'')+'</div>':'')+
+          (bloqueoAjuste&&!agotado?'<div style="font-size:10px;color:#C62828;margin-top:2px">🔒 Ya se ajustó — bloqueado para recontar hasta '+bloqueoTxt+'</div>':'')+
         '</div>'+
         (agotado?
           '<div style="grid-column:2/4;font-size:11px;color:#9e9e9e;text-align:center">Ya no está en Inventario</div>'
@@ -1391,10 +1491,10 @@ function _renderCicData(){
             'value="'+(contado?cantNum:'')+'" '+
             'data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'" '+
             'style="width:90px;padding:8px;font-size:15px;text-align:center;font-weight:600"'+
-            (semCerradaLote?' readonly':'')+'>'+ 
-          (!semCerradaLote?'<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)" '+
+            (lockedLote?' readonly':'')+'>'+ 
+          (!lockedLote?'<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)" '+
             'style="padding:8px;font-size:16px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center">✓</button>':
-            '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#2E7D32;font-size:18px">🔒</div>')
+            '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:'+(semCerradaLote?'#2E7D32':'#C62828')+';font-size:18px" title="'+(semCerradaLote?'Semana cerrada':'Bloqueado hasta '+bloqueoTxt)+'">🔒</div>')
         )+
         '<div id="msg-'+cardId+'" style="grid-column:1/-1;font-size:10px;color:#2E7D32;margin-top:-4px;padding-bottom:2px"></div>'+
         histSection+
