@@ -277,6 +277,7 @@ header.h-emb{background:var(--gn)}
     <div class="chip" data-f="DIFERENCIA">⚠️ Con diferencia</div>
     <div class="chip" data-f="ATRASADO">🔴 Atrasados</div>
     <div class="chip" data-f="NUEVO">🆕 Sin clasificar</div>
+    <div class="chip" data-f="INCIDENCIA">⚠️ Incidencias</div>
   </div>
 </header>
 
@@ -347,6 +348,7 @@ header.h-emb{background:var(--gn)}
   <div class="kpi"><div class="kpi-lbl">Contados</div><div class="kpi-val" style="color:var(--pu)" id="ci-contados">—</div><div class="kpi-sub">de <span id="ci-total">—</span> lotes</div></div>
   <div class="kpi"><div class="kpi-lbl">Con diferencia</div><div class="kpi-val rv" id="ci-dif">—</div><div class="kpi-sub">lotes</div></div>
   <div class="kpi"><div class="kpi-lbl">Coinciden</div><div class="kpi-val gv" id="ci-ok">—</div><div class="kpi-sub">lotes</div></div>
+  <div class="kpi"><div class="kpi-lbl">Incidencias</div><div class="kpi-val rv" id="ci-incid">—</div><div class="kpi-sub">2+ ajustes</div></div>
 
 </div>
 
@@ -1215,7 +1217,7 @@ function getFiltCic(){
   cicHist.forEach(function(h){const k=h.clave+'|'+h.lote;if(!histMap[k])histMap[k]=[];histMap[k].push(h);});
   const semActual=fCicSemana===0?getCurrentSemana():fCicSemana;
   const semClaves=new Set(getSchedForSemana(semActual).map(function(s){return s.clave;}));
-  const spanTodasSemanas=fCic==='ATRASADO'||fCic==='NUEVO';
+  const spanTodasSemanas=fCic==='ATRASADO'||fCic==='NUEVO'||fCic==='INCIDENCIA';
   const hoy=new Date(); hoy.setHours(0,0,0,0);
   const parseDMY=function(s){
     if(!s)return null;
@@ -1247,6 +1249,7 @@ function getFiltCic(){
         if(contado)return false;
       }
     }
+    if(fCic==='INCIDENCIA'&&contarAjustes(p.clave,p.lote)<2)return false;
     if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic)&&!smartMatch(p.lote,sCic))return false;
     return true;
   });
@@ -1273,6 +1276,13 @@ function getUltimoAjusteFecha(clave,lote){
     if(d&&(!latest||d>latest))latest=d;
   });
   return latest;
+}
+function contarAjustes(clave,lote){
+  let n=0;
+  cicAjustes.forEach(function(a){
+    if(a.clave===clave&&a.lote===lote)n++;
+  });
+  return n;
 }
 function bloqueadoHasta(clave,lote){
   const u=getUltimoAjusteFecha(clave,lote);
@@ -1330,6 +1340,9 @@ function _renderCicData(){
   document.getElementById('ci-total').textContent=activeData.length;
   document.getElementById('ci-dif').textContent=conDiff;
   document.getElementById('ci-ok').textContent=ok;
+  const incidCount=activeData.filter(function(p){return contarAjustes(p.clave,p.lote)>=2;}).length;
+  const ciIncidEl=document.getElementById('ci-incid');
+  if(ciIncidEl)ciIncidEl.textContent=incidCount;
   document.getElementById('bar-cic').textContent=items.length+' artículos · '+contados+' lotes contados de '+activeData.length+' totales';
 
   // Confiabilidad = cobertura del ciclo (cuántos lotes ya fueron contados)
@@ -1473,16 +1486,18 @@ function _renderCicData(){
       const bloqueoAjuste=bloqueadoHasta(p.clave,p.lote);
       const lockedLote=semCerradaLote||!!bloqueoAjuste;
       const bloqueoTxt=bloqueoAjuste?bloqueoAjuste.toLocaleDateString('es-MX'):'';
+      const numAjustes=contarAjustes(p.clave,p.lote);
 
       const agotado=p.estatus==='Agotado';
       return '<div style="display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap'+(agotado?';opacity:.55':'')+'">'+
         '<div>'+
-          '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+(agotado?' <span class="c40-nocount">Agotado</span>':'')+(!agotado&&bloqueoAjuste?' <span class="c40-nocount" style="background:#FFEBEE;color:#C62828">Bloqueado</span>':'')+'</div>'+
+          '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+(agotado?' <span class="c40-nocount">Agotado</span>':'')+(!agotado&&bloqueoAjuste?' <span class="c40-nocount" style="background:#FFEBEE;color:#C62828">Bloqueado</span>':'')+(!agotado&&numAjustes>=2?' <span class="c40-nocount" style="background:#FFF3E0;color:#E65100">⚠️ Incidencia ('+numAjustes+' ajustes)</span>':'')+'</div>'+
           '<div style="font-size:12px;color:#7a7a7a">SAI: '+p.existSAI.toLocaleString('en-US')+' '+p.unidad+
             (contado?' &nbsp;<span class="'+diffCls+'">→ '+cantNum.toLocaleString('en-US')+(diffStr?' ('+diffStr+')':'')+'</span>':'')+
           '</div>'+
           (contado?'<div style="font-size:10px;color:#b0b0b0;margin-top:2px">'+ultimo.fecha+(ultimo.registrado?' · '+ultimo.registrado:'')+'</div>':'')+
           (bloqueoAjuste&&!agotado?'<div style="font-size:10px;color:#C62828;margin-top:2px">🔒 Ya se ajustó — bloqueado para recontar hasta '+bloqueoTxt+'</div>':'')+
+          (numAjustes>=2&&!agotado?'<div style="font-size:10px;color:#E65100;font-weight:700;margin-top:2px">⚠️ '+numAjustes+'º ajuste en este lote — repórtalo a jefe de almacén</div>':'')+
         '</div>'+
         (agotado?
           '<div style="grid-column:2/4;font-size:11px;color:#9e9e9e;text-align:center">Ya no está en Inventario</div>'
