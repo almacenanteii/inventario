@@ -1345,16 +1345,22 @@ function _renderCicData(){
   if(ciIncidEl)ciIncidEl.textContent=incidCount;
   document.getElementById('bar-cic').textContent=items.length+' artículos · '+contados+' lotes contados de '+activeData.length+' totales';
 
-  // Confiabilidad = cobertura del ciclo (cuántos lotes ya fueron contados)
+  // Confiabilidad = cobertura del ciclo (cuántos lotes YA CLASIFICADOS/programados
+  // ya fueron contados). Se excluyen del denominador los lotes "Sin clasificar"
+  // (sin ABC/Semana asignada) porque esos todavía no entran a la rotación y no
+  // deberían restar cobertura hasta que se clasifiquen.
   const confPctEl=document.getElementById('ci-conf-pct');
   const confLblEl=document.getElementById('ci-conf-lbl');
   const confSubEl=document.getElementById('ci-conf-sub');
   if(confPctEl){
-    const totalLotes=activeData.length;
-    const cobertura=totalLotes>0?Math.round(contados/totalLotes*100):0;
+    const scheduledClaveSet=new Set(SCHED.map(function(s){return s.clave;}));
+    const cicloLotes=activeData.filter(function(p){return scheduledClaveSet.has(p.clave);});
+    const totalLotes=cicloLotes.length;
+    const contadosCiclo=cicloLotes.filter(function(p){return contadosSet.has(p.clave+'|'+p.lote);}).length;
+    const cobertura=totalLotes>0?Math.round(contadosCiclo/totalLotes*100):0;
     confPctEl.textContent=cobertura+'%';
-    confSubEl.textContent=contados+' de '+totalLotes+' lotes contados en el ciclo';
-    if(contados===0){
+    confSubEl.textContent=contadosCiclo+' de '+totalLotes+' lotes contados en el ciclo ('+(activeData.length-totalLotes)+' sin clasificar, no cuentan aquí)';
+    if(contadosCiclo===0){
       confPctEl.style.color='#7a7a7a';
       confLblEl.textContent='Sin conteos aún';confLblEl.style.color='#7a7a7a';
     } else if(cobertura>=80){
