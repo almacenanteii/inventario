@@ -1359,7 +1359,8 @@ function _renderCicData(){
     const contadosCiclo=cicloLotes.filter(function(p){return contadosSet.has(p.clave+'|'+p.lote);}).length;
     const cobertura=totalLotes>0?Math.round(contadosCiclo/totalLotes*100):0;
     confPctEl.textContent=cobertura+'%';
-    confSubEl.textContent=contadosCiclo+' de '+totalLotes+' lotes contados en el ciclo ('+(activeData.length-totalLotes)+' sin clasificar, no cuentan aquí)';
+    const sinClasificar=activeData.length-totalLotes;
+    confSubEl.textContent=contadosCiclo+' de '+totalLotes+' lotes contados en el ciclo'+(sinClasificar>0?' ('+sinClasificar+' sin clasificar, no cuentan aquí)':'');
     if(contadosCiclo===0){
       confPctEl.style.color='#7a7a7a';
       confLblEl.textContent='Sin conteos aún';confLblEl.style.color='#7a7a7a';
