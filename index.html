@@ -1112,7 +1112,7 @@ async function loadCic(){
   const loadEl=document.getElementById('cic-loading');
   if(loadEl) loadEl.classList.remove('hidden');
   try{
-    const [rCat,rHist,rAj]=await Promise.all([fetch(CIC_URL),fetch(HIST_URL),fetch(AJUSTE_CSV)]);
+    const [rCat,rHist,rAj]=await Promise.all([fetch(CIC_URL+'&t='+Date.now()),fetch(HIST_URL+'&t='+Date.now()),fetch(AJUSTE_CSV+'&t='+Date.now())]);
     const [textCat,textHist,textAj]=await Promise.all([rCat.text(),rHist.text(),rAj.text()]);
     cicData=parseCicCSV(textCat);
     buildSchedFromCic();
