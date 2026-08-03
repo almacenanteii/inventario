@@ -1184,9 +1184,28 @@ function calcMetaSemanal(){
   });
   const pendientes=totalClaves-clavesCompletas.length;
   const semanaActual=getCurrentSemana();
-  const semanasSched=SCHED.map(function(s){return s.semana_cal;});
-  const semanaTope=semanasSched.length?Math.max.apply(null,semanasSched):semanaActual;
-  const semanasRestantes=Math.max(1,semanaTope-semanaActual+1);
+  // OJO: semana_cal es solo el número de semana ISO (1-52), sin año. Si el
+  // programa cruza fin de año (ej. clase C arranca en 2027), NO se puede
+  // comparar semana_cal como número plano porque "semana 13" de 2027 es
+  // más tarde que "semana 48" de 2026 pero 13 < 48. Por eso aquí se usa
+  // la fecha real (fecha_fin) del último bloque programado, no el número.
+  const parseDMYlocal=function(s){
+    if(!s)return null;
+    const p=s.split('/');
+    if(p.length<3)return null;
+    const d=new Date(+p[2],+p[1]-1,+p[0]);
+    return isNaN(d.getTime())?null:d;
+  };
+  const fechasFin=SCHED.map(function(s){return parseDMYlocal(s.fecha_fin);}).filter(function(d){return d;});
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  let semanasRestantes=1, semanaTope=semanaActual;
+  if(fechasFin.length){
+    const fechaTope=new Date(Math.max.apply(null,fechasFin.map(function(d){return d.getTime();})));
+    const diasRestantes=Math.round((fechaTope-hoy)/(1000*60*60*24));
+    semanasRestantes=Math.max(1,Math.ceil((diasRestantes+1)/7));
+    const topeEntry=SCHED.find(function(s){const f=parseDMYlocal(s.fecha_fin);return f&&f.getTime()===fechaTope.getTime();});
+    semanaTope=topeEntry?topeEntry.semana_cal:semanaActual;
+  }
   const meta=Math.ceil(pendientes/semanasRestantes);
   return {pendientes:pendientes,totalClaves:totalClaves,semanasRestantes:semanasRestantes,semanaTope:semanaTope,meta:meta};
 }
