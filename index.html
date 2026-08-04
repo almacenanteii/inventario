@@ -198,15 +198,6 @@ header.h-emb{background:var(--gn)}
 .btn-emb-close{background:var(--bg);color:var(--gr)}
 .btn-emb-print{background:var(--gn);color:#fff}
 
-/* Impresión de carátulas: oculto siempre en pantalla; en impresión se
-   muestra solo esto y se oculta todo lo demás (ver body.printing-caratula). */
-#print-caratula-content{display:none}
-@media print{
-  @page{size:letter;margin:15mm}
-  body.printing-caratula > *{display:none!important}
-  body.printing-caratula #print-caratula-content{display:block!important;position:fixed;top:0;left:0;width:100%;padding:40px;box-sizing:border-box;background:#fff}
-  body.printing-caratula #print-caratula-content .linea{font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word;color:#000;font-family:Arial,Helvetica,sans-serif}
-}
 </style>
 </head>
 <body>
@@ -441,7 +432,6 @@ header.h-emb{background:var(--gn)}
 
 <button class="fab" id="fab" style="background:var(--or)" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑ Subir</button>
 
-<div id="print-caratula-content"></div>
 
 <script>
 const ACTUAL=[];
@@ -2272,30 +2262,19 @@ function imprimirCaratula(btn){
   const clave=row.dataset.clave,desc=row.dataset.desc,lote=row.dataset.lote,almacen=row.dataset.almacen;
   const uEmpaque=row.dataset.uempaque?parseFloat(row.dataset.uempaque):null;
 
-  // window.open y el iframe oculto NO son confiables para imprimir en iOS
-  // (dejan la pantalla en blanco o varado). La técnica que sí funciona en
-  // todos lados: imprimir la MISMA página, ocultando temporalmente todo lo
-  // demás con CSS de impresión y mostrando solo la carátula. Nunca se
-  // navega a ningún lado, así que no hay a dónde quedarse "varado".
-  const target=document.getElementById('print-caratula-content');
-  if(target){
-    target.innerHTML=
+  const win=window.open('','_blank');
+  if(win){
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
+      '<style>@page{size:letter;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
+      '.linea{font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word}</style>'+
+      '</head><body>'+
       '<div class="linea">CLAVE: '+clave+'</div>'+
       '<div class="linea">LOTE: '+lote+'</div>'+
       '<div class="linea">CANTIDAD: '+fmt(v)+'</div>'+
-      '<div class="linea">U EMPAQUE: '+(uEmpaque?fmt(uEmpaque):'—')+' PZ</div>';
-    document.body.classList.add('printing-caratula');
-    const limpiar=function(){
-      document.body.classList.remove('printing-caratula');
-      window.onafterprint=null;
-    };
-    window.onafterprint=limpiar;
-    setTimeout(function(){
-      window.print();
-      // Respaldo por si el navegador no dispara onafterprint (pasa en algunos
-      // navegadores de Android/iOS más viejos): se limpia solo de todas formas.
-      setTimeout(limpiar, 2000);
-    }, 50);
+      '<div class="linea">U EMPAQUE: '+(uEmpaque?fmt(uEmpaque):'—')+' PZ</div>'+
+      '<script>window.onload=function(){window.print();}<\/script>'+
+      '</body></html>');
+    win.document.close();
   }
 
   const key=clave+'|'+lote+'|'+almacen;
