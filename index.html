@@ -2100,30 +2100,33 @@ function parsePzasCSV(text){
 
 async function loadCaratulas(){
   const bar=document.getElementById('car-update-bar');
+  // Los dos fetches son independientes a propósito: si PzasXCaja todavía no
+  // está publicado (o el GID está mal), NO debe tumbar la carga de
+  // InventarioPT — simplemente "U. Empaque" sale en blanco hasta que se
+  // configure, pero el resto de la pestaña sigue funcionando.
   try{
-    const [rPt,rPzas]=await Promise.all([
-      fetch(PT_CSV_URL+'&t='+Date.now()),
-      fetch(PZASXCAJA_CSV_URL+'&t='+Date.now())
-    ]);
+    const rPt=await fetch(PT_CSV_URL+'&t='+Date.now());
     const textPt=await rPt.text();
     CAR_LOADED=parseInvCSV(textPt);
     carLoaded=true;
-    try{
-      const textPzas=await rPzas.text();
-      PZAS_MAP=parsePzasCSV(textPzas);
-    }catch(e){
-      console.error('Error cargando PzasXCaja (revisa que la pestaña esté publicada y el GID en PZASXCAJA_CSV_URL sea correcto):', e);
-      PZAS_MAP={};
-    }
-    console.log('Carátulas: InventarioPT cargado', CAR_LOADED.length, 'registros. PzasXCaja:', Object.keys(PZAS_MAP).length, 'claves.');
     if(bar) bar.textContent='📅 InventarioPT'+(fechaGlobal?' · actualizado al '+fechaGlobal:'')+' · '+CAR_LOADED.length+' registros';
-    renderCar();
   }catch(e){
-    console.error('Error cargando Carátulas:', e);
+    console.error('Error cargando InventarioPT para Carátulas:', e);
     if(!carLoaded){ CAR_LOADED=[]; }
     if(bar) bar.textContent='❌ Error al cargar InventarioPT. Verifica conexión.';
-    renderCar();
   }
+
+  try{
+    const rPzas=await fetch(PZASXCAJA_CSV_URL+'&t='+Date.now());
+    const textPzas=await rPzas.text();
+    PZAS_MAP=parsePzasCSV(textPzas);
+    console.log('PzasXCaja cargado:', Object.keys(PZAS_MAP).length, 'claves.');
+  }catch(e){
+    console.error('Error cargando PzasXCaja (revisa que la pestaña esté publicada y el GID en PZASXCAJA_CSV_URL sea correcto). "U. Empaque" saldrá en blanco mientras tanto:', e);
+    PZAS_MAP={};
+  }
+
+  renderCar();
 }
 
 function getFiltCar(){
