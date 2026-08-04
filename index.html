@@ -517,8 +517,10 @@ function renderInv(){
   const list=document.getElementById('list-inv'),empty=document.getElementById('empty-inv');
   if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-inv').textContent=sInv;return;}
   empty.classList.add('hidden');
-  const order=['EYE','GRA','MAQ','PT','GTO'],groups={};
+  const groups={};
   items.forEach(p=>{if(!groups[p.clase])groups[p.clase]=[];groups[p.clase].push(p);});
+  const orderBaseInv=['EYE','GRA','MAQ','PT','GTO'];
+  const order=orderBaseInv.concat(Object.keys(groups).filter(c=>orderBaseInv.indexOf(c)===-1).sort());
   list.innerHTML=order.filter(c=>groups[c]).map(c=>'<div class="sec-hdr oh"><span class="sec-badge sb-or">'+c+'</span>'+groups[c].length+' artículos</div>'+
     groups[c].map(p=>{
       const locH=p.loc?`<span class="loc-badge">📍 ${p.loc}</span>`:'';
@@ -1705,8 +1707,10 @@ function renderHist(){
   const list=document.getElementById('list-hist'),empty=document.getElementById('empty-hist');
   if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-hist').textContent=sHist;return;}
   empty.classList.add('hidden');
-  const order=['EYE','PT','MAQ'],groups={};
+  const groups={};
   items.forEach(function(p){if(!groups[p.clase])groups[p.clase]=[];groups[p.clase].push(p);});
+  const orderBaseHist=['EYE','PT','MAQ'];
+  const order=orderBaseHist.concat(Object.keys(groups).filter(function(c){return orderBaseHist.indexOf(c)===-1;}).sort());
   list.innerHTML=order.filter(function(c){return groups[c];}).map(function(c){
     return '<div class="sec-hdr bh"><span class="sec-badge sb-bl">'+c+'</span>'+groups[c].length+' artículos</div>'+
     groups[c].map(function(p){
@@ -1866,9 +1870,14 @@ function buildEmbGroups(){
 
 function renderEmb(){
   const groups=buildEmbGroups();
-  const order=['EYE','GRA','MAQ','PT','GTO'];
   const byClase={};
   groups.forEach(function(g){ if(!byClase[g.clase])byClase[g.clase]=[]; byClase[g.clase].push(g); });
+  // Orden preferido para las clases conocidas; cualquier clase nueva que
+  // aparezca en los datos (ej. MAQRET) se agrega sola al final en vez de
+  // desaparecer de la lista.
+  const orderBase=['EYE','GRA','MAQ','PT','GTO'];
+  const orderExtra=Object.keys(byClase).filter(function(c){return orderBase.indexOf(c)===-1;}).sort();
+  const order=orderBase.concat(orderExtra);
   order.forEach(function(c){ if(byClase[c])byClase[c].sort(function(a,b){return a.clave.localeCompare(b.clave);}); });
 
   embItemsCount=groups.length;
