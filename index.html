@@ -328,7 +328,7 @@ header.h-emb{background:var(--gn)}
   <div class="update-bar" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">Todos los códigos de PTJAL y PTFGUAD, aún no han viajado</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="search" id="search-car" placeholder="Buscar clave o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <input type="search" id="search-car" placeholder="Buscar clave, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
     <button class="clr" id="clr-car" onclick="document.getElementById('search-car').value='';sCar='';renderCar();">✕</button>
   </div>
 </header>
@@ -2258,33 +2258,28 @@ function imprimirCaratula(btn){
   const clave=row.dataset.clave,desc=row.dataset.desc,lote=row.dataset.lote,almacen=row.dataset.almacen;
   const uEmpaque=row.dataset.uempaque?parseFloat(row.dataset.uempaque):null;
 
-  // En celulares (sobre todo iOS), window.open('_blank') a veces NAVEGA la
-  // pestaña actual en vez de abrir una nueva, y al terminar de imprimir te
-  // deja varado ahí sin poder volver a la app. Para evitarlo, la carátula
-  // se imprime desde un iframe oculto dentro de la misma página: nunca
-  // sales de la app, solo se abre el diálogo de impresión.
-  const printFrame=document.createElement('iframe');
-  printFrame.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
-  document.body.appendChild(printFrame);
-  const frameDoc=printFrame.contentWindow.document;
-  frameDoc.open();
-  frameDoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
-    '<style>@page{size:letter;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
-    '.linea{font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word}</style>'+
-    '</head><body>'+
-    '<div class="linea">CLAVE: '+clave+'</div>'+
-    '<div class="linea">LOTE: '+lote+'</div>'+
-    '<div class="linea">CANTIDAD: '+fmt(v)+'</div>'+
-    '<div class="linea">U EMPAQUE: '+(uEmpaque?fmt(uEmpaque):'—')+' PZ</div>'+
-    '</body></html>');
-  frameDoc.close();
-  setTimeout(function(){
-    try{
-      printFrame.contentWindow.focus();
-      printFrame.contentWindow.print();
-    }catch(e){console.error('Error al imprimir carátula:', e);}
-    setTimeout(function(){ if(printFrame.parentNode) printFrame.parentNode.removeChild(printFrame); }, 1500);
-  }, 150);
+  // El iframe oculto no imprimía de forma confiable en iOS (pantalla en
+  // blanco). Se regresa a window.open, que sí imprimía bien la carátula
+  // (confirmado), pero ahora con un botón visible "Cerrar y volver" en la
+  // propia hoja impresa (se oculta al imprimir) para que nunca te quedes
+  // varado sin poder regresar a la app.
+  const win=window.open('','_blank');
+  if(win){
+    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
+      '<style>@page{size:letter;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
+      '.linea{font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word}'+
+      '.cerrar-btn{position:fixed;top:16px;right:16px;background:#C62828;color:#fff;border:none;border-radius:10px;padding:14px 20px;font-size:16px;font-weight:800;font-family:Arial,Helvetica,sans-serif}'+
+      '@media print{.cerrar-btn{display:none}}</style>'+
+      '</head><body>'+
+      '<button class="cerrar-btn" onclick="window.close()">✕ Cerrar y volver</button>'+
+      '<div class="linea">CLAVE: '+clave+'</div>'+
+      '<div class="linea">LOTE: '+lote+'</div>'+
+      '<div class="linea">CANTIDAD: '+fmt(v)+'</div>'+
+      '<div class="linea">U EMPAQUE: '+(uEmpaque?fmt(uEmpaque):'—')+' PZ</div>'+
+      '<script>window.onload=function(){window.print();};window.onafterprint=function(){window.close();};<\/script>'+
+      '</body></html>');
+    win.document.close();
+  }
 
   const key=clave+'|'+lote+'|'+almacen;
   if(!carQty[key])carQty[key]=[];
