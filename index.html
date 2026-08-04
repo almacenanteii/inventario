@@ -2258,20 +2258,33 @@ function imprimirCaratula(btn){
   const clave=row.dataset.clave,desc=row.dataset.desc,lote=row.dataset.lote,almacen=row.dataset.almacen;
   const uEmpaque=row.dataset.uempaque?parseFloat(row.dataset.uempaque):null;
 
-  const win=window.open('','_blank');
-  if(win){
-    win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
-      '<style>@page{size:letter;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
-      '.linea{font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word}</style>'+
-      '</head><body>'+
-      '<div class="linea">CLAVE: '+clave+'</div>'+
-      '<div class="linea">LOTE: '+lote+'</div>'+
-      '<div class="linea">CANTIDAD: '+fmt(v)+'</div>'+
-      '<div class="linea">U EMPAQUE: '+(uEmpaque?fmt(uEmpaque):'—')+' PZ</div>'+
-      '<script>window.onload=function(){window.print();}<\/script>'+
-      '</body></html>');
-    win.document.close();
-  }
+  // En celulares (sobre todo iOS), window.open('_blank') a veces NAVEGA la
+  // pestaña actual en vez de abrir una nueva, y al terminar de imprimir te
+  // deja varado ahí sin poder volver a la app. Para evitarlo, la carátula
+  // se imprime desde un iframe oculto dentro de la misma página: nunca
+  // sales de la app, solo se abre el diálogo de impresión.
+  const printFrame=document.createElement('iframe');
+  printFrame.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
+  document.body.appendChild(printFrame);
+  const frameDoc=printFrame.contentWindow.document;
+  frameDoc.open();
+  frameDoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
+    '<style>@page{size:letter;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
+    '.linea{font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word}</style>'+
+    '</head><body>'+
+    '<div class="linea">CLAVE: '+clave+'</div>'+
+    '<div class="linea">LOTE: '+lote+'</div>'+
+    '<div class="linea">CANTIDAD: '+fmt(v)+'</div>'+
+    '<div class="linea">U EMPAQUE: '+(uEmpaque?fmt(uEmpaque):'—')+' PZ</div>'+
+    '</body></html>');
+  frameDoc.close();
+  setTimeout(function(){
+    try{
+      printFrame.contentWindow.focus();
+      printFrame.contentWindow.print();
+    }catch(e){console.error('Error al imprimir carátula:', e);}
+    setTimeout(function(){ if(printFrame.parentNode) printFrame.parentNode.removeChild(printFrame); }, 1500);
+  }, 150);
 
   const key=clave+'|'+lote+'|'+almacen;
   if(!carQty[key])carQty[key]=[];
