@@ -167,6 +167,11 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 header.h-emb{background:var(--gn)}
 .nav-btn.a-emb{color:var(--gn)}
 .chip.a-emb{background:#fff;color:var(--gn)}
+
+/* ===== Carátulas tab ===== */
+header.h-car{background:var(--rd)}
+.nav-btn.a-car{color:var(--rd)}
+.chip.a-car{background:#fff;color:var(--rd)}
 .tag-PTJAL{background:#efebe9;color:#5d4037}
 .tag-PTFGUAD{background:#e0f2f1;color:#00695c}
 .emb-lots{border-top:1px solid var(--bd)}
@@ -322,11 +327,15 @@ header.h-emb{background:var(--gn)}
 
 <header class="h-car hidden" id="hdr-car">
   <div class="hdr-top">
-    <h1>🏷️ Carátulas PT</h1>
-    <button onclick="clearCarTarimas()" style="background:#fff;color:var(--rd);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🗑️</button>
+    <h1 id="car-titulo">🏷️ Carátulas PT</h1>
+    <button id="btn-car-clear" onclick="clearCarTarimas()" style="background:#fff;color:var(--rd);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🗑️</button>
+  </div>
+  <div class="filters" id="fi-car-modo" style="padding:0 14px 10px">
+    <div class="chip a-car" data-m="PT">PT</div>
+    <div class="chip" data-m="EYE">EYE</div>
   </div>
   <div class="update-bar" id="car-update-bar">📅 Cargando InventarioPT...</div>
-  <div class="update-bar" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">Todos los códigos de PTJAL y PTFGUAD, aún no han viajado</div>
+  <div class="update-bar" id="car-update-sub" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">Todos los códigos de PTJAL y PTFGUAD, aún no han viajado</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input type="search" id="search-car" placeholder="Buscar clave, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -335,7 +344,7 @@ header.h-emb{background:var(--gn)}
 </header>
 
 <div class="kpis hidden" id="kpis-car">
-  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val rv" id="k-car-piezas">—</div><div class="kpi-sub">en PTJAL + PTFGUAD</div></div>
+  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val rv" id="k-car-piezas">—</div><div class="kpi-sub" id="k-car-piezas-sub">en PTJAL + PTFGUAD</div></div>
   <div class="kpi"><div class="kpi-lbl">Claves</div><div class="kpi-val rv" id="k-car-claves">—</div><div class="kpi-sub">en este filtro</div></div>
   <div class="kpi"><div class="kpi-lbl">Carátulas</div><div class="kpi-val rv" id="k-car-impresas">0</div><div class="kpi-sub">impresas</div></div>
 </div>
@@ -465,13 +474,23 @@ try{
 let embItemsCount=0,embLotesCount=0;
 
 const CAR_STORAGE_KEY='anteii_caratulas_impresas_v1';
-let CAR_LOADED=[],carLoaded=false,sCar='';
+let CAR_LOADED=[],carLoaded=false,sCar='',carMode='PT';
 let PZAS_MAP={};
 let carQty={};
 try{
   const _carRaw=JSON.parse(localStorage.getItem(CAR_STORAGE_KEY)||'{}');
   Object.keys(_carRaw).forEach(function(k){carQty[k]=Array.isArray(_carRaw[k])?_carRaw[k]:[];});
 }catch(e){carQty={};}
+
+// Carátulas EYE: mismo concepto pero mucho más simple (sin captura de
+// cantidad ni "faltan"), solo registra cuándo se imprimió cada lote.
+const CAR_EYE_STORAGE_KEY='anteii_caratulas_eye_impresas_v1';
+let CAR_EYE_LOADED=[],carEyeLoaded=false;
+let carEyePrinted={};
+try{
+  const _carEyeRaw=JSON.parse(localStorage.getItem(CAR_EYE_STORAGE_KEY)||'{}');
+  Object.keys(_carEyeRaw).forEach(function(k){carEyePrinted[k]=Array.isArray(_carEyeRaw[k])?_carEyeRaw[k]:[];});
+}catch(e){carEyePrinted={};}
 const fmt=function(n){if(n===null||n===undefined)return '—';return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});};
 
 function cadInfo(s){
@@ -2102,6 +2121,27 @@ function parsePzasCSV(text){
 }
 
 async function loadCaratulas(){
+  // Actualiza título, subtítulo y chip activo según el modo
+  const tit=document.getElementById('car-titulo');
+  const sub=document.getElementById('car-update-sub');
+  const clearBtn=document.getElementById('btn-car-clear');
+  document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
+    c.classList.toggle('a-car', c.dataset.m===carMode);
+  });
+  if(carMode==='EYE'){
+    if(tit) tit.textContent='🏷️ Carátulas EYE';
+    if(sub) sub.textContent='Materiales EYEJAL, 40EYE y REPROJAL';
+    if(clearBtn) clearBtn.style.display='none';
+    await loadCaratulasEye();
+  }else{
+    if(tit) tit.textContent='🏷️ Carátulas PT';
+    if(sub) sub.textContent='Todos los códigos de PTJAL, PTFGUAD y 40PT, aún no han viajado';
+    if(clearBtn) clearBtn.style.display='';
+    await loadCaratulasPT();
+  }
+}
+
+async function loadCaratulasPT(){
   const bar=document.getElementById('car-update-bar');
   // Los dos fetches son independientes a propósito: si PzasXCaja todavía no
   // está publicado (o el GID está mal), NO debe tumbar la carga de
@@ -2132,8 +2172,33 @@ async function loadCaratulas(){
   renderCar();
 }
 
+async function loadCaratulasEye(){
+  const bar=document.getElementById('car-update-bar');
+  try{
+    const r=await fetch(INV_CSV_URL+'&t='+Date.now());
+    const text=await r.text();
+    CAR_EYE_LOADED=parseInvCSV(text);
+    carEyeLoaded=true;
+    if(bar) bar.textContent='📅 Inventario'+(fechaGlobal?' · actualizado al '+fechaGlobal:'')+' · '+CAR_EYE_LOADED.length+' registros';
+  }catch(e){
+    console.error('Error cargando Inventario para Carátulas EYE:', e);
+    if(!carEyeLoaded){ CAR_EYE_LOADED=[]; }
+    if(bar) bar.textContent='❌ Error al cargar Inventario. Verifica conexión.';
+  }
+  renderCar();
+}
+
 function getFiltCar(){
   const q=sCar.toLowerCase().trim();
+  if(carMode==='EYE'){
+    const ALMS_EYE=['EYEJAL','40EYE','REPROJAL'];
+    return (CAR_EYE_LOADED||[]).filter(function(r){
+      const alm=(r.almacen||'').toUpperCase();
+      if(ALMS_EYE.indexOf(alm)===-1)return false;
+      if(q&&!smartMatch(r.clave,sCar)&&!smartMatch(r.desc,sCar)&&!smartMatch(r.lote,sCar))return false;
+      return true;
+    });
+  }
   return (CAR_LOADED||[]).filter(function(r){
     const alm=(r.almacen||'').toUpperCase();
     if(alm!=='PTJAL'&&alm!=='PTFGUAD'&&alm!=='40PT')return false;
@@ -2174,9 +2239,9 @@ function renderCar(){
   order.forEach(function(c){ if(byClase[c])byClase[c].sort(function(a,b){return a.clave.localeCompare(b.clave);}); });
 
   const carItemsCount=groups.length;
-  const carLotesCount=groups.reduce(function(s,g){return s+g.lotes.length;},0);
   const totalExist=groups.reduce(function(s,g){return s+g.totalExist;},0);
   const kPiezas=document.getElementById('k-car-piezas'); if(kPiezas)kPiezas.textContent=fmt(totalExist);
+  const kPiezasSub=document.getElementById('k-car-piezas-sub'); if(kPiezasSub)kPiezasSub.textContent=carMode==='EYE'?'en EYEJAL/40EYE/REPROJAL':'en PTJAL + PTFGUAD + 40PT';
   const kClaves=document.getElementById('k-car-claves'); if(kClaves)kClaves.textContent=carItemsCount.toLocaleString('en-US');
 
   const list=document.getElementById('list-car'),empty=document.getElementById('empty-car');
@@ -2188,6 +2253,29 @@ function renderCar(){
     return;
   }
   if(empty)empty.classList.add('hidden');
+
+  if(carMode==='EYE'){
+    list.innerHTML=order.filter(function(c){return byClase[c];}).map(function(c){
+      return '<div class="sec-hdr gh"><span class="sec-badge sb-rd">'+c+'</span>'+byClase[c].length+' artículos</div>'+
+        byClase[c].map(function(g){
+          const lots=g.lotes.map(function(l){
+            const almU=(l.almacen||'').toUpperCase();
+            const cad=cadInfo(l.caducidad);
+            return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'">'
+              +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
+              +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
+              +'<div class="emb-tarima-eye-status"></div>'
+              +'<div class="emb-tarima-add">'
+                +'<button type="button" onclick="imprimirCaratulaEye(this)">🖨️ Imprimir carátula</button>'
+              +'</div>'
+            +'</div>';
+          }).join('');
+          return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span class="clave c-rd">'+g.clave+'</span><span class="pill p-rd">'+fmt(g.totalExist)+'</span></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
+        }).join('');
+    }).join('');
+    recalcCarEyeStatus();
+    return;
+  }
 
   list.innerHTML=order.filter(function(c){return byClase[c];}).map(function(c){
     return '<div class="sec-hdr gh"><span class="sec-badge sb-rd">'+c+'</span>'+byClase[c].length+' artículos</div>'+
@@ -2318,6 +2406,72 @@ function clearCarTarimas(){
   try{localStorage.removeItem(CAR_STORAGE_KEY);}catch(e){}
   renderCar();
 }
+
+// ===== Carátulas EYE (horizontal, sin captura de cantidad) =====
+function recalcCarEyeStatus(){
+  document.querySelectorAll('#list-car .emb-lote-row').forEach(function(row){
+    const key=row.dataset.clave+'|'+row.dataset.lote+'|'+row.dataset.almacen;
+    const arr=carEyePrinted[key]||[];
+    const statusEl=row.querySelector('.emb-tarima-eye-status');
+    if(!statusEl)return;
+    if(arr.length===0){
+      statusEl.innerHTML='';
+    }else{
+      const ultima=arr[arr.length-1];
+      statusEl.innerHTML='<span style="color:var(--gn);font-weight:700;font-size:11px">✓ Impreso ('+arr.length+'x) · última vez '+ultima.fecha+'</span>';
+    }
+  });
+}
+
+function imprimirCaratulaEye(btn){
+  const row=btn.closest('.emb-lote-row');
+  if(!row)return;
+  const clave=row.dataset.clave,lote=row.dataset.lote,desc=row.dataset.desc,almacen=row.dataset.almacen;
+
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
+    '<style>@page{size:letter landscape;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
+    '.linea{font-size:64px;font-weight:900;margin-bottom:22px;line-height:1.15;word-break:break-word}'+
+    '.linea.desc{font-size:44px;margin-top:14px}</style>'+
+    '</head><body>'+
+    '<div class="linea">'+clave+'</div>'+
+    '<div class="linea">'+lote+'</div>'+
+    '<div class="linea desc">'+desc+'</div>'+
+    '<script>window.onload=function(){window.print();}<\/script>'+
+    '</body></html>';
+  try{
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.target='_blank';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},60000);
+  }catch(e){
+    console.error('Error al generar la carátula EYE para imprimir:', e);
+    alert('No se pudo abrir la carátula para imprimir. Avísale a Eduardo.');
+  }
+
+  const key=clave+'|'+lote+'|'+almacen;
+  if(!carEyePrinted[key])carEyePrinted[key]=[];
+  carEyePrinted[key].push({fecha:new Date().toLocaleString('es-MX')});
+  try{localStorage.setItem(CAR_EYE_STORAGE_KEY,JSON.stringify(carEyePrinted));}catch(e){}
+  recalcCarEyeStatus();
+}
+
+// Selector de modo PT / EYE
+document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
+  c.addEventListener('click',function(){
+    const m=this.dataset.m;
+    if(m===carMode)return;
+    carMode=m;
+    document.getElementById('search-car').value='';
+    sCar='';
+    loadCaratulas();
+  });
+});
 
 // Search event listeners
 document.getElementById('search-inv').addEventListener('input',function(){sInv=this.value;renderInv();});
