@@ -1142,12 +1142,33 @@ async function loadCic(){
   const loadEl=document.getElementById('cic-loading');
   if(loadEl) loadEl.classList.remove('hidden');
   try{
-    const [rCat,rHist,rAj]=await Promise.all([fetch(CIC_URL+'&t='+Date.now()),fetch(HIST_URL+'&t='+Date.now()),fetch(AJUSTE_CSV+'&t='+Date.now())]);
-    const [textCat,textHist,textAj]=await Promise.all([rCat.text(),rHist.text(),rAj.text()]);
+    const rCat=await fetch(CIC_URL+'&t='+Date.now());
+    const textCat=await rCat.text();
     cicData=parseCicCSV(textCat);
     buildSchedFromCic();
-    cicHist=parseHistCSV(textHist);
-    cicAjustes=parseAjustesCSV(textAj);
+
+    // Historial y Ajustes se leen en vivo directo del Apps Script (doGet)
+    // en lugar del CSV publicado: "Publicar en la web" de Google tiene su
+    // propio caché de varios minutos que nuestro '&t=' no puede forzar (ese
+    // caché es del servidor de Google, no del navegador). Eso causaba que
+    // un conteo recién guardado siguiera viéndose como "sin contar" un
+    // rato. Si esta llamada en vivo fallara (ej. bloqueo de red), cae de
+    // vuelta al CSV publicado como respaldo.
+    try{
+      const [rHistJ,rAjJ]=await Promise.all([
+        fetch(APPS_URL+'?accion=historial&t='+Date.now()),
+        fetch(APPS_URL+'?accion=ajustes&t='+Date.now())
+      ]);
+      cicHist=await rHistJ.json();
+      cicAjustes=await rAjJ.json();
+    }catch(eLive){
+      console.warn('Lectura en vivo de Historial/Ajustes falló, usando CSV publicado como respaldo:',eLive);
+      const [rHist,rAj]=await Promise.all([fetch(HIST_URL+'&t='+Date.now()),fetch(AJUSTE_CSV+'&t='+Date.now())]);
+      const [textHist,textAj]=await Promise.all([rHist.text(),rAj.text()]);
+      cicHist=parseHistCSV(textHist);
+      cicAjustes=parseAjustesCSV(textAj);
+    }
+
     cicLoaded=true;
     document.getElementById('cic-update-bar').textContent='📅 Conteos cíclicos · '+cicHist.length+' conteos en historial';
     if(document.getElementById('cic-loading')) document.getElementById('cic-loading').classList.add('hidden');
