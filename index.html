@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Inventario</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -622,14 +625,14 @@ function renderQ40(){
 }
 
 
-const APPS_URL='https://script.google.com/macros/s/AKfycbyq1gQNwWI-hCKPdAXeBMhCHWg2NTHFzX3hW5JM2_sl4XPwv3GEWH76KYbzYMCkFXA/exec';
+const APPS_URL='https://script.google.com/macros/s/AKfycbw_1KSijqH3PSl6-jSTg4dM2mJJt1BOSU45E47nwrDsB4jM5sxzBYslSLAWxVB_XD8/exec';
 const INV_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1010346624&single=true&output=csv';
 const CONFIG_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=342417661&single=true&output=csv';
 const PT_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=2121915166&single=true&output=csv';
 // PEGAR AQUI EL GID de la pestaña "PzasXCaja" una vez creada y publicada en el Sheet
 // (mismo patrón que PT_CSV_URL: Archivo > Compartir > Publicar en la web > esa pestaña).
 const PZASXCAJA_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=963418252&single=true&output=csv';
-const AJUSTE_URL='https://script.google.com/macros/s/AKfycbyq1gQNwWI-hCKPdAXeBMhCHWg2NTHFzX3hW5JM2_sl4XPwv3GEWH76KYbzYMCkFXA/exec';
+const AJUSTE_URL='https://script.google.com/macros/s/AKfycbw_1KSijqH3PSl6-jSTg4dM2mJJt1BOSU45E47nwrDsB4jM5sxzBYslSLAWxVB_XD8/exec';
 const AJUSTE_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1589452588&single=true&output=csv';
 const HIST_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=135260082&single=true&output=csv';
 let SCHED=[]; // se reconstruye en vivo desde Ciclicos (ver buildSchedFromCic)
