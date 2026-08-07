@@ -759,6 +759,7 @@ function generarReporte(semana){
     const h=histMap[k];
     const conteo=parseFloat(h[0].cantidad);
     const diff=conteo-p.existSAI;
+    const causaTxt=(h[0].causa||'').trim();
     diffsHtml+=
       '<tr style="border-bottom:1px solid #e0e0e0">'+
       '<td style="padding:5px 6px;text-align:center;font-size:10px">'+nd+'</td>'+
@@ -767,11 +768,11 @@ function generarReporte(semana){
       '<td style="padding:5px 6px;font-family:monospace;font-size:9px;text-align:center">'+p.lote+'</td>'+
       '<td style="padding:5px 6px;font-size:10px;text-align:right">'+p.existSAI.toLocaleString("en-US")+'</td>'+
       '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700;color:#C62828">'+conteo.toLocaleString("en-US")+'</td>'+
-      '<td style="padding:5px 6px;font-size:10px"></td>'+
+      '<td style="padding:5px 6px;font-size:9px">'+(causaTxt||'—')+'</td>'+
       '</tr>';
     nd++;
   });
-  // Fill remaining rows up to 5
+  // Fill remaining rows up to 5 (en blanco, para llenar a mano si hace falta)
   while(nd<=5){
     diffsHtml+='<tr style="border-bottom:1px solid #e0e0e0"><td style="padding:10px 6px;text-align:center;font-size:10px">'+nd+'</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
     nd++;
