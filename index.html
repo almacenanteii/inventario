@@ -623,9 +623,16 @@ function editarUbicacion(el){
   box.appendChild(title);
 
   const info=document.createElement('div');
-  info.style.cssText='font-size:12px;color:#7a7a7a;margin-bottom:12px';
+  info.style.cssText='font-size:12px;color:#7a7a7a;margin-bottom:4px';
   info.textContent=clave+' · '+lote;
   box.appendChild(info);
+
+  if(actual){
+    const hint=document.createElement('div');
+    hint.style.cssText='font-size:11px;color:#E8671A;background:#fff8e1;border-radius:6px;padding:6px 8px;margin-bottom:10px';
+    hint.textContent='Sugerencia (última ubicación conocida de esta clave) — edítala o bórrala si no aplica aquí';
+    box.appendChild(hint);
+  }
 
   const inp=document.createElement('input');
   inp.type='text';
@@ -751,10 +758,14 @@ function renderInv(){
             '<span class="loc-del" data-id="'+escAttr(u.id||'')+'" onclick="event.stopPropagation();borrarUbicacion(this)" title="Quitar">✕</span>'+
           '</span>';
         }).join('');
+        // La sugerencia de la clave (última ubicación conocida de otro lote
+        // de este mismo código) NO se muestra como badge -- eso confundía,
+        // parecía que ya estaba puesta en este lote sin estarlo. Solo se
+        // usa para precargar el formulario al tocar ➕.
         const heredada=entradas.length===0?ubicPorClave[p.clave]:null;
         const sugerida=heredada&&heredada.ubicacion?heredada.ubicacion:'';
         if(entradas.length===0){
-          chipsHtml=sugerida?'<span class="loc-badge loc-inherited">📍 '+sugerida+' <i>(de la clave)</i></span>':'<span class="loc-badge loc-empty">Sin ubicación</span>';
+          chipsHtml='<span class="loc-badge loc-empty">Sin ubicación</span>';
         }
         const pasteMode=ubicCopiada!==null;
         const addCls=pasteMode?' paste-mode':'';
