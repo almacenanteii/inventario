@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--or:#E8671A;--gr:#3a3a3a;--gr2:#7a7a7a;--bg:#f0f0f0;--wh:#fff;--bd:#e2e2e2;--rad:10px;
-      --bl:#1565C0;--gn:#2E7D32;--rd:#C62828;--pu:#6A1B9A}
+      --bl:#1565C0;--gn:#2E7D32;--rd:#C62828;--pu:#1F4E79}
 .c40-card{background:#fff;border-radius:12px;margin-bottom:8px;border:1px solid var(--bd);padding:12px 14px}
 .c40-row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .c40-meta{font-size:11px;color:var(--gr2);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
@@ -944,6 +944,19 @@ function generarReporte(semana){
   const conDiff=diffsArr.length;
   const valido=conDiff<5;
 
+  // Totales de diferencia (piezas), para la junta del lunes: cuánto sobró,
+  // cuánto faltó, y el neto -- sobre TODOS los lotes contados, no solo los
+  // que tienen diferencia (los que coinciden simplemente suman 0).
+  let sumaSobrante=0, sumaFaltante=0;
+  conteos.forEach(function(p){
+    const h=histMap[p.clave+'|'+p.lote];
+    const conteo=h?parseFloat(h[0].cantidad):0;
+    const diff=conteo-p.existSAI;
+    if(diff>0) sumaSobrante+=diff;
+    else if(diff<0) sumaFaltante+=diff;
+  });
+  const sumaDiferenciaNeta=sumaSobrante+sumaFaltante;
+
   // Responsables from historial - just names, no specific assignment
   const responsables=new Set();
   cicHist.forEach(function(h){if(h.registrado&&h.registrado.trim())responsables.add(h.registrado.trim());});
@@ -976,31 +989,35 @@ function generarReporte(semana){
     num++;
   });
 
-  // Diferencias table
+  // Detalle de conteos: TODOS los lotes contados esta semana (con o sin
+  // diferencia), no solo los que difieren -- para la junta del lunes se
+  // necesita ver el conteo completo, no solo las excepciones.
   let diffsHtml='';
   let nd=1;
-  diffsArr.forEach(function(p){
+  conteos.forEach(function(p){
     const k=p.clave+'|'+p.lote;
     const h=histMap[k];
     const conteo=parseFloat(h[0].cantidad);
     const diff=conteo-p.existSAI;
+    const tieneDiff=Math.abs(diff)>0.01;
     const causaTxt=(h[0].causa||'').trim();
+    const diffColor=!tieneDiff?'#2E7D32':diff>0?'#E65100':'#C62828';
+    const diffStr=!tieneDiff?'0':(diff>0?'+':'')+diff.toFixed(0);
     diffsHtml+=
-      '<tr style="border-bottom:1px solid #e0e0e0">'+
+      '<tr style="border-bottom:1px solid #e0e0e0;'+(nd%2===0?'background:#fafafa;':'')+'">'+
       '<td style="padding:5px 6px;text-align:center;font-size:10px">'+nd+'</td>'+
       '<td style="padding:5px 6px;font-family:monospace;font-size:10px;font-weight:700;color:#E8671A">'+p.clave+'</td>'+
       '<td style="padding:5px 6px;font-size:10px">'+p.desc+'</td>'+
       '<td style="padding:5px 6px;font-family:monospace;font-size:9px;text-align:center">'+p.lote+'</td>'+
       '<td style="padding:5px 6px;font-size:10px;text-align:right">'+p.existSAI.toLocaleString("en-US")+'</td>'+
-      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700;color:#C62828">'+conteo.toLocaleString("en-US")+'</td>'+
-      '<td style="padding:5px 6px;font-size:9px">'+(causaTxt||'—')+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700">'+conteo.toLocaleString("en-US")+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700;color:'+diffColor+'">'+diffStr+'</td>'+
+      '<td style="padding:5px 6px;font-size:9px">'+(tieneDiff?(causaTxt||'—'):'')+'</td>'+
       '</tr>';
     nd++;
   });
-  // Fill remaining rows up to 5 (en blanco, para llenar a mano si hace falta)
-  while(nd<=5){
-    diffsHtml+='<tr style="border-bottom:1px solid #e0e0e0"><td style="padding:10px 6px;text-align:center;font-size:10px">'+nd+'</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
-    nd++;
+  if(conteos.length===0){
+    diffsHtml='<tr><td colspan="8" style="padding:14px 6px;text-align:center;font-size:10px;color:#999">Sin conteos registrados esta semana.</td></tr>';
   }
 
   const win=window.open('','_blank');
@@ -1087,9 +1104,10 @@ function generarReporte(semana){
       <div class="res-item"><strong>${conteos.length}</strong>Artículos contados</div>
       <div class="res-item"><strong style="color:${conDiff>0?'#C62828':'#2E7D32'}">${conDiff}</strong>Con diferencia</div>
       <div class="res-item"><strong style="color:#2E7D32">${conteos.length-conDiff}</strong>Sin diferencia</div>
+      <div class="res-item"><strong style="color:${sumaDiferenciaNeta===0?'#2E7D32':sumaDiferenciaNeta>0?'#E65100':'#C62828'}">${sumaDiferenciaNeta>0?'+':''}${sumaDiferenciaNeta.toFixed(0)}</strong>Diferencia neta (pz)</div>
     </div>
 
-    <div class="section-title">4. Análisis de Diferencias</div>
+    <div class="section-title">4. Detalle de Conteos y Diferencias</div>
     <div class="validez">
       <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#fff"></span> SÍ — Proceder a ajuste en SAI</span>
       <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#fff"></span> NO — Realizar reconteo</span>
@@ -1097,21 +1115,32 @@ function generarReporte(semana){
     </div>
     <table>
       <thead><tr>
-        <th style="width:28px;text-align:center">#</th>
-        <th style="width:110px">Clave</th>
+        <th style="width:24px;text-align:center">#</th>
+        <th style="width:100px">Clave</th>
         <th>Descripción</th>
-        <th style="width:100px;text-align:center">Lote</th>
-        <th style="width:70px;text-align:right">SAI</th>
-        <th style="width:70px;text-align:right">Físico</th>
+        <th style="width:90px;text-align:center">Lote</th>
+        <th style="width:65px;text-align:right">SAI</th>
+        <th style="width:65px;text-align:right">Físico</th>
+        <th style="width:65px;text-align:right">Diferencia</th>
         <th>Causa probable / Acción tomada</th>
       </tr></thead>
       <tbody>${diffsHtml}</tbody>
+      <tfoot>
+        <tr style="background:#E8671A">
+          <td colspan="6" style="padding:6px 8px;font-weight:700;color:#fff;font-size:10px">TOTAL DIFERENCIA NETA (Físico − SAI)</td>
+          <td colspan="2" style="padding:6px 8px;text-align:right;font-weight:900;color:#fff;font-size:13px">${sumaDiferenciaNeta>0?'+':''}${sumaDiferenciaNeta.toFixed(0)} pz</td>
+        </tr>
+      </tfoot>
     </table>
+    <div style="display:flex;gap:16px;font-size:10px;color:#666;margin:-4px 0 10px;padding:0 2px">
+      <span>Sobrante total: <strong style="color:#E65100">+${sumaSobrante.toFixed(0)} pz</strong></span>
+      <span>Faltante total: <strong style="color:#C62828">${sumaFaltante.toFixed(0)} pz</strong></span>
+    </div>
 
     <div class="section-title">5. Conclusión y Firmas</div>
     <div style="border:1px solid #ddd;border-top:none;padding:10px 12px;min-height:50px;font-size:10px;color:#333;margin-bottom:10px">
       Se contaron <strong>${conteos.length}</strong> de <strong>${lotesSem.length}</strong> artículos asignados a la semana ${semana}. 
-      Se encontraron <strong style="color:${conDiff>0?'#C62828':'#2E7D32'}">${conDiff}</strong> diferencia(s) respecto al sistema SAI.
+      Se encontraron <strong style="color:${conDiff>0?'#C62828':'#2E7D32'}">${conDiff}</strong> diferencia(s) respecto al sistema SAI, con una diferencia neta total de <strong style="color:${sumaDiferenciaNeta===0?'#2E7D32':sumaDiferenciaNeta>0?'#E65100':'#C62828'}">${sumaDiferenciaNeta>0?'+':''}${sumaDiferenciaNeta.toFixed(0)} pz</strong>.
       ${conDiff>0?'Claves con diferencia: '+diffsArr.map(function(p){return p.clave;}).join(', ')+'.':'Todos los conteos coinciden con el SAI.'}
     </div>
     <div class="firmas">
