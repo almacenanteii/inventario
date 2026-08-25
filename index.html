@@ -39,7 +39,7 @@
 }
 .btn-print:active{background:var(--pu);color:#fff}
 
-.sched-header{background:#f8f0ff;border-radius:12px;padding:12px 14px;margin-bottom:10px;border:1px solid #e0c8f0}
+.sched-header{background:#EAF1F8;border-radius:12px;padding:12px 14px;margin-bottom:10px;border:1px solid #C9DCEA}
 .sched-semana{font-size:13px;font-weight:800;color:var(--pu);margin-bottom:4px}
 .sched-fechas{font-size:11px;color:var(--gr2);margin-bottom:8px}
 .sched-progress-wrap{background:#e9d8f5;border-radius:20px;height:10px;overflow:hidden;margin-bottom:4px}
@@ -96,6 +96,21 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .ov{color:var(--or)} .bv{color:var(--bl)} .gv{color:var(--gn)} .rv{color:var(--rd)}
 .kpi-sub{font-size:10px;color:var(--gr2);margin-top:2px}
 
+.cic-dash-card{background:#fff;border-radius:14px;box-shadow:0 1px 4px rgba(0,0,0,.08);border:1px solid var(--bd);overflow:hidden}
+.cic-dash-head{background:var(--pu);color:#fff;padding:12px 16px}
+.cic-dash-head-title{font-size:14px;font-weight:800;display:flex;align-items:center;gap:6px}
+.cic-dash-head-sub{font-size:11px;opacity:.85;margin-top:2px}
+.cic-dash-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--bd)}
+.cic-dash-stat{background:#fff;padding:12px 14px}
+.cic-dash-stat-lbl{font-size:10px;color:var(--gr2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:3px}
+.cic-dash-stat-val{font-size:20px;font-weight:800;line-height:1}
+.cic-dash-table-title{font-size:11px;font-weight:700;color:var(--gr2);text-transform:uppercase;letter-spacing:.4px;padding:10px 16px 4px}
+.cic-dash-row{display:flex;justify-content:space-between;align-items:center;padding:8px 16px;border-top:1px solid #f5f5f5;font-size:12px;gap:10px}
+.cic-dash-row-left{display:flex;flex-direction:column;gap:1px;min-width:0}
+.cic-dash-clave{font-family:monospace;font-weight:700;color:#333;font-size:12px}
+.cic-dash-desc{font-size:10.5px;color:var(--gr2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:230px}
+.cic-dash-diff{font-weight:800;font-size:13px;white-space:nowrap;flex-shrink:0}
+
 .bar{padding:7px 16px;font-size:12px;color:var(--gr2);background:#fff;border-bottom:1px solid var(--bd)}
 .list{padding:10px 12px 10px}
 
@@ -134,7 +149,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
 .tag-EYEJAL{background:#e3f2fd;color:#1565c0}
 .tag-40EYE{background:#e8f5e9;color:#2e7d32}
-.tag-REPROJAL{background:#f3e5f5;color:#6a1b9a}
+.tag-REPROJAL{background:#eceff1;color:#455a64}
 .tag-40PT{background:#fff8e1;color:#f57f17}
 
 .abc-a{background:#E8F5E9;color:#1B5E20;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800}
@@ -286,7 +301,7 @@ header.h-car{background:var(--rd)}
 <header class="h-cic hidden" id="hdr-cic">
   <div class="hdr-top">
     <h1>📊 Conteos Cíclicos</h1>
-    <button id="btn-imprimir" onclick="imprimirSemanaActual()" style="background:#fff;color:#6A1B9A;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
+    <button id="btn-imprimir" onclick="imprimirSemanaActual()" style="background:#fff;color:#1F4E79;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
     <button id="btn-reporte" onclick="generarReporteActual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">📄 F-AL-003</button>
   </div>
   <div class="update-bar" id="cic-update-bar">📅 Cargando datos...</div>
@@ -370,7 +385,7 @@ header.h-car{background:var(--rd)}
   <div class="kpi"><div class="kpi-lbl">Más antiguo</div><div class="kpi-val rv" id="q-antiguo">—</div><div class="kpi-sub">días</div></div>
 </div>
 <div id="conf-block" class="hidden" style="padding:12px 16px 0;background:#fff">
-  <div style="background:#f8f0ff;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border:1px solid #e0c8f0">
+  <div style="background:#EAF1F8;border-radius:12px;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border:1px solid #C9DCEA">
     <div>
       <div style="font-size:10px;color:#7a7a7a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">🔄 Cobertura del ciclo</div>
       <div style="font-size:11px;color:#7a7a7a" id="ci-conf-sub">— lotes contados</div>
@@ -388,6 +403,7 @@ header.h-car{background:var(--rd)}
   <div class="kpi"><div class="kpi-lbl">Incidencias</div><div class="kpi-val rv" id="ci-incid">—</div><div class="kpi-sub">2+ ajustes</div></div>
 
 </div>
+<div id="dashboard-cic" class="hidden" style="padding:0 14px;margin-bottom:4px"></div>
 
 <div class="kpis hidden" id="kpis-emb">
   <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-emb-piezas">—</div><div class="kpi-sub">40PT + PTJAL</div></div>
@@ -505,7 +521,7 @@ function switchTab(t){
     document.getElementById('nb-'+x).className='nav-btn'+(x===t?' a-'+x:'');
   });
   // Handle cic separately (has extra elements)
-  ['hdr-cic','kpis-cic','bar-cic','list-cic','empty-cic'].forEach(function(id){
+  ['hdr-cic','kpis-cic','bar-cic','list-cic','empty-cic','dashboard-cic'].forEach(function(id){
     document.getElementById(id)?.classList.toggle('hidden',t!=='cic');
   });
   document.getElementById('nb-cic').className='nav-btn'+(t==='cic'?' a-cic':'');
@@ -1289,7 +1305,7 @@ function imprimirSemana(semana){
     <h2 style="font-size:16px;font-weight:800;color:#3a3a3a;margin-bottom:8px">¿Cómo te llamas?</h2>
     <p style="font-size:13px;color:#7a7a7a;margin-bottom:16px">Tu nombre quedará registrado en cada conteo que captures.</p>
     <input id="modal-nombre-input" type="text" placeholder="Escribe tu nombre..." style="width:100%;padding:12px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:15px;outline:none;margin-bottom:12px">
-    <button onclick="guardarNombre()" style="width:100%;background:#6A1B9A;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Guardar y continuar</button>
+    <button onclick="guardarNombre()" style="width:100%;background:#1F4E79;color:#fff;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:700;cursor:pointer">Guardar y continuar</button>
   </div>
 </div>
 </body></html>`);
@@ -1519,7 +1535,7 @@ function calcMetaSemanal(){
 function renderSchedHeader(calWeek, contadosSet){
   const items=getSchedForSemana(calWeek);
   const meta=calcMetaSemanal();
-  const metaHtml='<div style="font-size:11px;color:#6A1B9A;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px dashed #e0c8f0">🎯 Meta recalculada: '+meta.meta+' códigos/semana para terminar en semana '+meta.semanaTope+' <span style="font-weight:400;color:#7a7a7a">('+meta.pendientes+' pendientes de '+meta.totalClaves+' · '+meta.semanasRestantes+' semanas restantes)</span></div>';
+  const metaHtml='<div style="font-size:11px;color:#1F4E79;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px dashed #C9DCEA">🎯 Meta recalculada: '+meta.meta+' códigos/semana para terminar en semana '+meta.semanaTope+' <span style="font-weight:400;color:#7a7a7a">('+meta.pendientes+' pendientes de '+meta.totalClaves+' · '+meta.semanasRestantes+' semanas restantes)</span></div>';
   if(!items.length) return '<div class="sched-header"><div class="sched-semana">📅 Semana '+calWeek+' — sin claves asignadas</div>'+metaHtml+'</div>';
   const contadosEnSemana=items.filter(function(s){
     return Array.from(contadosSet).some(function(k){return k.startsWith(s.clave+'|');});
@@ -1617,6 +1633,65 @@ function bloqueadoHasta(clave,lote){
   return hoy<limite?limite:null;
 }
 
+function renderDashboardCic(semActual,histMap){
+  const el=document.getElementById('dashboard-cic');
+  if(!el)return;
+  const schedItems=getSchedForSemana(semActual);
+  if(!schedItems.length){ el.innerHTML=''; return; }
+  const clavesSem=new Set(schedItems.map(function(s){return s.clave;}));
+  const lotesSem=cicData.filter(function(p){return clavesSem.has(p.clave)&&p.estatus!=='Agotado';});
+  const conteosSem=lotesSem.filter(function(p){return histMap[p.clave+'|'+p.lote];});
+  const diffsSem=conteosSem.filter(function(p){
+    const h=histMap[p.clave+'|'+p.lote];
+    return Math.abs(parseFloat(h[0].cantidad)-p.existSAI)>0.01;
+  }).map(function(p){
+    const h=histMap[p.clave+'|'+p.lote];
+    const conteo=parseFloat(h[0].cantidad);
+    return {p:p,conteo:conteo,diff:conteo-p.existSAI};
+  }).sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
+
+  let sumaSobrante=0,sumaFaltante=0;
+  conteosSem.forEach(function(p){
+    const h=histMap[p.clave+'|'+p.lote];
+    const conteo=parseFloat(h[0].cantidad);
+    const diff=conteo-p.existSAI;
+    if(diff>0)sumaSobrante+=diff; else if(diff<0)sumaFaltante+=diff;
+  });
+  const sumaNeta=sumaSobrante+sumaFaltante;
+  const netColor=sumaNeta===0?'var(--gn)':sumaNeta>0?'#E65100':'var(--rd)';
+
+  const filas=diffsSem.map(function(x){
+    const diffColor=x.diff>0?'#E65100':'var(--rd)';
+    const diffStr=(x.diff>0?'+':'')+x.diff.toFixed(0);
+    return '<div class="cic-dash-row">'+
+      '<div class="cic-dash-row-left">'+
+        '<span class="cic-dash-clave">'+x.p.clave+'</span>'+
+        '<span class="cic-dash-desc">'+x.p.lote+' · '+x.p.desc+'</span>'+
+      '</div>'+
+      '<span class="cic-dash-diff" style="color:'+diffColor+'">'+diffStr+' pz</span>'+
+    '</div>';
+  }).join('');
+
+  el.innerHTML=
+    '<div class="cic-dash-card">'+
+      '<div class="cic-dash-head">'+
+        '<div class="cic-dash-head-title">📊 Resumen Semana '+semActual+'</div>'+
+        '<div class="cic-dash-head-sub">'+conteosSem.length+' de '+lotesSem.length+' lotes contados</div>'+
+      '</div>'+
+      '<div class="cic-dash-stats">'+
+        '<div class="cic-dash-stat"><div class="cic-dash-stat-lbl">Lotes contados</div><div class="cic-dash-stat-val" style="color:var(--pu)">'+conteosSem.length+'<span style="font-size:13px;color:var(--gr2);font-weight:600"> / '+lotesSem.length+'</span></div></div>'+
+        '<div class="cic-dash-stat"><div class="cic-dash-stat-lbl">Diferencia neta</div><div class="cic-dash-stat-val" style="color:'+netColor+'">'+(sumaNeta>0?'+':'')+sumaNeta.toFixed(0)+' <span style="font-size:11px;font-weight:600">pz</span></div></div>'+
+        '<div class="cic-dash-stat"><div class="cic-dash-stat-lbl">Sobrante</div><div class="cic-dash-stat-val" style="color:#E65100">+'+sumaSobrante.toFixed(0)+' <span style="font-size:11px;font-weight:600">pz</span></div></div>'+
+        '<div class="cic-dash-stat"><div class="cic-dash-stat-lbl">Faltante</div><div class="cic-dash-stat-val" style="color:var(--rd)">'+sumaFaltante.toFixed(0)+' <span style="font-size:11px;font-weight:600">pz</span></div></div>'+
+      '</div>'+
+      (diffsSem.length>0?
+        ('<div class="cic-dash-table-title">⚠️ Diferencias de la semana ('+diffsSem.length+')</div>'+filas)
+        :
+        '<div style="padding:14px 16px;text-align:center;font-size:12px;color:var(--gn);font-weight:600">✅ Sin diferencias registradas esta semana</div>'
+      )+
+    '</div>';
+}
+
 function _renderCicData(){
   const semActual=fCicSemana===0?getCurrentSemana():fCicSemana;
   const maxSem=Math.max.apply(null,SCHED.map(function(s){return s.semana_cal;}));
@@ -1670,6 +1745,8 @@ function _renderCicData(){
   if(ciIncidEl)ciIncidEl.textContent=incidCount;
   document.getElementById('bar-cic').textContent=items.length+' artículos · '+contados+' lotes contados de '+activeData.length+' totales';
 
+  renderDashboardCic(semActual,histMap);
+
   // Confiabilidad = cobertura del ciclo (cuántos lotes YA CLASIFICADOS/programados
   // ya fueron contados). Se excluyen del denominador los lotes "Sin clasificar"
   // (sin ABC/Semana asignada) porque esos todavía no entran a la rotación y no
@@ -1696,8 +1773,8 @@ function _renderCicData(){
       confPctEl.style.color='#E65100';
       confLblEl.textContent='⏳ En progreso';confLblEl.style.color='#E65100';
     } else {
-      confPctEl.style.color='#6A1B9A';
-      confLblEl.textContent='🔄 Iniciando ciclo';confLblEl.style.color='#6A1B9A';
+      confPctEl.style.color='#1F4E79';
+      confLblEl.textContent='🔄 Iniciando ciclo';confLblEl.style.color='#1F4E79';
     }
   }
 
@@ -1746,7 +1823,7 @@ function _renderCicData(){
       '<div style="display:flex;gap:8px;align-items:center;padding:0 0 10px">'+
         '<div style="position:relative;flex:1">'+
           '<select id="sem-select" onchange="cambiarSemana(parseInt(this.value))" '+
-            'style="width:100%;padding:10px 14px;border:2px solid #e0c8f0;border-radius:10px;font-size:13px;font-weight:700;color:var(--pu);background:#fff;appearance:none;-webkit-appearance:none;cursor:pointer;outline:none">'+
+            'style="width:100%;padding:10px 14px;border:2px solid #C9DCEA;border-radius:10px;font-size:13px;font-weight:700;color:var(--pu);background:#fff;appearance:none;-webkit-appearance:none;cursor:pointer;outline:none">'+
             opts+
           '</select>'+
           '<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--pu);pointer-events:none">▾</span>'+
@@ -1853,7 +1930,7 @@ function _renderCicData(){
         '<div>'+
           '<div style="font-size:15px;font-weight:800;color:var(--pu);font-family:monospace;letter-spacing:.3px;margin-bottom:3px">'+g.clave+'</div>'+
           '<div style="font-size:13px;font-weight:500;color:#3a3a3a;line-height:1.3">'+g.desc+'</div>'+
-          (schedInfo?'<div style="font-size:10.5px;color:#6A1B9A;font-weight:700;margin-top:3px">📅 Semana '+schedInfo.semana_cal+' · Clase '+schedInfo.abc+'</div>':'')+
+          (schedInfo?'<div style="font-size:10.5px;color:#1F4E79;font-weight:700;margin-top:3px">📅 Semana '+schedInfo.semana_cal+' · Clase '+schedInfo.abc+'</div>':'')+
         '</div>'+
         '<span class="'+(allDone?'dias-badge dias-ok':noneDone?'c40-nocount':'dias-badge dias-warn')+'">'+badgeTxt+'</span>'+
       '</div>'+
