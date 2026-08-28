@@ -2762,12 +2762,22 @@ function recalcCarEyeStatus(){
   });
 }
 
+function pluralizarUnidad_(u,cant){
+  // La hoja trae "PIEZA" en singular; en la carátula casi siempre se
+  // imprime un total > 1, así que se ve raro ("968 PIEZA"). Aquí se
+  // pluraliza solo ese caso conocido, sin tocar otras unidades (KG, LT, etc.)
+  // que no deben llevar "S".
+  const t=(u||'').trim();
+  if(/^pieza$/i.test(t) && cant!==1) return 'PIEZAS';
+  return t;
+}
+
 function imprimirCaratulaEye(btn){
   const row=btn.closest('.emb-lote-row');
   if(!row)return;
   const clave=row.dataset.clave,lote=row.dataset.lote,desc=row.dataset.desc,almacen=row.dataset.almacen;
   const exist=parseFloat(row.dataset.exist)||0;
-  const unidad=row.dataset.unidad||'pzas';
+  const unidad=pluralizarUnidad_(row.dataset.unidad||'pzas',exist);
   const lineaCantidad=carEyeImprimirCantidad?('<div class="linea desc">CANTIDAD: '+fmt(exist)+' '+unidad+'</div>'):'';
 
   const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
