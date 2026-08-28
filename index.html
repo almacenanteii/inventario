@@ -354,6 +354,10 @@ header.h-car{background:var(--rd)}
     <div class="chip a-car" data-m="PT">PT</div>
     <div class="chip" data-m="EYE">EYE</div>
   </div>
+  <label id="car-eye-cant-wrap" style="display:none;align-items:center;gap:8px;padding:0 14px 10px;font-size:12px;color:rgba(255,255,255,.92);font-weight:600;cursor:pointer">
+    <input type="checkbox" id="car-eye-cant-chk" style="width:18px;height:18px;accent-color:#fff;cursor:pointer">
+    Imprimir total de piezas en la carátula
+  </label>
   <div class="update-bar" id="car-update-bar">📅 Cargando InventarioPT...</div>
   <div class="update-bar" id="car-update-sub" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">Todos los códigos de PTJAL y PTFGUAD, aún no han viajado</div>
   <div class="search-box">
@@ -501,6 +505,13 @@ try{
   const _carEyeRaw=JSON.parse(localStorage.getItem(CAR_EYE_STORAGE_KEY)||'{}');
   Object.keys(_carEyeRaw).forEach(function(k){carEyePrinted[k]=Array.isArray(_carEyeRaw[k])?_carEyeRaw[k]:[];});
 }catch(e){carEyePrinted={};}
+
+// Toggle: por defecto la carátula EYE NO imprime el total de piezas del
+// lote (solo clave/lote/descripción). Se activa a mano cuando sí se
+// necesita en el papel. Se recuerda entre sesiones.
+const CAR_EYE_CANT_KEY='anteii_car_eye_imprimir_cantidad_v1';
+let carEyeImprimirCantidad=false;
+try{ carEyeImprimirCantidad=localStorage.getItem(CAR_EYE_CANT_KEY)==='1'; }catch(e){}
 const fmt=function(n){if(n===null||n===undefined)return '—';return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});};
 
 function cadInfo(s){
@@ -2589,7 +2600,7 @@ function renderCar(){
           const lots=g.lotes.map(function(l){
             const almU=(l.almacen||'').toUpperCase();
             const cad=cadInfo(l.caducidad);
-            return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'">'
+            return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-unidad="'+escAttr(l.unidad||'pzas')+'">'
               +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
               +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
               +'<div class="emb-tarima-eye-status"></div>'
@@ -2746,7 +2757,7 @@ function recalcCarEyeStatus(){
       statusEl.innerHTML='';
     }else{
       const ultima=arr[arr.length-1];
-      statusEl.innerHTML='<span style="color:var(--gn);font-weight:700;font-size:11px">✓ Impreso ('+arr.length+'x) · última vez '+ultima.fecha+'</span>';
+      statusEl.innerHTML='<span style="color:var(--gn);font-weight:700;font-size:12px">✓ Impreso ('+arr.length+'x) · última vez '+ultima.fecha+'</span>';
     }
   });
 }
@@ -2755,6 +2766,9 @@ function imprimirCaratulaEye(btn){
   const row=btn.closest('.emb-lote-row');
   if(!row)return;
   const clave=row.dataset.clave,lote=row.dataset.lote,desc=row.dataset.desc,almacen=row.dataset.almacen;
+  const exist=parseFloat(row.dataset.exist)||0;
+  const unidad=row.dataset.unidad||'pzas';
+  const lineaCantidad=carEyeImprimirCantidad?('<div class="linea desc">CANTIDAD: '+fmt(exist)+' '+unidad+'</div>'):'';
 
   const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
     '<style>@page{size:letter landscape;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
@@ -2764,6 +2778,7 @@ function imprimirCaratulaEye(btn){
     '<div class="linea">'+clave+'</div>'+
     '<div class="linea">'+lote+'</div>'+
     '<div class="linea desc">'+desc+'</div>'+
+    lineaCantidad+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
   try{
@@ -2790,6 +2805,12 @@ function imprimirCaratulaEye(btn){
 }
 
 // Selector de modo PT / EYE
+function syncCarEyeCantUI(){
+  const wrap=document.getElementById('car-eye-cant-wrap');
+  const chk=document.getElementById('car-eye-cant-chk');
+  if(wrap) wrap.style.display=carMode==='EYE'?'flex':'none';
+  if(chk) chk.checked=carEyeImprimirCantidad;
+}
 document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
   c.addEventListener('click',function(){
     const m=this.dataset.m;
@@ -2797,8 +2818,15 @@ document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
     carMode=m;
     document.getElementById('search-car').value='';
     sCar='';
+    syncCarEyeCantUI();
     loadCaratulas();
   });
+});
+syncCarEyeCantUI();
+const carEyeCantChk=document.getElementById('car-eye-cant-chk');
+if(carEyeCantChk) carEyeCantChk.addEventListener('change',function(){
+  carEyeImprimirCantidad=this.checked;
+  try{localStorage.setItem(CAR_EYE_CANT_KEY,carEyeImprimirCantidad?'1':'0');}catch(e){}
 });
 
 // Search event listeners
