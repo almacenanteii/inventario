@@ -219,7 +219,7 @@ header.h-car{background:var(--rd)}
 .emb-tarima-chips{display:flex;flex-wrap:wrap;gap:6px}
 .emb-tar-chip{display:inline-flex;align-items:center;gap:6px;background:var(--bg);border-radius:20px;padding:4px 6px 4px 10px;font-size:11px;font-weight:700;color:var(--gr)}
 .emb-tar-chip .x{cursor:pointer;color:var(--rd);font-weight:800;font-size:13px;line-height:1;padding:2px 4px}
-.emb-tarima-add{display:flex;gap:6px}
+.emb-tarima-add{display:flex;gap:6px;flex-wrap:wrap}
 .emb-add-input{flex:1;padding:9px 10px;border:2px solid var(--bd);border-radius:8px;font-size:15px;font-weight:700;text-align:center;color:var(--gr);outline:none;min-width:0}
 .emb-add-input:focus{border-color:var(--gn)}
 .emb-tarima-add button{background:var(--gn);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
@@ -2610,7 +2610,9 @@ function renderEmb(){
               '<span>⚡ Agregado a mano — aún no está en sistema</span>'+
               '<span style="cursor:pointer;text-decoration:underline;white-space:nowrap" data-idmanual="'+escAttr(l.idManual||'')+'" onclick="quitarPtManual(this)">Quitar</span>'+
             '</div>':'';
-          return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'">'
+          const btnImprimirManual=l.origen==='MANUAL'?
+            '<button type="button" style="background:#E8671A" onclick="imprimirCaratula(this)">🖨️ Imprimir carátula</button>':'';
+          return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-origen="'+escAttr(l.origen||'')+'">'
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
             +manualBadge
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
@@ -2618,6 +2620,7 @@ function renderEmb(){
             +'<div class="emb-tarima-add">'
               +'<input type="number" min="0" step="any" inputmode="decimal" class="emb-add-input" placeholder="piezas físicas..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();addEmbTarima(this.nextElementSibling);}">'
               +'<button type="button" onclick="addEmbTarima(this)">+ Tarima</button>'
+              +btnImprimirManual
             +'</div>'
             +'<div class="emb-tarima-sum"></div>'
           +'</div>';
