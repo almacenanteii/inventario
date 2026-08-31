@@ -343,6 +343,7 @@ header.h-car{background:var(--rd)}
     <div class="chip a-emb" data-f="TODOS">Todos</div>
     <div class="chip" data-f="40PT">40 PT</div>
     <div class="chip" data-f="PTJAL">PTJAL</div>
+    <div class="chip" data-f="PTFGUAD">PTFGUAD</div>
   </div>
 
 </header>
@@ -416,7 +417,7 @@ header.h-car{background:var(--rd)}
 <div id="dashboard-cic" class="hidden" style="padding:0 14px;margin-bottom:4px"></div>
 
 <div class="kpis hidden" id="kpis-emb">
-  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-emb-piezas">—</div><div class="kpi-sub">40PT + PTJAL</div></div>
+  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-emb-piezas">—</div><div class="kpi-sub">40PT + PTJAL + PTFGUAD</div></div>
   <div class="kpi"><div class="kpi-lbl">Claves</div><div class="kpi-val gv" id="k-emb-claves">—</div><div class="kpi-sub">en este filtro</div></div>
   <div class="kpi"><div class="kpi-lbl">Tarimas</div><div class="kpi-val gv" id="k-emb-tarimas">0</div><div class="kpi-sub">anotadas</div></div>
 </div>
@@ -482,6 +483,7 @@ header.h-car{background:var(--rd)}
       <div id="pt-manual-almacen-chips" style="display:flex;gap:8px;margin-bottom:10px">
         <div class="chip pt-manual-alm-chip" data-alm="40PT" style="background:rgba(0,0,0,.06);color:#333">40 PT</div>
         <div class="chip pt-manual-alm-chip" data-alm="PTJAL" style="background:rgba(0,0,0,.06);color:#333">PTJAL</div>
+        <div class="chip pt-manual-alm-chip" data-alm="PTFGUAD" style="background:rgba(0,0,0,.06);color:#333">PTFGUAD</div>
       </div>
       <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Cantidad (piezas)</label>
       <input type="number" min="0" step="any" inputmode="decimal" id="pt-manual-cantidad" placeholder="Piezas totales de este lote" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:10px">
@@ -2289,7 +2291,8 @@ function buildAllA(){
   });
 }
 
-// ===== Embarque (40PT + PTJAL) =====
+// ===== Embarque (40PT + PTJAL + PTFGUAD) =====
+const EMB_ALMACENES=['40PT','PTJAL','PTFGUAD'];
 function embLetter(n){
   let x=n,s='';
   while(x>0){ x--; s=String.fromCharCode(65+(x%26))+s; x=Math.floor(x/26); }
@@ -2324,7 +2327,7 @@ function updateEmbDatalist(){
   const opts=[];
   (EMB_LOADED||[]).forEach(function(r){
     const alm=(r.almacen||'').toUpperCase();
-    if(alm!=='40PT'&&alm!=='PTJAL')return;
+    if(EMB_ALMACENES.indexOf(alm)===-1)return;
     const k=String(r.clave||'').trim();
     if(!k||seen[k])return;
     seen[k]=true;
@@ -2451,7 +2454,7 @@ function guardarPtManual(){
   let desc=document.getElementById('pt-manual-desc').value.trim();
   if(!clave){ alert('Falta la clave.'); return; }
   if(!lote){ alert('Falta el lote.'); return; }
-  if(!ptManualAlm){ alert('Elige el almacén (40PT o PTJAL).'); return; }
+  if(!ptManualAlm){ alert('Elige el almacén (40PT, PTJAL o PTFGUAD).'); return; }
   if(!cantidad||cantidad<=0){ alert('La cantidad debe ser mayor a 0.'); return; }
   if(!desc){
     const existente=buscarDescClaveExistente_(clave);
@@ -2527,7 +2530,7 @@ function getFiltEmb(){
   const q=sEmb.toLowerCase().trim();
   return (EMB_LOADED||[]).filter(function(r){
     const alm=(r.almacen||'').toUpperCase();
-    if(alm!=='40PT'&&alm!=='PTJAL')return false;
+    if(EMB_ALMACENES.indexOf(alm)===-1)return false;
     if(fEmb!=='TODOS'&&alm!==fEmb)return false;
     if(q&&!smartMatch(r.clave,sEmb)&&!smartMatch(r.desc,sEmb)&&!smartMatch(r.lote,sEmb))return false;
     return true;
