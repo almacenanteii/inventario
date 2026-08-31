@@ -936,6 +936,13 @@ const AJUSTE_URL='https://script.google.com/macros/s/AKfycbw_1KSijqH3PSl6-jSTg4d
 const AJUSTE_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1589452588&single=true&output=csv';
 const HIST_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=135260082&single=true&output=csv';
 let SCHED=[]; // se reconstruye en vivo desde Ciclicos (ver buildSchedFromCic)
+// Cuando se cuenta un código que estaba programado para OTRA semana (o
+// atrasado), se reasigna a la semana en curso -- ver enviarConteo(). El CSV
+// publicado de Ciclicos tarda varios minutos en reflejar ese cambio del
+// lado de Google, así que mientras tanto se fuerza aquí en memoria para que
+// no se vea "revertido" al refrescar. Se limpia solo en cuanto el CSV ya
+// trae el valor correcto (ver aplicarCicSemanaOverrides_).
+let cicSemanaOverride={};
 const CIC_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=440919640&single=true&output=csv';
 let cicData=[],cicHist=[],cicAjustes=[],cicLoaded=false,fCic='TODOS',sCic='',fCicSemana=0;
 
@@ -987,6 +994,26 @@ function buildSchedFromCic(){
   SCHED=out;
 }
 
+// Aplica las reasignaciones de semana pendientes (ver cicSemanaOverride)
+// sobre el cicData recién leído del CSV publicado. Si el CSV ya trae el
+// valor correcto para una clave, se quita de la lista de pendientes (ya no
+// hace falta forzarlo). Debe llamarse DESPUÉS de parseCicCSV y ANTES de
+// buildSchedFromCic, para que SCHED salga ya corregido.
+function aplicarCicSemanaOverrides_(){
+  const claves=Object.keys(cicSemanaOverride);
+  if(!claves.length)return;
+  claves.forEach(function(clave){
+    const ov=cicSemanaOverride[clave];
+    const filas=cicData.filter(function(p){return p.clave===clave;});
+    if(!filas.length)return;
+    const yaCorrecto=filas.every(function(p){return p.semana===ov.semana;});
+    if(yaCorrecto){
+      delete cicSemanaOverride[clave];
+      return;
+    }
+    filas.forEach(function(p){ p.semana=ov.semana; p.semanaFecha=ov.semanaFecha; });
+  });
+}
 
 function generarReporte(semana){
   const items=getSchedForSemana(semana);
@@ -1475,6 +1502,7 @@ async function loadCic(){
     const rCat=await fetch(CIC_URL+'&t='+Date.now());
     const textCat=await rCat.text();
     cicData=parseCicCSV(textCat);
+    aplicarCicSemanaOverrides_();
     buildSchedFromCic();
 
     // Historial y Ajustes se leen en vivo directo del Apps Script (doGet)
@@ -1546,6 +1574,30 @@ function getCurrentSemana(){
 
 function getSchedForSemana(calWeek){
   return SCHED.filter(function(s){return s.semana_cal===calWeek;});
+}
+
+// Igual que getCurrentSemana(), pero además regresa el rango de fechas real
+// de esa semana (fecha_ini/fecha_fin) -- lo necesita enviarConteo() para
+// reasignar un código a la semana en curso con su fecha correcta, no solo
+// el número. Si hoy no cae dentro de ninguna semana programada (caso raro,
+// ej. hueco entre calendarios), regresa null y no se reasigna nada -- mejor
+// no mover nada que escribir una fecha inventada.
+function semanaActualInfo_(){
+  const parseDMY=function(s){
+    if(!s)return null;
+    const p=s.split('/');
+    if(p.length<3)return null;
+    const d=new Date(+p[2],+p[1]-1,+p[0]);
+    return isNaN(d.getTime())?null:d;
+  };
+  if(!SCHED||!SCHED.length)return null;
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const match=SCHED.find(function(s){
+    const ini=parseDMY(s.fecha_ini),fin=parseDMY(s.fecha_fin);
+    return ini&&fin&&hoy>=ini&&hoy<=fin;
+  });
+  if(!match)return null;
+  return {semana_cal:match.semana_cal,fecha_ini:match.fecha_ini,fecha_fin:match.fecha_fin};
 }
 
 
@@ -2126,6 +2178,25 @@ function registrarConteo(btn){
 function enviarConteo(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,inp,msg){
   if(btn){btn.classList.add('saving');btn.textContent='...';}
   const payload={fechaConteo:fechaConteo,clave:clave,lote:lote,cantidad:parseFloat(cantidad),registrado:nombre,causa:causa||''};
+
+  // Si el código estaba programado para OTRA semana (atrasado o adelantado),
+  // al contarlo se reasigna a la semana en curso -- toda la clave, no solo
+  // este lote, para que no quede desfasada entre sus propios lotes.
+  const semActual=semanaActualInfo_();
+  if(semActual){
+    const claveSched=SCHED.find(function(s){return s.clave===clave;});
+    if(claveSched&&claveSched.semana_cal!==semActual.semana_cal){
+      const semanaFechaDestino=semActual.fecha_ini+' – '+semActual.fecha_fin;
+      payload.semanaDestino=semActual.semana_cal;
+      payload.semanaFechaDestino=semanaFechaDestino;
+      cicSemanaOverride[clave]={semana:semActual.semana_cal,semanaFecha:semanaFechaDestino};
+      cicData.forEach(function(p){
+        if(p.clave===clave){ p.semana=semActual.semana_cal; p.semanaFecha=semanaFechaDestino; }
+      });
+      buildSchedFromCic();
+    }
+  }
+
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)})
     .then(function(){
       if(btn){btn.classList.remove('saving');btn.textContent='✓';}
