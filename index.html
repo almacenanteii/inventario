@@ -335,13 +335,19 @@ header.h-car{background:var(--rd)}
   <div class="update-bar" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">🚫 No viajan: PT-S.O-071, PT-S.O-072, PT-S.O-127</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="search" id="search-emb" placeholder="Buscar clave o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <input type="search" id="search-emb" list="emb-clave-list" placeholder="Buscar o elegir código, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <datalist id="emb-clave-list"></datalist>
     <button class="clr" id="clr-emb" onclick="document.getElementById('search-emb').value='';sEmb='';renderEmb();">✕</button>
   </div>
   <div class="filters" id="fi-emb">
     <div class="chip a-emb" data-f="TODOS">Todos</div>
     <div class="chip" data-f="40PT">40 PT</div>
     <div class="chip" data-f="PTJAL">PTJAL</div>
+  </div>
+  <div class="filters" id="fi-emb-group" style="padding:0 14px 10px">
+    <span style="font-size:11px;color:rgba(255,255,255,.8);align-self:center;margin-right:2px">Agrupar:</span>
+    <div class="chip a-emb" data-g="clase">Por clase</div>
+    <div class="chip" data-g="almacen">Por almacén</div>
   </div>
 </header>
 
@@ -478,6 +484,7 @@ ACTUAL.forEach(r=>{
 // ALL_A built dynamically in buildAllA()
 
 let tab='inv',fInv='TODOS',fAbc='TODOS',fEmb='TODOS',sInv='',sAbc='',sEmb='';
+let embGroupBy='clase';
 const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
 let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
 let embQty={};
@@ -2192,6 +2199,7 @@ async function loadEmbarque(){
     embLoaded=true;
     console.log('InventarioPT cargado:', EMB_LOADED.length, 'registros.');
     if(bar) bar.textContent='📅 InventarioPT'+(fechaGlobal?' · actualizado al '+fechaGlobal:'')+' · '+EMB_LOADED.length+' registros';
+    updateEmbDatalist();
     renderEmb();
   }catch(e){
     console.error('Error cargando InventarioPT:', e);
@@ -2233,11 +2241,37 @@ function embParseCad(s){
 }
 
 const EMB_NO_VIAJA=['PT-S.O-071','PT-S.O-072','PT-S.O-127'];
+
+// Antes estos códigos se ocultaban por completo del Embarque. Ahora se
+// muestran igual que el resto del PT, pero marcados con una leyenda: se
+// quedan en Farmacias GDL y no viajan.
+function esEmbNoViaja(clave){
+  return EMB_NO_VIAJA.includes(String(clave||'').trim().toUpperCase());
+}
+
+function updateEmbDatalist(){
+  const dl=document.getElementById('emb-clave-list');
+  if(!dl)return;
+  const seen={};
+  const opts=[];
+  (EMB_LOADED||[]).forEach(function(r){
+    const alm=(r.almacen||'').toUpperCase();
+    if(alm!=='40PT'&&alm!=='PTJAL')return;
+    const k=String(r.clave||'').trim();
+    if(!k||seen[k])return;
+    seen[k]=true;
+    opts.push({clave:k,desc:r.desc||''});
+  });
+  opts.sort(function(a,b){return a.clave.localeCompare(b.clave);});
+  dl.innerHTML=opts.map(function(o){
+    return '<option value="'+escAttr(o.clave)+'" label="'+escAttr(o.clave+' · '+o.desc)+'">';
+  }).join('');
+}
+
 function getFiltEmb(){
   const q=sEmb.toLowerCase().trim();
   return (EMB_LOADED||[]).filter(function(r){
     const alm=(r.almacen||'').toUpperCase();
-    if(EMB_NO_VIAJA.includes(String(r.clave||'').trim().toUpperCase()))return false;
     if(alm!=='40PT'&&alm!=='PTJAL')return false;
     if(fEmb!=='TODOS'&&alm!==fEmb)return false;
     if(q&&!smartMatch(r.clave,sEmb)&&!smartMatch(r.desc,sEmb)&&!smartMatch(r.lote,sEmb))return false;
@@ -2249,9 +2283,11 @@ function buildEmbGroups(){
   const rows=getFiltEmb();
   const gm={};
   rows.forEach(function(r){
-    if(!gm[r.clave])gm[r.clave]={clase:r.clase,clave:r.clave,desc:r.desc,lotes:[],alms:new Set()};
-    gm[r.clave].lotes.push(r);
-    gm[r.clave].alms.add((r.almacen||'').toUpperCase());
+    const almU=(r.almacen||'').toUpperCase();
+    const key=embGroupBy==='almacen'?(r.clave+'|'+almU):r.clave;
+    if(!gm[key])gm[key]={clase:r.clase,clave:r.clave,desc:r.desc,lotes:[],alms:new Set()};
+    gm[key].lotes.push(r);
+    gm[key].alms.add(almU);
   });
   return Object.values(gm).map(function(g){
     g.lotes=g.lotes.slice().sort(function(a,b){
@@ -2263,6 +2299,7 @@ function buildEmbGroups(){
     });
     g.totalExist=g.lotes.reduce(function(s,l){return s+l.exist;},0);
     g.alms=[...g.alms];
+    g.noViaja=esEmbNoViaja(g.clave);
     return g;
   });
 }
@@ -2270,14 +2307,27 @@ function buildEmbGroups(){
 function renderEmb(){
   const groups=buildEmbGroups();
   const byClase={};
-  groups.forEach(function(g){ if(!byClase[g.clase])byClase[g.clase]=[]; byClase[g.clase].push(g); });
-  // Orden preferido para las clases conocidas; cualquier clase nueva que
-  // aparezca en los datos (ej. MAQRET) se agrega sola al final en vez de
-  // desaparecer de la lista.
-  const orderBase=['EYE','GRA','MAQ','PT','GTO'];
+  const groupKeyFn=embGroupBy==='almacen'?function(g){return g.alms[0]||'—';}:function(g){return g.clase;};
+  groups.forEach(function(g){ const k=groupKeyFn(g); if(!byClase[k])byClase[k]=[]; byClase[k].push(g); });
+  // Orden preferido para las secciones conocidas; cualquier sección nueva
+  // (clase o almacén) que aparezca en los datos se agrega sola al final en
+  // vez de desaparecer de la lista.
+  const orderBase=embGroupBy==='almacen'?['40PT','PTJAL']:['EYE','GRA','MAQ','PT','GTO'];
   const orderExtra=Object.keys(byClase).filter(function(c){return orderBase.indexOf(c)===-1;}).sort();
   const order=orderBase.concat(orderExtra);
-  order.forEach(function(c){ if(byClase[c])byClase[c].sort(function(a,b){return a.clave.localeCompare(b.clave);}); });
+  // Dentro de cada sección, primero las claves con el lote más viejo
+  // (misma lógica de caducidad que ya se usa para ordenar los lotes
+  // dentro de cada tarjeta) — así lo que hay que embarcar primero (FIFO)
+  // queda arriba en vez de orden alfabético.
+  order.forEach(function(c){ if(byClase[c])byClase[c].sort(function(a,b){
+    const da=embParseCad(a.lotes[0]&&a.lotes[0].caducidad);
+    const db=embParseCad(b.lotes[0]&&b.lotes[0].caducidad);
+    if(da===null&&db===null)return a.clave.localeCompare(b.clave);
+    if(da===null)return 1;
+    if(db===null)return -1;
+    if(da!==db)return da-db;
+    return a.clave.localeCompare(b.clave);
+  }); });
 
   embItemsCount=groups.length;
   embLotesCount=groups.reduce(function(s,g){return s+g.lotes.length;},0);
@@ -2313,7 +2363,8 @@ function renderEmb(){
             +'<div class="emb-tarima-sum"></div>'
           +'</div>';
         }).join('');
-        return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span class="clave c-gn">'+g.clave+'</span><span class="pill p-gn">'+fmt(g.totalExist)+'</span></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
+        const noViajaBadge=g.noViaja?'<div style="font-size:11px;font-weight:700;color:#1565C0;background:#E3F2FD;border-radius:6px;padding:4px 8px;display:inline-block;margin-top:6px">🏥 No viaja — pertenece a Farmacias GDL</div>':'';
+        return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span class="clave c-gn">'+g.clave+'</span><span class="pill p-gn">'+fmt(g.totalExist)+'</span></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div>'+noViajaBadge+'</div><div class="emb-lots">'+lots+'</div></div>';
       }).join('');
   }).join('');
 
@@ -2850,6 +2901,7 @@ document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListene
 document.getElementById('search-emb').addEventListener('input',function(){sEmb=this.value;renderEmb();});
 if(document.getElementById('search-car')) document.getElementById('search-car').addEventListener('input',function(){sCar=this.value;renderCar();});
 document.querySelectorAll('#fi-emb .chip').forEach(function(c){c.addEventListener('click',function(){fEmb=this.dataset.f;document.querySelectorAll('#fi-emb .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
+document.querySelectorAll('#fi-emb-group .chip').forEach(function(c){c.addEventListener('click',function(){embGroupBy=this.dataset.g;document.querySelectorAll('#fi-emb-group .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
 // Init
 loadInventario();
 </script>
