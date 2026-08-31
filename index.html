@@ -329,10 +329,10 @@ header.h-car{background:var(--rd)}
   <div class="hdr-top">
     <h1>🚚 Armar Embarque</h1>
     <button onclick="openEmbResumen()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">📋 Lista tarimas</button>
+    <button onclick="abrirModalPtManual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">⚡ Agregar manual</button>
     <button onclick="clearEmbTarimas()" style="background:#fff;color:var(--gn);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🗑️</button>
   </div>
   <div class="update-bar" id="emb-update-bar">📅 Cargando InventarioPT...</div>
-  <div class="update-bar" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">🚫 No viajan: PT-S.O-071, PT-S.O-072, PT-S.O-127</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input type="search" id="search-emb" list="emb-clave-list" placeholder="Buscar o elegir código, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -344,11 +344,7 @@ header.h-car{background:var(--rd)}
     <div class="chip" data-f="40PT">40 PT</div>
     <div class="chip" data-f="PTJAL">PTJAL</div>
   </div>
-  <div class="filters" id="fi-emb-group" style="padding:0 14px 10px">
-    <span style="font-size:11px;color:rgba(255,255,255,.8);align-self:center;margin-right:2px">Agrupar:</span>
-    <div class="chip a-emb" data-g="clase">Por clase</div>
-    <div class="chip" data-g="almacen">Por almacén</div>
-  </div>
+
 </header>
 
 <header class="h-car hidden" id="hdr-car">
@@ -461,6 +457,44 @@ header.h-car{background:var(--rd)}
   </div>
 </div>
 
+<div class="emb-modal" id="modal-emb-manual">
+  <div class="emb-modal-box">
+    <div class="emb-modal-head">
+      <div>
+        <h2>⚡ Agregar PT a mano</h2>
+        <div class="emb-modal-sub">Producción que ya está en almacén pero aún no aparece en SAI</div>
+      </div>
+      <button onclick="cerrarModalPtManual()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gr2)">✕</button>
+    </div>
+    <div class="emb-modal-body" style="padding:16px">
+      <div style="position:relative;margin-bottom:12px">
+        <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Buscar en Trazabilidad OP (opcional, para no escribir todo)</label>
+        <input type="text" id="pt-manual-buscar-op" placeholder="Escribe clave o lote de la orden…" autocomplete="off" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none">
+        <div id="pt-manual-op-results" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1.5px solid #e2e2e2;border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.12)"></div>
+      </div>
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Clave</label>
+      <input type="text" id="pt-manual-clave" placeholder="Ej. PT-A-001" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:10px">
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Descripción</label>
+      <input type="text" id="pt-manual-desc" placeholder="Se autocompleta si ya existe la clave" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:10px">
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Lote</label>
+      <input type="text" id="pt-manual-lote" placeholder="Ej. L-2026-045" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:10px">
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Almacén</label>
+      <div id="pt-manual-almacen-chips" style="display:flex;gap:8px;margin-bottom:10px">
+        <div class="chip pt-manual-alm-chip" data-alm="40PT" style="background:rgba(0,0,0,.06);color:#333">40 PT</div>
+        <div class="chip pt-manual-alm-chip" data-alm="PTJAL" style="background:rgba(0,0,0,.06);color:#333">PTJAL</div>
+      </div>
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Cantidad (piezas)</label>
+      <input type="number" min="0" step="any" inputmode="decimal" id="pt-manual-cantidad" placeholder="Piezas totales de este lote" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:10px">
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Fecha de caducidad (opcional)</label>
+      <input type="text" id="pt-manual-caducidad" placeholder="DD/MM/AAAA" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none">
+    </div>
+    <div class="emb-modal-foot">
+      <button class="btn-emb-close" onclick="cerrarModalPtManual()">Cancelar</button>
+      <button class="btn-emb-print" onclick="guardarPtManual()" style="background:#E8671A">✓ Guardar y agregar a la lista</button>
+    </div>
+  </div>
+</div>
+
 <button class="fab" id="fab" style="background:var(--or)" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑ Subir</button>
 
 
@@ -484,7 +518,6 @@ ACTUAL.forEach(r=>{
 // ALL_A built dynamically in buildAllA()
 
 let tab='inv',fInv='TODOS',fAbc='TODOS',fEmb='TODOS',sInv='',sAbc='',sEmb='';
-let embGroupBy='clase';
 const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
 let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
 let embQty={};
@@ -2199,6 +2232,12 @@ async function loadEmbarque(){
     embLoaded=true;
     console.log('InventarioPT cargado:', EMB_LOADED.length, 'registros.');
     if(bar) bar.textContent='📅 InventarioPT'+(fechaGlobal?' · actualizado al '+fechaGlobal:'')+' · '+EMB_LOADED.length+' registros';
+    // El CSV publicado tiene caché de varios minutos del lado de Google, así
+    // que lo agregado a mano (que necesita verse al instante) se lee aparte
+    // en vivo desde Apps Script y se mezcla aquí. Si esta llamada falla (por
+    // ejemplo, el script todavía no tiene esta acción desplegada), no rompe
+    // la carga normal del Embarque.
+    await mezclarPtManual_();
     updateEmbDatalist();
     renderEmb();
   }catch(e){
@@ -2206,6 +2245,31 @@ async function loadEmbarque(){
     if(!embLoaded){ EMB_LOADED=[]; }
     if(bar) bar.textContent='❌ Error al cargar InventarioPT. Verifica conexión.';
     renderEmb();
+  }
+}
+
+async function mezclarPtManual_(){
+  try{
+    const rM=await fetch(APPS_URL+'?accion=pt_manual&t='+Date.now());
+    const manualRows=await rM.json();
+    if(!Array.isArray(manualRows))return;
+    manualRows.forEach(function(m){
+      EMB_LOADED.push({
+        almacen:(m.almacen||'').toUpperCase(),
+        clase:m.clase||'PT',
+        clave:m.clave,
+        desc:m.desc||'',
+        lote:m.lote,
+        exist:m.exist||0,
+        unidad:m.unidad||'pzas',
+        caducidad:m.caducidad||'',
+        loc:'',
+        origen:'MANUAL',
+        idManual:m.id
+      });
+    });
+  }catch(e){
+    console.error('Error cargando PT agregado a mano (¿ya está desplegada la acción pt_manual?):', e);
   }
 }
 
@@ -2268,6 +2332,158 @@ function updateEmbDatalist(){
   }).join('');
 }
 
+// ===== PT agregado a mano (producción que aún no aparece en SAI) =====
+let TRAZ_OP=[],trazOpLoaded=false;
+let ptManualAlm=null;
+
+async function cargarTrazOP_(){
+  if(trazOpLoaded)return;
+  try{
+    const r=await fetch(APPS_URL+'?accion=trazabilidad_op&t='+Date.now());
+    const rows=await r.json();
+    if(Array.isArray(rows)){ TRAZ_OP=rows; trazOpLoaded=true; }
+  }catch(e){
+    console.error('Error cargando Trazabilidad OP:', e);
+  }
+}
+
+function abrirModalPtManual(){
+  document.getElementById('pt-manual-buscar-op').value='';
+  document.getElementById('pt-manual-clave').value='';
+  document.getElementById('pt-manual-desc').value='';
+  document.getElementById('pt-manual-lote').value='';
+  document.getElementById('pt-manual-cantidad').value='';
+  document.getElementById('pt-manual-caducidad').value='';
+  document.getElementById('pt-manual-op-results').style.display='none';
+  ptManualAlm=null;
+  document.querySelectorAll('.pt-manual-alm-chip').forEach(function(c){
+    c.style.background='rgba(0,0,0,.06)'; c.style.color='#333';
+  });
+  cargarTrazOP_();
+  const modal=document.getElementById('modal-emb-manual');
+  if(modal)modal.style.display='flex';
+  setTimeout(function(){document.getElementById('pt-manual-buscar-op').focus();},50);
+}
+
+function cerrarModalPtManual(){
+  const modal=document.getElementById('modal-emb-manual');
+  if(modal)modal.style.display='none';
+}
+
+function buscarDescClaveExistente_(clave){
+  const c=String(clave||'').trim().toUpperCase();
+  if(!c)return null;
+  const m=(EMB_LOADED||[]).find(function(r){return String(r.clave||'').trim().toUpperCase()===c;});
+  return m?{clase:m.clase,desc:m.desc}:null;
+}
+
+function renderTrazOpResultados_(){
+  const q=document.getElementById('pt-manual-buscar-op').value.trim();
+  const box=document.getElementById('pt-manual-op-results');
+  if(!q){ box.style.display='none'; box.innerHTML=''; return; }
+  const matches=TRAZ_OP.filter(function(o){
+    return smartMatch(o.clave,q)||smartMatch(o.lote,q);
+  }).slice(0,8);
+  if(!matches.length){
+    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--gr2)">Sin resultados en Trazabilidad OP</div>';
+    box.style.display='block';
+    return;
+  }
+  box.innerHTML=matches.map(function(o,i){
+    return '<div class="pt-manual-op-row" data-i="'+i+'" style="padding:9px 12px;font-size:12px;border-bottom:1px solid #f0f0f0;cursor:pointer" onmousedown="event.preventDefault();elegirTrazOP('+i+')">'+
+      '<b>'+o.clave+'</b> · Lote '+(o.lote||'—')+' · '+(o.cantidad||'—')+' pz · '+(o.fecha||'—')+
+    '</div>';
+  }).join('');
+  box.style.display='block';
+  window._trazOpMatches=matches;
+}
+
+function elegirTrazOP(i){
+  const o=(window._trazOpMatches||[])[i];
+  if(!o)return;
+  document.getElementById('pt-manual-clave').value=o.clave||'';
+  document.getElementById('pt-manual-lote').value=o.lote||'';
+  document.getElementById('pt-manual-cantidad').value=o.cantidad||'';
+  document.getElementById('pt-manual-op-results').style.display='none';
+  document.getElementById('pt-manual-buscar-op').value=o.clave+' · '+o.lote;
+  const existente=buscarDescClaveExistente_(o.clave);
+  if(existente)document.getElementById('pt-manual-desc').value=existente.desc||'';
+  document.getElementById('pt-manual-cantidad').focus();
+}
+
+function guardarPtManual(){
+  const clave=document.getElementById('pt-manual-clave').value.trim();
+  const lote=document.getElementById('pt-manual-lote').value.trim();
+  const cantidad=parseFloat(document.getElementById('pt-manual-cantidad').value);
+  const caducidad=document.getElementById('pt-manual-caducidad').value.trim();
+  let desc=document.getElementById('pt-manual-desc').value.trim();
+  if(!clave){ alert('Falta la clave.'); return; }
+  if(!lote){ alert('Falta el lote.'); return; }
+  if(!ptManualAlm){ alert('Elige el almacén (40PT o PTJAL).'); return; }
+  if(!cantidad||cantidad<=0){ alert('La cantidad debe ser mayor a 0.'); return; }
+  if(!desc){
+    const existente=buscarDescClaveExistente_(clave);
+    if(existente)desc=existente.desc||'';
+  }
+  const clase=(buscarDescClaveExistente_(clave)||{}).clase||'PT';
+  const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
+  const fecha=new Date().toLocaleString('es-MX');
+  const idTemp='tmp-'+Date.now();
+
+  EMB_LOADED.push({
+    almacen:ptManualAlm, clase:clase, clave:clave, desc:desc, lote:lote,
+    exist:cantidad, unidad:'pzas', caducidad:caducidad, loc:'',
+    origen:'MANUAL', idManual:idTemp
+  });
+
+  // Igual que si hubiera tecleado la cantidad en "+ Tarima" de este lote:
+  // se agrega de una vez a la Lista de tarimas, sin pasos extra.
+  const key=clave+'|'+lote+'|'+ptManualAlm;
+  if(!embQty[key])embQty[key]=[];
+  embQty[key].push(cantidad);
+  try{localStorage.setItem(EMB_STORAGE_KEY,JSON.stringify(embQty));}catch(e){}
+
+  updateEmbDatalist();
+  renderEmb();
+  cerrarModalPtManual();
+
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({
+    accion:'pt_manual', clase:clase, clave:clave, desc:desc, lote:lote,
+    cantidad:cantidad, unidad:'pzas', caducidad:caducidad, almacen:ptManualAlm,
+    registrado:nombre, fecha:fecha
+  })}).catch(function(e){console.error('Error guardando PT manual:',e);});
+
+  // No-cors no deja leer el Id real que asignó el servidor -- se refresca en
+  // ~1.5s para reemplazar el Id temporal por el real (igual que Ubicaciones),
+  // así "Quitar" funciona bien después.
+  setTimeout(function(){
+    EMB_LOADED=EMB_LOADED.filter(function(r){return r.origen!=='MANUAL';});
+    mezclarPtManual_().then(renderEmb);
+  },1500);
+}
+
+function quitarPtManual(el){
+  const id=el.dataset.idmanual||'';
+  if(!confirm('¿Quitar este registro agregado a mano?'))return;
+  EMB_LOADED=EMB_LOADED.filter(function(r){return !(r.origen==='MANUAL'&&r.idManual===id);});
+  renderEmb();
+  if(id&&id.indexOf('tmp-')!==0){
+    fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_pt_manual',id:id})})
+      .catch(function(e){console.error('Error eliminando PT manual:',e);});
+  }
+}
+
+document.getElementById('pt-manual-buscar-op').addEventListener('input',renderTrazOpResultados_);
+document.querySelectorAll('.pt-manual-alm-chip').forEach(function(c){
+  c.addEventListener('click',function(){
+    ptManualAlm=this.dataset.alm;
+    document.querySelectorAll('.pt-manual-alm-chip').forEach(function(x){
+      x.style.background='rgba(0,0,0,.06)'; x.style.color='#333';
+    });
+    this.style.background='#E8671A'; this.style.color='#fff';
+  });
+});
+
 function getFiltEmb(){
   const q=sEmb.toLowerCase().trim();
   return (EMB_LOADED||[]).filter(function(r){
@@ -2284,7 +2500,7 @@ function buildEmbGroups(){
   const gm={};
   rows.forEach(function(r){
     const almU=(r.almacen||'').toUpperCase();
-    const key=embGroupBy==='almacen'?(r.clave+'|'+almU):r.clave;
+    const key=r.clave;
     if(!gm[key])gm[key]={clase:r.clase,clave:r.clave,desc:r.desc,lotes:[],alms:new Set()};
     gm[key].lotes.push(r);
     gm[key].alms.add(almU);
@@ -2307,12 +2523,10 @@ function buildEmbGroups(){
 function renderEmb(){
   const groups=buildEmbGroups();
   const byClase={};
-  const groupKeyFn=embGroupBy==='almacen'?function(g){return g.alms[0]||'—';}:function(g){return g.clase;};
-  groups.forEach(function(g){ const k=groupKeyFn(g); if(!byClase[k])byClase[k]=[]; byClase[k].push(g); });
-  // Orden preferido para las secciones conocidas; cualquier sección nueva
-  // (clase o almacén) que aparezca en los datos se agrega sola al final en
-  // vez de desaparecer de la lista.
-  const orderBase=embGroupBy==='almacen'?['40PT','PTJAL']:['EYE','GRA','MAQ','PT','GTO'];
+  groups.forEach(function(g){ if(!byClase[g.clase])byClase[g.clase]=[]; byClase[g.clase].push(g); });
+  // Orden preferido para las clases conocidas; cualquier clase nueva que
+  // aparezca en los datos se agrega sola al final en vez de desaparecer.
+  const orderBase=['EYE','GRA','MAQ','PT','GTO'];
   const orderExtra=Object.keys(byClase).filter(function(c){return orderBase.indexOf(c)===-1;}).sort();
   const order=orderBase.concat(orderExtra);
   // Dentro de cada sección, primero las claves con el lote más viejo
@@ -2352,8 +2566,14 @@ function renderEmb(){
         const lots=g.lotes.map(function(l){
           const almU=(l.almacen||'').toUpperCase();
           const cad=cadInfo(l.caducidad);
+          const manualBadge=l.origen==='MANUAL'?
+            '<div style="font-size:11px;font-weight:700;color:#E8671A;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0">'+
+              '<span>⚡ Agregado a mano — aún no está en sistema</span>'+
+              '<span style="cursor:pointer;text-decoration:underline;white-space:nowrap" data-idmanual="'+escAttr(l.idManual||'')+'" onclick="quitarPtManual(this)">Quitar</span>'+
+            '</div>':'';
           return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'">'
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
+            +manualBadge
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
             +'<div class="emb-tarima-chips"></div>'
             +'<div class="emb-tarima-add">'
@@ -2901,7 +3121,6 @@ document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListene
 document.getElementById('search-emb').addEventListener('input',function(){sEmb=this.value;renderEmb();});
 if(document.getElementById('search-car')) document.getElementById('search-car').addEventListener('input',function(){sCar=this.value;renderCar();});
 document.querySelectorAll('#fi-emb .chip').forEach(function(c){c.addEventListener('click',function(){fEmb=this.dataset.f;document.querySelectorAll('#fi-emb .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
-document.querySelectorAll('#fi-emb-group .chip').forEach(function(c){c.addEventListener('click',function(){embGroupBy=this.dataset.g;document.querySelectorAll('#fi-emb-group .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
 // Init
 loadInventario();
 </script>
