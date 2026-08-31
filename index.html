@@ -2237,7 +2237,7 @@ async function loadEmbarque(){
     // en vivo desde Apps Script y se mezcla aquí. Si esta llamada falla (por
     // ejemplo, el script todavía no tiene esta acción desplegada), no rompe
     // la carga normal del Embarque.
-    await mezclarPtManual_();
+    await mezclarPtManualEn_(EMB_LOADED);
     updateEmbDatalist();
     renderEmb();
   }catch(e){
@@ -2248,13 +2248,17 @@ async function loadEmbarque(){
   }
 }
 
-async function mezclarPtManual_(){
+// Lee lo agregado a mano (acción pt_manual del Apps Script) y lo empuja al
+// arreglo que le pases -- lo usan tanto Embarque (EMB_LOADED) como Carátulas
+// PT (CAR_LOADED), para que un PT agregado a mano se pueda ver Y también
+// imprimir su carátula, no solo aparecer en la lista de embarque.
+async function mezclarPtManualEn_(destino){
   try{
     const rM=await fetch(APPS_URL+'?accion=pt_manual&t='+Date.now());
     const manualRows=await rM.json();
     if(!Array.isArray(manualRows))return;
     manualRows.forEach(function(m){
-      EMB_LOADED.push({
+      destino.push({
         almacen:(m.almacen||'').toUpperCase(),
         clase:m.clase||'PT',
         clave:m.clave,
@@ -2336,15 +2340,28 @@ function updateEmbDatalist(){
 let TRAZ_OP=[],trazOpLoaded=false;
 let ptManualAlm=null;
 
+let trazOpLoading=false,trazOpError=false;
 async function cargarTrazOP_(){
   if(trazOpLoaded)return;
+  trazOpLoading=true;
+  renderTrazOpResultados_();
   try{
     const r=await fetch(APPS_URL+'?accion=trazabilidad_op&t='+Date.now());
     const rows=await r.json();
-    if(Array.isArray(rows)){ TRAZ_OP=rows; trazOpLoaded=true; }
+    if(Array.isArray(rows)){
+      TRAZ_OP=rows;
+      trazOpLoaded=true;
+      console.log('Trazabilidad OP cargada:', rows.length, 'órdenes.');
+    }else{
+      trazOpError=true;
+      console.error('Trazabilidad OP: la respuesta no fue una lista (¿ya está desplegada la acción trazabilidad_op?):', rows);
+    }
   }catch(e){
-    console.error('Error cargando Trazabilidad OP:', e);
+    trazOpError=true;
+    console.error('Error cargando Trazabilidad OP (¿ya pegaste y republicaste el script nuevo?):', e);
   }
+  trazOpLoading=false;
+  renderTrazOpResultados_();
 }
 
 function abrirModalPtManual(){
@@ -2380,12 +2397,27 @@ function buscarDescClaveExistente_(clave){
 function renderTrazOpResultados_(){
   const q=document.getElementById('pt-manual-buscar-op').value.trim();
   const box=document.getElementById('pt-manual-op-results');
+  if(trazOpLoading){
+    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--gr2)">Cargando Trazabilidad OP…</div>';
+    box.style.display='block';
+    return;
+  }
+  if(trazOpError){
+    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:#C62828">No se pudo cargar Trazabilidad OP. Revisa que el script de Apps Script ya tenga la acción "trazabilidad_op" pegada y republicada. Puedes seguir llenando el resto del formulario a mano.</div>';
+    box.style.display='block';
+    return;
+  }
+  if(trazOpLoaded&&TRAZ_OP.length===0){
+    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:#C62828">La pestaña "Trazabilidad OP" no tiene filas, o no se reconocieron sus columnas (deben incluir en el encabezado las palabras clave/código, lote, cantidad y fecha). Avísame los nombres exactos de las columnas si esto sigue así.</div>';
+    box.style.display='block';
+    return;
+  }
   if(!q){ box.style.display='none'; box.innerHTML=''; return; }
   const matches=TRAZ_OP.filter(function(o){
     return smartMatch(o.clave,q)||smartMatch(o.lote,q);
   }).slice(0,8);
   if(!matches.length){
-    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--gr2)">Sin resultados en Trazabilidad OP</div>';
+    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--gr2)">Sin resultados en Trazabilidad OP para "'+q+'"</div>';
     box.style.display='block';
     return;
   }
@@ -2458,15 +2490,22 @@ function guardarPtManual(){
   // así "Quitar" funciona bien después.
   setTimeout(function(){
     EMB_LOADED=EMB_LOADED.filter(function(r){return r.origen!=='MANUAL';});
-    mezclarPtManual_().then(renderEmb);
+    mezclarPtManualEn_(EMB_LOADED).then(renderEmb);
+    if(carLoaded){
+      CAR_LOADED=CAR_LOADED.filter(function(r){return r.origen!=='MANUAL';});
+      mezclarPtManualEn_(CAR_LOADED).then(function(){ if(document.getElementById('list-car'))renderCar(); });
+    }
   },1500);
 }
 
 function quitarPtManual(el){
   const id=el.dataset.idmanual||'';
   if(!confirm('¿Quitar este registro agregado a mano?'))return;
-  EMB_LOADED=EMB_LOADED.filter(function(r){return !(r.origen==='MANUAL'&&r.idManual===id);});
-  renderEmb();
+  const quitarDe=function(r){return !(r.origen==='MANUAL'&&r.idManual===id);};
+  EMB_LOADED=EMB_LOADED.filter(quitarDe);
+  CAR_LOADED=CAR_LOADED.filter(quitarDe);
+  if(document.getElementById('list-emb'))renderEmb();
+  if(document.getElementById('list-car'))renderCar();
   if(id&&id.indexOf('tmp-')!==0){
     fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_pt_manual',id:id})})
       .catch(function(e){console.error('Error eliminando PT manual:',e);});
@@ -2762,6 +2801,9 @@ async function loadCaratulasPT(){
     const textPt=await rPt.text();
     CAR_LOADED=parseInvCSV(textPt);
     carLoaded=true;
+    // Igual que en Embarque: lo agregado a mano se mezcla en vivo para que
+    // también se pueda imprimir su carátula, no solo verse en Embarque.
+    await mezclarPtManualEn_(CAR_LOADED);
     if(bar) bar.textContent='📅 InventarioPT'+(fechaGlobal?' · actualizado al '+fechaGlobal:'')+' · '+CAR_LOADED.length+' registros';
   }catch(e){
     console.error('Error cargando InventarioPT para Carátulas:', e);
@@ -2896,8 +2938,14 @@ function renderCar(){
           const almU=(l.almacen||'').toUpperCase();
           const cad=cadInfo(l.caducidad);
           const cuarentena=almU==='40PT';
-          return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-uempaque="'+(pzasInfo&&pzasInfo.pzasXCaja?pzasInfo.pzasXCaja:'')+'">'
+          const manualBadgeCar=l.origen==='MANUAL'?
+            '<div style="font-size:11px;font-weight:700;color:#E8671A;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0">'+
+              '<span>⚡ Agregado a mano — aún no está en sistema</span>'+
+              '<span style="cursor:pointer;text-decoration:underline;white-space:nowrap" data-idmanual="'+escAttr(l.idManual||'')+'" onclick="quitarPtManual(this)">Quitar</span>'+
+            '</div>':'';
+          return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-uempaque="'+(pzasInfo&&pzasInfo.pzasXCaja?pzasInfo.pzasXCaja:'')+'" data-origen="'+escAttr(l.origen||'')+'">'
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
+            +manualBadgeCar
             +(cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena — revisar liberación de Calidad antes de mover</div>':'')
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+' · U. Empaque: '+uEmp+'</div>'
             +'<div class="emb-tarima-chips"></div>'
@@ -2959,6 +3007,8 @@ function imprimirCaratula(btn){
 
   const clave=row.dataset.clave,desc=row.dataset.desc,lote=row.dataset.lote,almacen=row.dataset.almacen;
   const uEmpaque=row.dataset.uempaque?parseFloat(row.dataset.uempaque):null;
+  const esManual=row.dataset.origen==='MANUAL';
+  const lineaManual=esManual?'<div class="linea" style="color:#E8671A;font-size:40px;border:4px solid #E8671A;border-radius:12px;padding:10px 16px;display:inline-block">⚡ AGREGADO A MANO — VERIFICAR EN SISTEMA</div>':'';
 
   // window.open('_blank') + document.write en iOS (sobre todo instalado
   // como app en pantalla de inicio) no crea una ventana real: termina
@@ -2969,6 +3019,7 @@ function imprimirCaratula(btn){
     '<style>@page{size:letter;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
     '.linea{font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word}</style>'+
     '</head><body>'+
+    lineaManual+
     '<div class="linea">CLAVE: '+clave+'</div>'+
     '<div class="linea">LOTE: '+lote+'</div>'+
     '<div class="linea">CANTIDAD: '+fmt(v)+'</div>'+
