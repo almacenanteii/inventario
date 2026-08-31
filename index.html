@@ -2610,8 +2610,6 @@ function renderEmb(){
               '<span>⚡ Agregado a mano — aún no está en sistema</span>'+
               '<span style="cursor:pointer;text-decoration:underline;white-space:nowrap" data-idmanual="'+escAttr(l.idManual||'')+'" onclick="quitarPtManual(this)">Quitar</span>'+
             '</div>':'';
-          const btnImprimirManual=l.origen==='MANUAL'?
-            '<button type="button" style="background:#E8671A" onclick="imprimirCaratula(this)">🖨️ Imprimir carátula</button>':'';
           return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-origen="'+escAttr(l.origen||'')+'">'
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
             +manualBadge
@@ -2620,7 +2618,6 @@ function renderEmb(){
             +'<div class="emb-tarima-add">'
               +'<input type="number" min="0" step="any" inputmode="decimal" class="emb-add-input" placeholder="piezas físicas..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();addEmbTarima(this.nextElementSibling);}">'
               +'<button type="button" onclick="addEmbTarima(this)">+ Tarima</button>'
-              +btnImprimirManual
             +'</div>'
             +'<div class="emb-tarima-sum"></div>'
           +'</div>';
@@ -2646,7 +2643,7 @@ function recalcEmbLetters(){
       counter++;
       const L=embLetter(counter);
       sum+=pz;
-      assign.push({letter:L,clave:row.dataset.clave,desc:row.dataset.desc,lote:row.dataset.lote,almacen:row.dataset.almacen,piezas:pz});
+      assign.push({letter:L,clave:row.dataset.clave,desc:row.dataset.desc,lote:row.dataset.lote,almacen:row.dataset.almacen,piezas:pz,origen:row.dataset.origen||''});
       chipsHtml+='<span class="emb-tar-chip">Tarima '+L+': '+fmt(pz)+' pz<span class="x" onclick="removeEmbTarima(this)" data-key="'+escAttr(key)+'" data-idx="'+idx+'">✕</span></span>';
     });
     if(chipsEl) chipsEl.innerHTML=chipsHtml;
@@ -2713,11 +2710,15 @@ function openEmbResumen(){
   if(!assign.length){
     body.innerHTML='<p style="padding:24px 4px;text-align:center;color:var(--gr2);font-size:13px">Aún no has anotado cantidades de tarimas.</p>';
   }else{
+    const hayManual=assign.some(function(a){return a.origen==='MANUAL';});
     body.innerHTML='<table class="emb-resumen-table"><thead><tr><th>Tarima</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Piezas</th><th>Almacén</th></tr></thead><tbody>'+
       assign.map(function(a){
-        return '<tr><td class="t-letter">'+a.letter+'</td><td class="t-clave">'+a.clave+'</td><td>'+a.desc+'</td><td>'+a.lote+'</td><td>'+fmt(a.piezas)+'</td><td>'+a.almacen+'</td></tr>';
+        const claveTxt=(a.origen==='MANUAL'?'⚡ ':'')+a.clave;
+        const claveStyle=a.origen==='MANUAL'?' style="color:#E8671A"':'';
+        return '<tr><td class="t-letter">'+a.letter+'</td><td class="t-clave"'+claveStyle+'>'+claveTxt+'</td><td>'+a.desc+'</td><td>'+a.lote+'</td><td>'+fmt(a.piezas)+'</td><td>'+a.almacen+'</td></tr>';
       }).join('')+
-      '</tbody></table>';
+      '</tbody></table>'+
+      (hayManual?'<div style="padding:8px 4px 0;font-size:11px;color:#E8671A;font-weight:700">⚡ Agregado a mano — aún no está en sistema</div>':'');
   }
   const cnt=document.getElementById('emb-resumen-count');
   if(cnt)cnt.textContent=assign.length+' tarima'+(assign.length!==1?'s':'');
@@ -2733,9 +2734,14 @@ function closeEmbResumen(){
 function imprimirEmbResumen(){
   const assign=window._embAssign||[];
   if(!assign.length){ alert('No hay tarimas anotadas todavía.'); return; }
+  const hayManual=assign.some(function(a){return a.origen==='MANUAL';});
   const rows=assign.map(function(a){
-    return '<tr><td style="font-weight:800;text-align:center;font-family:monospace;font-size:13px">'+a.letter+'</td>'+
-      '<td style="font-family:monospace;color:#1F7A4D;font-weight:700">'+a.clave+'</td>'+
+    const esManual=a.origen==='MANUAL';
+    const claveTxt=(esManual?'⚡ ':'')+a.clave;
+    const claveColor=esManual?'#E8671A':'#1F7A4D';
+    return '<tr'+(esManual?' style="background:#FFF8E1"':'')+'>'+
+      '<td style="font-weight:800;text-align:center;font-family:monospace;font-size:13px">'+a.letter+'</td>'+
+      '<td style="font-family:monospace;color:'+claveColor+';font-weight:700">'+claveTxt+'</td>'+
       '<td>'+a.desc+'</td>'+
       '<td style="font-family:monospace;text-align:center">'+a.lote+'</td>'+
       '<td style="text-align:center;font-weight:700">'+fmt(a.piezas)+'</td>'+
@@ -2746,10 +2752,12 @@ function imprimirEmbResumen(){
   win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Lista de Tarimas · Embarque</title>'+
     '<style>body{font-family:Arial,sans-serif;margin:24px;color:#222}h1{font-size:18px;margin-bottom:4px}'+
     '.sub{font-size:12px;color:#666;margin-bottom:16px}table{width:100%;border-collapse:collapse;font-size:12px}'+
-    'th{text-align:left;background:#f0f0f0;padding:6px 8px;border-bottom:2px solid #ccc}td{padding:6px 8px;border-bottom:1px solid #ddd}</style>'+
+    'th{text-align:left;background:#f0f0f0;padding:6px 8px;border-bottom:2px solid #ccc}td{padding:6px 8px;border-bottom:1px solid #ddd}'+
+    '.nota-manual{margin-top:14px;font-size:11px;color:#E8671A;font-weight:700}</style>'+
     '</head><body><h1>🚚 Lista de tarimas · Embarque</h1>'+
     '<div class="sub">Generado: '+new Date().toLocaleString('es-MX')+' · Total: '+assign.length+' tarimas</div>'+
     '<table><thead><tr><th>Tarima</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Piezas</th><th>Almacén</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    (hayManual?'<div class="nota-manual">⚡ Agregado a mano — producto ya en almacén pero aún no reflejado en el sistema (SAI)</div>':'')+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>');
   win.document.close();
