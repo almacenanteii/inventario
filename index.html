@@ -166,6 +166,8 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .lot-lote{font-family:monospace;font-size:11px;color:var(--gr2)}
 .lot-alm{margin:2px 0}
 .lot-cad{font-size:10px;margin-top:2px}
+.lot-conteo{font-size:10px;color:var(--gr2);margin-top:2px}
+.lot-conteo.sin{color:#b0b0b0;font-style:italic}
 .cad-ok{color:var(--gr2)} .cad-warn{color:#e65100} .cad-venc{color:#c62828}
 .lot-right{text-align:right}
 .lot-qty{font-size:15px;font-weight:800;color:var(--gr)}
@@ -247,7 +249,7 @@ header.h-car{background:var(--rd)}
 <nav class="nav">
   <button class="nav-btn a-inv" id="nb-inv" onclick="switchTab('inv')"><span class="nav-ico">📦</span>Inventario</button>
   <button class="nav-btn" id="nb-cic" onclick="switchTab('cic')"><span class="nav-ico">📊</span>Cíclicos</button>
-  <button class="nav-btn" id="nb-emb" onclick="switchTab('emb')"><span class="nav-ico">🚚</span>Embarque</button>
+  <button class="nav-btn" id="nb-emb" onclick="switchTab('emb')"><span class="nav-ico">🚚</span>Embarques</button>
   <button class="nav-btn" id="nb-car" onclick="switchTab('car')"><span class="nav-ico">🏷️</span>Carátulas</button>
 </nav>
 
@@ -327,7 +329,7 @@ header.h-car{background:var(--rd)}
 
 <header class="h-emb hidden" id="hdr-emb">
   <div class="hdr-top">
-    <h1>🚚 Armar Embarque</h1>
+    <h1>🚚 Armar Embarques</h1>
     <button onclick="openEmbResumen()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">📋 Lista tarimas</button>
     <button onclick="abrirModalPtManual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">⚡ Agregar manual</button>
     <button onclick="clearEmbTarimas()" style="background:#fff;color:var(--gn);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🗑️</button>
@@ -504,6 +506,9 @@ header.h-car{background:var(--rd)}
 const ACTUAL=[];
 let ACTUAL_LOADED=[];
 let ubicMap={};
+// Fecha del último conteo cíclico por clave|lote, para mostrarla en
+// Inventario (se saca del Historial, igual que Cíclicos -- ver loadInventario).
+let ultimoConteoMap={};
 let ubicPorClave={};
 let ubicCopiada=null;
 let dashDiffExpanded=false;
@@ -848,7 +853,11 @@ function renderInv(){
         const addTitle=pasteMode?'Pegar ubicación copiada aquí':'Agregar ubicación';
         const addBtn='<span class="loc-add'+addCls+'" data-clave="'+escAttr(p.clave)+'" data-lote="'+escAttr(l.lote)+'" data-ubic="'+escAttr(sugerida)+'" onclick="editarUbicacion(this)" title="'+addTitle+'">'+addAttr+'</span>';
         const ubicBtn='<div class="loc-row">'+chipsHtml+addBtn+'</div>';
-        return`<div class="lot"><div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${ubicBtn}</div><div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
+        const ultimoConteo=ultimoConteoMap[key];
+        const conteoHtml=ultimoConteo?
+          `<div class="lot-conteo">🕒 Último conteo: ${(ultimoConteo.fecha||'').split(',')[0]}</div>`:
+          `<div class="lot-conteo sin">🕒 Sin conteo registrado</div>`;
+        return`<div class="lot"><div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${ubicBtn}</div><div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
       }).join('');
       return`<div class="card"><div class="card-head"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div></div><div class="lots">${lots}</div></div>`;
     }).join('')
@@ -2249,10 +2258,11 @@ function parseInvCSV(text){
 
 async function loadInventario(){
   try{
-    const [rInv, rConf, rUbic]=await Promise.all([
+    const [rInv, rConf, rUbic, rHistInv]=await Promise.all([
       fetch(INV_CSV_URL+'&t='+Date.now()),
       fetch(CONFIG_URL+'&t='+Date.now()),
-      fetch(APPS_URL+'?accion=ubicaciones&t='+Date.now()).catch(function(){return null;})
+      fetch(APPS_URL+'?accion=ubicaciones&t='+Date.now()).catch(function(){return null;}),
+      fetch(APPS_URL+'?accion=historial&t='+Date.now()).catch(function(){return null;})
     ]);
     const [textInv, textConf]=await Promise.all([rInv.text(), rConf.text()]);
     ACTUAL_LOADED=parseInvCSV(textInv);
@@ -2284,6 +2294,22 @@ async function loadInventario(){
           }
         });
       }catch(eu){console.warn('No se pudieron leer ubicaciones:',eu);}
+    }
+    // Último conteo por clave|lote: se lee en vivo del mismo Historial que
+    // usa Cíclicos, no del CSV publicado (mismo motivo que Ubicaciones: el
+    // publicado tarda varios minutos en reflejar un conteo recién guardado).
+    ultimoConteoMap={};
+    if(rHistInv){
+      try{
+        const rowsHist=await rHistInv.json();
+        rowsHist.forEach(function(h){
+          const key=h.clave+'|'+h.lote;
+          const prev=ultimoConteoMap[key];
+          if(!prev||parseFechaMX_(h.fecha)>parseFechaMX_(prev.fecha)){
+            ultimoConteoMap[key]=h;
+          }
+        });
+      }catch(eh){console.warn('No se pudo leer el historial para "último conteo":',eh);}
     }
     buildAllA();
     const el=document.getElementById('inv-update-bar');
