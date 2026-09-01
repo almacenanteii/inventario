@@ -2262,71 +2262,18 @@ function parseInvCSV(text){
 
 async function loadInventario(){
   try{
-    const [rInv, rConf, rUbic, rHistInv, rCicInv]=await Promise.all([
+    // Primero solo lo rápido (CSV publicado de inventario + config), igual
+    // que antes de agregar ubicaciones/último conteo/clasificación. Esto es
+    // lo que pinta la lista la primera vez que abres la página.
+    const [rInv, rConf]=await Promise.all([
       fetch(INV_CSV_URL+'&t='+Date.now()),
-      fetch(CONFIG_URL+'&t='+Date.now()),
-      fetch(APPS_URL+'?accion=ubicaciones&t='+Date.now()).catch(function(){return null;}),
-      fetch(APPS_URL+'?accion=historial&t='+Date.now()).catch(function(){return null;}),
-      fetch(CIC_URL+'&t='+Date.now()).catch(function(){return null;})
+      fetch(CONFIG_URL+'&t='+Date.now())
     ]);
     const [textInv, textConf]=await Promise.all([rInv.text(), rConf.text()]);
-    // Clasificación (ABC) y semana programada por clave: se saca de
-    // Ciclicos, igual que hace la pestaña Cíclicos. Se recarga aquí también
-    // para que se vea aunque nunca hayas abierto Cíclicos en esta sesión.
-    if(rCicInv){
-      try{
-        const textCicInv=await rCicInv.text();
-        cicData=parseCicCSV(textCicInv);
-        aplicarCicSemanaOverrides_();
-        buildSchedFromCic();
-      }catch(ec){console.warn('No se pudo leer Ciclicos para clasificación/semana:',ec);}
-    }
     ACTUAL_LOADED=parseInvCSV(textInv);
     const fechaActual=textConf.trim().split('\n')[0].replace(/^"|"$/g,'').trim();
     fechaGlobal=fechaActual;
     console.log('Inventario cargado:', ACTUAL_LOADED.length, 'registros. Fecha:', fechaActual);
-    // Ubicaciones: se lee en vivo del Apps Script (mismo patrón que
-    // Historial/Ajustes) para que una ubicación recién guardada se vea de
-    // inmediato, sin depender de "Publicar en la web".
-    ubicMap={};
-    ubicPorClave={};
-    if(rUbic){
-      try{
-        const rowsUbic=await rUbic.json();
-        rowsUbic.forEach(function(u){
-          // Un lote puede tener varias ubicaciones a la vez (tarima
-          // partida entre racks), así que cada clave+lote guarda una
-          // LISTA de entradas, no una sola.
-          const key=u.clave+'|'+u.lote;
-          if(!ubicMap[key])ubicMap[key]=[];
-          ubicMap[key].push(u);
-          // Ubicación "de la clave": la más reciente entre todos sus lotes
-          // (incluye lotes ya agotados que desaparecieron del inventario).
-          // Sirve para que un lote NUEVO de esa clave nazca ya con una
-          // sugerencia, en vez de vacío.
-          const prev=ubicPorClave[u.clave];
-          if(!prev||parseFechaMX_(u.fecha)>parseFechaMX_(prev.fecha)){
-            ubicPorClave[u.clave]=u;
-          }
-        });
-      }catch(eu){console.warn('No se pudieron leer ubicaciones:',eu);}
-    }
-    // Último conteo por clave|lote: se lee en vivo del mismo Historial que
-    // usa Cíclicos, no del CSV publicado (mismo motivo que Ubicaciones: el
-    // publicado tarda varios minutos en reflejar un conteo recién guardado).
-    ultimoConteoMap={};
-    if(rHistInv){
-      try{
-        const rowsHist=await rHistInv.json();
-        rowsHist.forEach(function(h){
-          const key=h.clave+'|'+h.lote;
-          const prev=ultimoConteoMap[key];
-          if(!prev||parseFechaMX_(h.fecha)>parseFechaMX_(prev.fecha)){
-            ultimoConteoMap[key]=h;
-          }
-        });
-      }catch(eh){console.warn('No se pudo leer el historial para "último conteo":',eh);}
-    }
     buildAllA();
     const el=document.getElementById('inv-update-bar');
     if(el) el.textContent='📅 Datos actualizados al: '+(fechaActual||ACTUAL_LOADED.length+' registros');
@@ -2337,6 +2284,74 @@ async function loadInventario(){
     buildAllA();
     renderInv();
   }
+  // Ubicaciones, último conteo y clasificación/semana: se cargan APARTE, en
+  // segundo plano, sin detener el primer pintado de arriba. Son 3 llamadas
+  // más pesadas (2 en vivo a Apps Script + el CSV de Ciclicos) y antes
+  // estaban bloqueando la pantalla completa cada vez que se abría la página.
+  // En cuanto llegan, se vuelve a pintar la lista para que aparezcan encima.
+  cargarEnriquecimientosInventario_();
+}
+
+async function cargarEnriquecimientosInventario_(){
+  const [rUbic, rHistInv, rCicInv]=await Promise.all([
+    fetch(APPS_URL+'?accion=ubicaciones&t='+Date.now()).catch(function(){return null;}),
+    fetch(APPS_URL+'?accion=historial&t='+Date.now()).catch(function(){return null;}),
+    fetch(CIC_URL+'&t='+Date.now()).catch(function(){return null;})
+  ]);
+  // Clasificación (ABC) y semana programada por clave: se saca de
+  // Ciclicos, igual que hace la pestaña Cíclicos. Se recarga aquí también
+  // para que se vea aunque nunca hayas abierto Cíclicos en esta sesión.
+  if(rCicInv){
+    try{
+      const textCicInv=await rCicInv.text();
+      cicData=parseCicCSV(textCicInv);
+      aplicarCicSemanaOverrides_();
+      buildSchedFromCic();
+    }catch(ec){console.warn('No se pudo leer Ciclicos para clasificación/semana:',ec);}
+  }
+  // Ubicaciones: se lee en vivo del Apps Script (mismo patrón que
+  // Historial/Ajustes) para que una ubicación recién guardada se vea de
+  // inmediato, sin depender de "Publicar en la web".
+  ubicMap={};
+  ubicPorClave={};
+  if(rUbic){
+    try{
+      const rowsUbic=await rUbic.json();
+      rowsUbic.forEach(function(u){
+        // Un lote puede tener varias ubicaciones a la vez (tarima
+        // partida entre racks), así que cada clave+lote guarda una
+        // LISTA de entradas, no una sola.
+        const key=u.clave+'|'+u.lote;
+        if(!ubicMap[key])ubicMap[key]=[];
+        ubicMap[key].push(u);
+        // Ubicación "de la clave": la más reciente entre todos sus lotes
+        // (incluye lotes ya agotados que desaparecieron del inventario).
+        // Sirve para que un lote NUEVO de esa clave nazca ya con una
+        // sugerencia, en vez de vacío.
+        const prev=ubicPorClave[u.clave];
+        if(!prev||parseFechaMX_(u.fecha)>parseFechaMX_(prev.fecha)){
+          ubicPorClave[u.clave]=u;
+        }
+      });
+    }catch(eu){console.warn('No se pudieron leer ubicaciones:',eu);}
+  }
+  // Último conteo por clave|lote: se lee en vivo del mismo Historial que
+  // usa Cíclicos, no del CSV publicado (mismo motivo que Ubicaciones: el
+  // publicado tarda varios minutos en reflejar un conteo recién guardado).
+  ultimoConteoMap={};
+  if(rHistInv){
+    try{
+      const rowsHist=await rHistInv.json();
+      rowsHist.forEach(function(h){
+        const key=h.clave+'|'+h.lote;
+        const prev=ultimoConteoMap[key];
+        if(!prev||parseFechaMX_(h.fecha)>parseFechaMX_(prev.fecha)){
+          ultimoConteoMap[key]=h;
+        }
+      });
+    }catch(eh){console.warn('No se pudo leer el historial para "último conteo":',eh);}
+  }
+  renderInv();
 }
 
 async function loadEmbarque(){
