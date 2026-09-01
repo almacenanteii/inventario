@@ -855,11 +855,15 @@ function renderInv(){
         const ubicBtn='<div class="loc-row">'+chipsHtml+addBtn+'</div>';
         const ultimoConteo=ultimoConteoMap[key];
         const conteoHtml=ultimoConteo?
-          `<div class="lot-conteo">🕒 Último conteo: ${(ultimoConteo.fecha||'').split(',')[0]}</div>`:
+          `<div class="lot-conteo">🕒 Último conteo: ${(ultimoConteo.fecha||'').split(',')[0]} · ${fmt(ultimoConteo.cantidad)} pz</div>`:
           `<div class="lot-conteo sin">🕒 Sin conteo registrado</div>`;
         return`<div class="lot"><div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${ubicBtn}</div><div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
       }).join('');
-      return`<div class="card"><div class="card-head"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div></div><div class="lots">${lots}</div></div>`;
+      const schedInfoInv=SCHED.find(function(s){return s.clave===p.clave;});
+      const schedHtmlInv=schedInfoInv?
+        `<div style="font-size:10.5px;color:#1F4E79;font-weight:700;margin-top:3px">📅 Semana ${schedInfoInv.semana_cal} · Clase ${schedInfoInv.abc}</div>`:
+        `<div style="font-size:10.5px;color:#b0b0b0;font-style:italic;margin-top:3px">Sin clasificar</div>`;
+      return`<div class="card"><div class="card-head"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
     }).join('')
   ).join('');
 }
@@ -2258,13 +2262,25 @@ function parseInvCSV(text){
 
 async function loadInventario(){
   try{
-    const [rInv, rConf, rUbic, rHistInv]=await Promise.all([
+    const [rInv, rConf, rUbic, rHistInv, rCicInv]=await Promise.all([
       fetch(INV_CSV_URL+'&t='+Date.now()),
       fetch(CONFIG_URL+'&t='+Date.now()),
       fetch(APPS_URL+'?accion=ubicaciones&t='+Date.now()).catch(function(){return null;}),
-      fetch(APPS_URL+'?accion=historial&t='+Date.now()).catch(function(){return null;})
+      fetch(APPS_URL+'?accion=historial&t='+Date.now()).catch(function(){return null;}),
+      fetch(CIC_URL+'&t='+Date.now()).catch(function(){return null;})
     ]);
     const [textInv, textConf]=await Promise.all([rInv.text(), rConf.text()]);
+    // Clasificación (ABC) y semana programada por clave: se saca de
+    // Ciclicos, igual que hace la pestaña Cíclicos. Se recarga aquí también
+    // para que se vea aunque nunca hayas abierto Cíclicos en esta sesión.
+    if(rCicInv){
+      try{
+        const textCicInv=await rCicInv.text();
+        cicData=parseCicCSV(textCicInv);
+        aplicarCicSemanaOverrides_();
+        buildSchedFromCic();
+      }catch(ec){console.warn('No se pudo leer Ciclicos para clasificación/semana:',ec);}
+    }
     ACTUAL_LOADED=parseInvCSV(textInv);
     const fechaActual=textConf.trim().split('\n')[0].replace(/^"|"$/g,'').trim();
     fechaGlobal=fechaActual;
