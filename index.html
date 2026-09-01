@@ -364,7 +364,7 @@ header.h-car{background:var(--rd)}
     Imprimir total de piezas en la carátula
   </label>
   <div class="update-bar" id="car-update-bar">📅 Cargando InventarioPT...</div>
-  <div class="update-bar" id="car-update-sub" style="background:rgba(0,0,0,.3);display:block;margin-top:-6px">Todos los códigos de PTJAL y PTFGUAD, aún no han viajado</div>
+  <div class="update-bar" id="car-update-sub" style="background:rgba(0,0,0,.3);display:none;margin-top:-6px"></div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     <input type="search" id="search-car" placeholder="Buscar clave, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -559,6 +559,13 @@ try{
 const CAR_EYE_CANT_KEY='anteii_car_eye_imprimir_cantidad_v1';
 let carEyeImprimirCantidad=false;
 try{ carEyeImprimirCantidad=localStorage.getItem(CAR_EYE_CANT_KEY)==='1'; }catch(e){}
+
+// Mismo checkbox, pero para PT: aquí la carátula SIEMPRE imprimió la
+// cantidad capturada por tarima, así que por defecto queda activado (para
+// no cambiar el comportamiento de siempre); se puede desactivar a mano.
+const CAR_PT_CANT_KEY='anteii_car_pt_imprimir_cantidad_v1';
+let carPtImprimirCantidad=true;
+try{ const _v=localStorage.getItem(CAR_PT_CANT_KEY); if(_v!==null) carPtImprimirCantidad=_v==='1'; }catch(e){}
 const fmt=function(n){if(n===null||n===undefined)return '—';return n.toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2});};
 
 function cadInfo(s){
@@ -2927,12 +2934,12 @@ async function loadCaratulas(){
   });
   if(carMode==='EYE'){
     if(tit) tit.textContent='🏷️ Carátulas EYE';
-    if(sub) sub.textContent='Materiales EYEJAL, 40EYE y REPROJAL';
+    if(sub){ sub.style.display='block'; sub.textContent='Materiales EYEJAL, 40EYE y REPROJAL'; }
     if(clearBtn) clearBtn.style.display='none';
     await loadCaratulasEye();
   }else{
     if(tit) tit.textContent='🏷️ Carátulas PT';
-    if(sub) sub.textContent='Todos los códigos de PTJAL, PTFGUAD y 40PT, aún no han viajado';
+    if(sub){ sub.style.display='none'; sub.textContent=''; }
     if(clearBtn) clearBtn.style.display='';
     await loadCaratulasPT();
   }
@@ -3157,6 +3164,7 @@ function imprimirCaratula(btn){
   const uEmpaque=row.dataset.uempaque?parseFloat(row.dataset.uempaque):null;
   const esManual=row.dataset.origen==='MANUAL';
   const lineaManual=esManual?'<div class="linea" style="color:#E8671A;font-size:40px;border:4px solid #E8671A;border-radius:12px;padding:10px 16px;display:inline-block">⚡ AGREGADO A MANO — VERIFICAR EN SISTEMA</div>':'';
+  const lineaCantidadPt=carPtImprimirCantidad?('<div class="linea">CANTIDAD: '+fmt(v)+'</div>'):'';
 
   // window.open('_blank') + document.write en iOS (sobre todo instalado
   // como app en pantalla de inicio) no crea una ventana real: termina
@@ -3170,7 +3178,7 @@ function imprimirCaratula(btn){
     lineaManual+
     '<div class="linea">CLAVE: '+clave+'</div>'+
     '<div class="linea">LOTE: '+lote+'</div>'+
-    '<div class="linea">CANTIDAD: '+fmt(v)+'</div>'+
+    lineaCantidadPt+
     '<div class="linea">U EMPAQUE: '+(uEmpaque?fmt(uEmpaque):'—')+' PZ</div>'+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
@@ -3288,8 +3296,10 @@ function imprimirCaratulaEye(btn){
 function syncCarEyeCantUI(){
   const wrap=document.getElementById('car-eye-cant-wrap');
   const chk=document.getElementById('car-eye-cant-chk');
-  if(wrap) wrap.style.display=carMode==='EYE'?'flex':'none';
-  if(chk) chk.checked=carEyeImprimirCantidad;
+  // Ahora el checkbox se ve tanto en PT como en EYE; cada modo recuerda su
+  // propio estado (carPtImprimirCantidad / carEyeImprimirCantidad).
+  if(wrap) wrap.style.display='flex';
+  if(chk) chk.checked=carMode==='EYE'?carEyeImprimirCantidad:carPtImprimirCantidad;
 }
 document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
   c.addEventListener('click',function(){
@@ -3305,8 +3315,13 @@ document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
 syncCarEyeCantUI();
 const carEyeCantChk=document.getElementById('car-eye-cant-chk');
 if(carEyeCantChk) carEyeCantChk.addEventListener('change',function(){
-  carEyeImprimirCantidad=this.checked;
-  try{localStorage.setItem(CAR_EYE_CANT_KEY,carEyeImprimirCantidad?'1':'0');}catch(e){}
+  if(carMode==='EYE'){
+    carEyeImprimirCantidad=this.checked;
+    try{localStorage.setItem(CAR_EYE_CANT_KEY,carEyeImprimirCantidad?'1':'0');}catch(e){}
+  }else{
+    carPtImprimirCantidad=this.checked;
+    try{localStorage.setItem(CAR_PT_CANT_KEY,carPtImprimirCantidad?'1':'0');}catch(e){}
+  }
 });
 
 // Search event listeners
