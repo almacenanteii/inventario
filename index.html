@@ -254,7 +254,7 @@ header.h-car{background:var(--rd)}
 </nav>
 
 <header class="h-inv" id="hdr-inv">
-  <div class="hdr-top"><h1>🏭 Inventario</h1></div>
+  <div class="hdr-top"><h1>🏭 Inventario</h1><button id="btn-bitacora-ubic" onclick="imprimirBitacoraUbicaciones()" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Bitácora ubic.</button></div>
   <div class="update-bar" id="inv-update-bar">📅 Datos actualizados al: cargando...</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -1429,6 +1429,60 @@ function imprimirSemana(semana){
   win.document.close();
   win.focus();
   setTimeout(function(){win.print();},500);
+  win.focus();
+  setTimeout(function(){win.print();},500);
+}
+
+// Bitácora en blanco para anotar a mano los cambios de ubicación cuando no
+// da tiempo de meterlos en la app al momento. Luego esas filas se pasan a
+// la pestaña "Importar Ubicaciones" del Sheet y se corre
+// importarUbicacionesMasivo() para que entren todas de un jalón.
+function imprimirBitacoraUbicaciones(){
+  const N_FILAS=24;
+  let filas='';
+  for(let i=1;i<=N_FILAS;i++){
+    filas+='<tr><td class="n">'+i+'</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+  }
+
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Bitácora de Cambios de Ubicación</title>
+    <style>
+      @page{size:letter landscape;margin:12mm}
+      body{font-family:Arial,sans-serif;margin:0;color:#333}
+      .header{display:flex;align-items:center;gap:14px;margin-bottom:10px;padding-bottom:10px;border-bottom:3px solid #E8671A}
+      .header img{height:70px;width:auto;display:block}
+      .titulo{font-size:19px;font-weight:800;color:#E8671A;margin:0}
+      .subtitulo{font-size:11px;color:#4A4A4A;margin-top:2px;max-width:640px}
+      .campos{display:flex;gap:40px;margin-bottom:10px;font-size:12px;font-weight:700;color:#4A4A4A}
+      table{width:100%;border-collapse:collapse;font-size:11px}
+      th{background:#4A4A4A;color:#fff;padding:6px 8px;text-align:center;font-size:9.5px;text-transform:uppercase;letter-spacing:.3px}
+      td{padding:7px 8px;border:1px solid #ccc;height:16px}
+      td.n{text-align:center;color:#999;width:22px}
+      tr:nth-child(even) td{background:#fafafa}
+      @media print{body{margin:0}}
+    </style>
+  </head><body>
+    <div class="header">
+      <img src="${LOGO_ANTEII_B64}" alt="Anteii Laboratorios">
+      <div>
+        <div class="titulo">Bitácora de Cambios de Ubicación</div>
+        <div class="subtitulo">Almacén PT · Laboratorios Anteii — anota aquí cada vez que muevas un código de lugar, aunque no te dé tiempo de actualizarlo en la app en ese momento.</div>
+      </div>
+    </div>
+    <div class="campos">
+      <span>Fecha: ______________________</span>
+      <span>Responsable de almacén: ______________________</span>
+    </div>
+    <table>
+      <thead><tr>
+        <th>#</th><th>Hora</th><th>Clave</th><th>Lote</th><th>Ubicación anterior</th><th>Ubicación nueva</th><th>Quién lo movió</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+  </body></html>`);
+  win.document.close();
   win.focus();
   setTimeout(function(){win.print();},500);
 }
