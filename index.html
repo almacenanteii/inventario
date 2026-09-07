@@ -310,6 +310,7 @@ header.h-car{background:var(--rd)}
     <button id="btn-imprimir" onclick="imprimirSemanaActual()" style="background:#fff;color:#1F4E79;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
     <button id="btn-reporte" onclick="generarReporteActual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">📄 F-AL-003</button>
     <button id="btn-atrasados-print" onclick="imprimirAtrasados()" class="hidden" style="background:#C62828;color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🔴 Atrasados</button>
+    <button id="btn-atrasados-fal003" onclick="generarReporteAtrasados()" class="hidden" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">📄 F-AL-003 Atr.</button>
   </div>
   <div class="update-bar" id="cic-update-bar">📅 Cargando datos...</div>
   <div class="search-box">
@@ -1363,6 +1364,263 @@ function generarReporteActual(){
   generarReporte(semana);
 }
 
+// Mismo formato oficial F-AL-003, pero para los códigos ATRASADOS en vez
+// de una sola semana -- como abarcan varias semanas distintas, se agrega
+// columna "Sem." y "Atraso" a la tabla para no perder ese dato. No incluye
+// los excluidos manualmente (ver excluirAtrasado()).
+function generarReporteAtrasados(){
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const histMap={};
+  cicHist.forEach(function(h){
+    const k=h.clave+'|'+h.lote;
+    if(!histMap[k])histMap[k]=[];
+    histMap[k].push(h);
+  });
+  Object.values(histMap).forEach(function(arr){
+    arr.sort(function(a,b){
+      var pd=function(s){try{var p=s.split(',')[0].trim().split('/');return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));}catch(e){return new Date(0);}};
+      return pd(b.fecha)-pd(a.fecha);
+    });
+  });
+
+  const lotesSem=cicData.filter(function(p){
+    if(p.estatus==='Agotado')return false;
+    const k=p.clave+'|'+p.lote;
+    if((histMap[k]||[]).length>0)return false;
+    if(atrasadosExcluidos[k])return false;
+    const si=SCHED.find(function(s){return s.clave===p.clave;});
+    const fin=si?parseFechaSimple(si.fecha_fin):null;
+    return !!(fin&&fin<hoy);
+  }).map(function(p){
+    const si=SCHED.find(function(s){return s.clave===p.clave;});
+    const fin=parseFechaSimple(si.fecha_fin);
+    return Object.assign({},p,{_abc:si.abc,_semana:si.semana_cal,_dias:Math.round((hoy-fin)/864e5)});
+  });
+
+  if(!lotesSem.length){alert('No hay códigos atrasados en este momento (o todos están excluidos).');return;}
+
+  const pesoAbc={'A':3,'B':2,'C':1};
+  lotesSem.sort(function(a,b){
+    const pa=pesoAbc[a._abc]||0, pb=pesoAbc[b._abc]||0;
+    if(pb!==pa)return pb-pa;
+    return b._dias-a._dias;
+  });
+
+  // Stats (idéntico a generarReporte)
+  const conteos=lotesSem.filter(function(p){return histMap[p.clave+'|'+p.lote];});
+  const diffsArr=conteos.filter(function(p){
+    const h=histMap[p.clave+'|'+p.lote];
+    if(!h||!h.length)return false;
+    const diff=parseFloat(h[0].cantidad)-p.existSAI;
+    return Math.abs(diff)>0.01;
+  });
+  const conDiff=diffsArr.length;
+
+  let sumaSobrante=0, sumaFaltante=0;
+  conteos.forEach(function(p){
+    const h=histMap[p.clave+'|'+p.lote];
+    const conteo=h?parseFloat(h[0].cantidad):0;
+    const diff=conteo-p.existSAI;
+    if(diff>0) sumaSobrante+=diff;
+    else if(diff<0) sumaFaltante+=diff;
+  });
+  const sumaDiferenciaNeta=sumaSobrante+sumaFaltante;
+
+  const fecha=new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const folio='CC-ATR-'+new Date().getFullYear()+'-'+(hoy.getMonth()+1)+(hoy.getDate());
+  const semanasIncluidas=[...new Set(lotesSem.map(function(p){return p._semana;}))].sort(function(a,b){return a-b;}).join(', ');
+
+  let rowsHtml='';
+  let num=1;
+  lotesSem.forEach(function(p){
+    const k=p.clave+'|'+p.lote;
+    const h=histMap[k];
+    const conteo=h?parseFloat(h[0].cantidad):null;
+    const diff=conteo!==null?conteo-p.existSAI:null;
+    const diffColor=diff===null?'':diff===0?'#2E7D32':diff>0?'#E65100':'#C62828';
+    const diffStr=diff===null?'':(diff===0?'0':(diff>0?'+':'')+diff.toFixed(0));
+    const abcColor=p._abc==='A'?'#C62828':p._abc==='B'?'#E65100':'#1F4E79';
+    rowsHtml+=
+      '<tr style="border-bottom:1px solid #e0e0e0;'+(num%2===0?'background:#fafafa;':'')+'">'+
+      '<td style="padding:4px 6px;text-align:center;font-size:10px;color:#666">'+num+'</td>'+
+      '<td style="padding:4px 6px;text-align:center;font-size:10px;font-weight:800;color:'+abcColor+'">'+(p._abc||'—')+'</td>'+
+      '<td style="padding:4px 6px;font-family:monospace;font-size:10px;font-weight:700;color:#E8671A">'+p.clave+'</td>'+
+      '<td style="padding:4px 6px;font-size:10px">'+p.desc+'</td>'+
+      '<td style="padding:4px 6px;font-family:monospace;font-size:9px;text-align:center">'+p.lote+'</td>'+
+      '<td style="padding:4px 6px;font-size:10px;text-align:center">'+p.unidad+'</td>'+
+      '<td style="padding:4px 6px;font-size:10px;text-align:right">'+p.existSAI.toLocaleString("en-US")+'</td>'+
+      '<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:700;color:'+(conteo!==null?'#333':'#ccc')+'">'+
+        (conteo!==null?conteo.toLocaleString("en-US"):'—')+'</td>'+
+      '<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:700;color:'+diffColor+'">'+diffStr+'</td>'+
+      '<td style="padding:4px 6px;font-size:10px;text-align:center;font-weight:800;color:#C62828">'+p._dias+'d</td>'+
+      '</tr>';
+    num++;
+  });
+
+  let diffsHtml='';
+  let nd=1;
+  conteos.forEach(function(p){
+    const k=p.clave+'|'+p.lote;
+    const h=histMap[k];
+    const conteo=parseFloat(h[0].cantidad);
+    const diff=conteo-p.existSAI;
+    const tieneDiff=Math.abs(diff)>0.01;
+    const causaTxt=(h[0].causa||'').trim();
+    const diffColor=!tieneDiff?'#2E7D32':diff>0?'#E65100':'#C62828';
+    const diffStr=!tieneDiff?'0':(diff>0?'+':'')+diff.toFixed(0);
+    diffsHtml+=
+      '<tr style="border-bottom:1px solid #e0e0e0;'+(nd%2===0?'background:#fafafa;':'')+'">'+
+      '<td style="padding:5px 6px;text-align:center;font-size:10px">'+nd+'</td>'+
+      '<td style="padding:5px 6px;font-family:monospace;font-size:10px;font-weight:700;color:#E8671A">'+p.clave+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px">'+p.desc+'</td>'+
+      '<td style="padding:5px 6px;font-family:monospace;font-size:9px;text-align:center">'+p.lote+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right">'+p.existSAI.toLocaleString("en-US")+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700">'+conteo.toLocaleString("en-US")+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700;color:'+diffColor+'">'+diffStr+'</td>'+
+      '<td style="padding:5px 6px;font-size:9px">'+(tieneDiff?(causaTxt||'—'):'')+'</td>'+
+      '</tr>';
+    nd++;
+  });
+  if(conteos.length===0){
+    diffsHtml='<tr><td colspan="8" style="padding:14px 6px;text-align:center;font-size:10px;color:#999">Sin conteos registrados todavía.</td></tr>';
+  }
+
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>F-AL-003 Reporte Conteo Cíclico · Atrasados</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;font-size:11px;color:#333;padding:16px;max-width:900px;margin:0 auto}
+      .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:3px solid #C62828}
+      .folio{text-align:right;font-size:10px;color:#666}
+      .folio strong{display:block;font-size:13px;color:#C62828;font-weight:900}
+      .section-title{background:#C62828;color:#fff;padding:5px 10px;font-size:10px;font-weight:700;margin:10px 0 0;text-transform:uppercase;letter-spacing:.5px}
+      .datos-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #ddd;border-top:none;margin-bottom:10px}
+      .dato{padding:6px 8px;border-bottom:1px solid #ddd;border-right:1px solid #ddd}
+      .dato:nth-child(even){border-right:none}
+      .dato.full{grid-column:1/-1;border-right:none}
+      .dato-label{font-size:8px;color:#999;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+      .dato-val{font-size:11px;font-weight:600;min-height:14px}
+      table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:10px}
+      th{background:#4A4A4A;color:#fff;padding:5px 6px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.3px}
+      td{padding:0}
+      .validez{display:flex;gap:24px;align-items:center;padding:8px 12px;border:1px solid #ddd;margin:6px 0;font-size:11px}
+      .resumen{background:#f5f5f5;border-left:4px solid #C62828;padding:8px 12px;margin:6px 0;font-size:11px;display:flex;gap:24px}
+      .res-item strong{display:block;font-size:16px;color:#C62828;font-weight:900}
+      .firmas{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #ddd;margin-top:12px}
+      .firma{padding:8px;border-right:1px solid #ddd;text-align:center;min-height:60px}
+      .firma:last-child{border-right:none}
+      .firma strong{display:block;font-size:10px;font-weight:700;color:#C62828;margin-bottom:4px;background:#f5f5f5;padding:3px;margin:-8px -8px 8px}
+      .firma-sub{font-size:9px;color:#999;margin-top:4px}
+      .footer{margin-top:12px;padding-top:8px;border-top:1px solid #ddd;font-size:8px;color:#999;text-align:center}
+      @media print{body{padding:8px;font-size:10px}}
+    </style>
+  </head><body>
+    <div class="header">
+      <div>
+        <img src="${LOGO_ANTEII_B64}" style="height:90px;width:auto;display:block;margin-bottom:2px" alt="Anteii Laboratorios">
+        <div style="font-size:9px;color:#999;margin-top:2px">F-AL-003 · Reporte de Conteo Cíclico de Inventario</div>
+      </div>
+      <div class="folio">
+        <strong>${folio}</strong>
+        🔴 Atrasados · Semanas ${semanasIncluidas}
+      </div>
+    </div>
+
+    <div class="section-title">1. Datos Generales del Conteo</div>
+    <div class="datos-grid">
+      <div class="dato"><div class="dato-label">Fecha de conteo</div><div class="dato-val">${fecha}</div></div>
+      <div class="dato"><div class="dato-label">Folio / No. conteo</div><div class="dato-val">${folio}</div></div>
+      <div class="dato"><div class="dato-label">Área / Almacén</div><div class="dato-val">EYEJAL – Envase y Empaque Jalisco</div></div>
+      <div class="dato"><div class="dato-label">Tipo de conteo</div><div class="dato-val">☐ Semanal &nbsp; ☑ Recuperación de atrasados</div></div>
+      <div class="dato"><div class="dato-label">Responsable 1</div><div class="dato-val" style="min-height:24px"></div></div>
+      <div class="dato"><div class="dato-label">Responsable 2</div><div class="dato-val" style="min-height:24px"></div></div>
+      <div class="dato full"><div class="dato-label">Referencia PNO</div><div class="dato-val">P-AL-003 Inventario anual y cíclico</div></div>
+    </div>
+
+    <div class="section-title">2. Registro de Conteo</div>
+    <table>
+      <thead><tr>
+        <th style="width:24px;text-align:center">#</th>
+        <th style="width:34px;text-align:center">Clase</th>
+        <th style="width:100px">Clave</th>
+        <th>Descripción</th>
+        <th style="width:90px;text-align:center">Lote</th>
+        <th style="width:50px;text-align:center">Unidad</th>
+        <th style="width:75px;text-align:right">Exist. SAI</th>
+        <th style="width:75px;text-align:right">Conteo Físico</th>
+        <th style="width:65px;text-align:right">Diferencia</th>
+        <th style="width:50px;text-align:center">Atraso</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+      <tfoot>
+        <tr style="background:#C62828">
+          <td colspan="6" style="padding:5px 8px;font-weight:700;color:#fff;font-size:10px">TOTAL DE ARTÍCULOS CONTADOS</td>
+          <td colspan="4" style="padding:5px 8px;text-align:right;font-weight:900;color:#fff;font-size:13px">${conteos.length} / ${lotesSem.length}</td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <div class="section-title">3. Resumen</div>
+    <div class="resumen">
+      <div class="res-item"><strong>${lotesSem.length}</strong>Códigos atrasados</div>
+      <div class="res-item"><strong>${conteos.length}</strong>Contados en esta tanda</div>
+      <div class="res-item"><strong style="color:${conDiff>0?'#C62828':'#2E7D32'}">${conDiff}</strong>Con diferencia</div>
+      <div class="res-item"><strong style="color:#2E7D32">${conteos.length-conDiff}</strong>Sin diferencia</div>
+      <div class="res-item"><strong style="color:${sumaDiferenciaNeta===0?'#2E7D32':sumaDiferenciaNeta>0?'#E65100':'#C62828'}">${sumaDiferenciaNeta>0?'+':''}${sumaDiferenciaNeta.toFixed(0)}</strong>Diferencia neta (pz)</div>
+    </div>
+
+    <div class="section-title">4. Detalle de Conteos y Diferencias</div>
+    <div class="validez">
+      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#fff"></span> SÍ — Proceder a ajuste en SAI</span>
+      <span><span style="width:14px;height:14px;border:2px solid #333;display:inline-block;margin-right:6px;border-radius:2px;vertical-align:middle;background:#fff"></span> NO — Realizar reconteo</span>
+      <span style="margin-left:auto;font-size:10px;color:#666">No. de diferencias: <strong style="font-size:14px;color:#C62828">${conDiff}</strong></span>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:24px;text-align:center">#</th>
+        <th style="width:100px">Clave</th>
+        <th>Descripción</th>
+        <th style="width:90px;text-align:center">Lote</th>
+        <th style="width:65px;text-align:right">SAI</th>
+        <th style="width:65px;text-align:right">Físico</th>
+        <th style="width:65px;text-align:right">Diferencia</th>
+        <th>Causa probable / Acción tomada</th>
+      </tr></thead>
+      <tbody>${diffsHtml}</tbody>
+      <tfoot>
+        <tr style="background:#C62828">
+          <td colspan="6" style="padding:6px 8px;font-weight:700;color:#fff;font-size:10px">TOTAL DIFERENCIA NETA (Físico − SAI)</td>
+          <td colspan="2" style="padding:6px 8px;text-align:right;font-weight:900;color:#fff;font-size:13px">${sumaDiferenciaNeta>0?'+':''}${sumaDiferenciaNeta.toFixed(0)} pz</td>
+        </tr>
+      </tfoot>
+    </table>
+    <div style="display:flex;gap:16px;font-size:10px;color:#666;margin:-4px 0 10px;padding:0 2px">
+      <span>Sobrante total: <strong style="color:#E65100">+${sumaSobrante.toFixed(0)} pz</strong></span>
+      <span>Faltante total: <strong style="color:#C62828">${sumaFaltante.toFixed(0)} pz</strong></span>
+    </div>
+
+    <div class="section-title">5. Conclusión y Firmas</div>
+    <div style="border:1px solid #ddd;border-top:none;padding:10px 12px;min-height:50px;font-size:10px;color:#333;margin-bottom:10px">
+      Se contaron <strong>${conteos.length}</strong> de <strong>${lotesSem.length}</strong> códigos atrasados (semanas ${semanasIncluidas}).
+      Se encontraron <strong style="color:${conDiff>0?'#C62828':'#2E7D32'}">${conDiff}</strong> diferencia(s) respecto al sistema SAI, con una diferencia neta total de <strong style="color:${sumaDiferenciaNeta===0?'#2E7D32':sumaDiferenciaNeta>0?'#E65100':'#C62828'}">${sumaDiferenciaNeta>0?'+':''}${sumaDiferenciaNeta.toFixed(0)} pz</strong>.
+      ${conDiff>0?'Claves con diferencia: '+diffsArr.map(function(p){return p.clave;}).join(', ')+'.':'Todos los conteos coinciden con el SAI.'}
+    </div>
+    <div class="firmas">
+      <div class="firma"><strong>Responsable 1</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
+      <div class="firma"><strong>Responsable 2</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
+      <div class="firma"><strong>Revisó</strong><br><br><br><div class="firma-sub">Nombre y firma</div></div>
+    </div>
+    <div class="footer">Este documento es propiedad de Laboratorios Anteii S.A. de C.V. · Referencia: P-AL-003 Inventario anual y cíclico · ${folio}</div>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(function(){win.print();},500);
+  win.focus();
+  setTimeout(function(){win.print();},500);
+}
+
 function imprimirSemanaActual(){
   const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
   // Update button text
@@ -2081,6 +2339,8 @@ function _renderCicData(){
     }).length;
     btnAtr.classList.toggle('hidden',totalAtrasados===0);
     btnAtr.textContent='🔴 Atrasados ('+totalAtrasados+')';
+    const btnAtrFal=document.getElementById('btn-atrasados-fal003');
+    if(btnAtrFal) btnAtrFal.classList.toggle('hidden',totalAtrasados===0);
   }
 
   // Dropdown + cerrar semana
