@@ -308,8 +308,9 @@ header.h-car{background:var(--rd)}
   <div class="hdr-top">
     <h1>📊 Conteos Cíclicos</h1>
     <button id="btn-imprimir" onclick="imprimirSemanaActual()" style="background:#fff;color:#1F4E79;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
-    <button id="btn-reporte" onclick="generarReporteActual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">📄 F-AL-003</button>
+    <button id="btn-reporte" onclick="generarReporteActual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">📄 F-AL-018</button>
     <button id="btn-atrasados-print" onclick="imprimirAtrasados()" class="hidden" style="background:#C62828;color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🔴 Atrasados</button>
+    <button id="btn-agregar-lote" onclick="abrirModalAgregarLote()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">+ Lote</button>
   </div>
   <div class="update-bar" id="cic-update-bar">📅 Cargando datos...</div>
   <div class="search-box">
@@ -859,6 +860,138 @@ function reactivarAtrasado(el){
   setTimeout(function(){cicLoaded=false;loadCic();},1500);
 }
 
+// Para lotes viejos (ej. de 2025) que NUNCA se sincronizaron a Ciclicos
+// porque ya no salen en los reportes EYE, pero existen físicamente y ya se
+// confirmaron en SAI. Solo crea el renglón (hereda ABC/Semana si la clave ya
+// está clasificada); el conteo físico se captura después con el mismo
+// input +✓ de cualquier lote, así que la regla de causa (3% sobre la
+// existencia SAI de la clave) aplica igual.
+function abrirModalAgregarLote(){
+  const old=document.getElementById('agregar-lote-modal');
+  if(old)old.remove();
+
+  const overlay=document.createElement('div');
+  overlay.id='agregar-lote-modal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:24px;width:100%;max-width:400px;max-height:90vh;overflow:auto';
+
+  const title=document.createElement('div');
+  title.style.cssText='font-size:15px;font-weight:800;color:#1F4E79;margin-bottom:4px';
+  title.textContent='+ Agregar lote no listado';
+  box.appendChild(title);
+
+  const info=document.createElement('div');
+  info.style.cssText='font-size:11.5px;color:#7a7a7a;margin-bottom:14px;line-height:1.4';
+  info.textContent='Para lotes viejos que ya no aparecen en los reportes de SAI pero existen físicamente y ya los confirmaste directo en SAI. Se agregan como un código normal, listos para capturar su conteo.';
+  box.appendChild(info);
+
+  function campo(labelTxt,idVal,placeholder,type){
+    const wrap=document.createElement('div');
+    wrap.style.cssText='margin-bottom:10px';
+    const lbl=document.createElement('div');
+    lbl.style.cssText='font-size:11.5px;font-weight:700;color:#333;margin-bottom:4px';
+    lbl.textContent=labelTxt;
+    wrap.appendChild(lbl);
+    const inp=document.createElement('input');
+    inp.id=idVal;
+    inp.type=type||'text';
+    inp.placeholder=placeholder||'';
+    inp.style.cssText='width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box';
+    wrap.appendChild(inp);
+    box.appendChild(wrap);
+    return inp;
+  }
+
+  const inpClave=campo('Clave *','al-clave','ej. EYE-ETI-907');
+  const inpLote=campo('Lote *','al-lote','ej. ME0625012');
+  const inpDesc=campo('Descripción','al-desc','ej. STICKER GENERICO...');
+  const inpSai=campo('Existencia SAI','al-sai','ej. 12500','number');
+
+  const wrapAlm=document.createElement('div');
+  wrapAlm.style.cssText='margin-bottom:10px';
+  const lblAlm=document.createElement('div');
+  lblAlm.style.cssText='font-size:11.5px;font-weight:700;color:#333;margin-bottom:4px';
+  lblAlm.textContent='Almacén';
+  wrapAlm.appendChild(lblAlm);
+  const selAlm=document.createElement('select');
+  selAlm.id='al-almacen';
+  selAlm.style.cssText='width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;background:#fff';
+  ['EYEJAL','40EYE','REPROJAL'].forEach(function(a){
+    const op=document.createElement('option');
+    op.value=a;op.textContent=a;
+    selAlm.appendChild(op);
+  });
+  wrapAlm.appendChild(selAlm);
+  box.appendChild(wrapAlm);
+
+  const inpUnidad=campo('Unidad','al-unidad','PIEZA');
+  inpUnidad.value='PIEZA';
+
+  const msg=document.createElement('div');
+  msg.id='al-msg';
+  msg.style.cssText='font-size:11.5px;margin-bottom:8px;min-height:14px';
+  box.appendChild(msg);
+
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;gap:8px;margin-top:6px';
+
+  const btnCancel=document.createElement('button');
+  btnCancel.textContent='Cancelar';
+  btnCancel.style.cssText='flex:1;padding:11px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#7a7a7a';
+  btnCancel.onclick=function(){overlay.remove();};
+  row.appendChild(btnCancel);
+
+  const btnOk=document.createElement('button');
+  btnOk.textContent='Agregar';
+  btnOk.style.cssText='flex:2;padding:11px;border:none;border-radius:8px;font-size:13px;font-weight:700;background:#1F4E79;color:#fff;cursor:pointer';
+  btnOk.onclick=function(){enviarAgregarLote(overlay,btnOk,msg,inpClave,inpLote,inpDesc,inpSai,selAlm,inpUnidad);};
+  row.appendChild(btnOk);
+
+  box.appendChild(row);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+  inpClave.focus();
+}
+
+function enviarAgregarLote(overlay,btnOk,msg,inpClave,inpLote,inpDesc,inpSai,selAlm,inpUnidad){
+  const clave=inpClave.value.trim().toUpperCase();
+  const lote=inpLote.value.trim().toUpperCase();
+  if(!clave||!lote){
+    msg.innerHTML='<span style="color:#C62828">Clave y Lote son obligatorios.</span>';
+    return;
+  }
+  const yaExiste=cicData.some(function(p){return p.clave===clave&&p.lote===lote;});
+  if(yaExiste){
+    msg.innerHTML='<span style="color:#C62828">Ese lote ya está en Cíclicos — búscalo y cuéntalo directamente.</span>';
+    return;
+  }
+  const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
+  const payload={
+    accion:'agregar_lote',
+    clave:clave,
+    lote:lote,
+    descripcion:inpDesc.value.trim(),
+    existenciaSai:inpSai.value?parseFloat(inpSai.value):'',
+    almacen:selAlm.value,
+    unidad:inpUnidad.value.trim(),
+    clase:'EYE',
+    registrado:nombre
+  };
+  btnOk.disabled=true;btnOk.textContent='Guardando...';
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)})
+    .then(function(){
+      overlay.remove();
+      cicLoaded=false;
+      setTimeout(function(){loadCic();},1500);
+    })
+    .catch(function(){
+      btnOk.disabled=false;btnOk.textContent='Agregar';
+      msg.innerHTML='<span style="color:#C62828">Error al guardar. Intenta de nuevo.</span>';
+    });
+}
+
 function renderInv(){
   const items=getFiltA();
   const lotes=items.reduce((s,p)=>s+p.lotes.length,0);
@@ -1187,7 +1320,7 @@ function generarReporte(semana){
   const win=window.open('','_blank');
   win.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <title>F-AL-003 Reporte Conteo Cíclico · Semana ${semana}</title>
+    <title>F-AL-018 Reporte Conteo Cíclico · Semana ${semana}</title>
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:Arial,sans-serif;font-size:11px;color:#333;padding:16px;max-width:900px;margin:0 auto}
@@ -1222,7 +1355,7 @@ function generarReporte(semana){
     <div class="header">
       <div>
         <img src="${LOGO_ANTEII_B64}" style="height:90px;width:auto;display:block;margin-bottom:2px" alt="Anteii Laboratorios">
-        <div style="font-size:9px;color:#999;margin-top:2px">F-AL-003 · Reporte de Conteo Cíclico de Inventario</div>
+        <div style="font-size:9px;color:#999;margin-top:2px">F-AL-018 · Reporte de Conteo Cíclico de Inventario</div>
       </div>
       <div class="folio">
         <strong>${folio}</strong>
@@ -1901,7 +2034,12 @@ function getFiltCic(){
     return isNaN(d.getTime())?null:d;
   };
   return cicData.filter(function(p){
-    if(p.estatus==='Agotado'&&!q)return false;
+    // Un lote Agotado ya no se oculta de plano: si su clave sigue
+    // programada esta semana (u otro lote suyo está atrasado), se muestra
+    // igual que los demás -- así se nota mientras se cuentan los otros
+    // lotes de esa clave, que es cuando de verdad se descubre que uno
+    // "agotado" sigue físico. Sigue sin contar para las métricas de
+    // "pendientes de esta semana" salvo que realmente aplique.
     const k=p.clave+'|'+p.lote;
     const hist=histMap[k]||[];
     const contado=hist.length>0;
@@ -2213,9 +2351,16 @@ function _renderCicData(){
 
       const agotado=p.estatus==='Agotado';
       const ubicTxt=ubicTexto_(p.clave,p.lote);
-      return '<div style="display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap'+(agotado?';opacity:.55':(diasAtrasoLote>0?';background:#FFF8F7':''))+'">'+
+      // Un lote Agotado ya no bloquea la captura: si lo encuentran físico
+      // (aunque SAI diga que ya no existe), se puede contar igual que
+      // cualquier otro -- "revivirlo". Usa el mismo registrarConteo() de
+      // siempre (misma regla de causa obligatoria si la diferencia pasa del
+      // 3% de la existencia SAI de la clave), así entra al Historial y al
+      // F-AL-018 normal de la semana.
+      return '<div style="display:grid;grid-template-columns:1fr 90px 44px;gap:8px;align-items:center;padding:10px 14px;border-bottom:1px solid #f5f5f5;flex-wrap:wrap'+(diasAtrasoLote>0?';background:#FFF8F7':'')+'">'+
         '<div>'+
-          '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+(agotado?' <span class="c40-nocount">Agotado</span>':'')+atrasadoBadgeHtml+(!agotado&&bloqueoAjuste?' <span class="c40-nocount" style="background:#FFEBEE;color:#C62828">Bloqueado</span>':'')+(!agotado&&numAjustes>=2?' <span class="c40-nocount" style="background:#FFF3E0;color:#E65100">⚠️ Incidencia ('+numAjustes+' ajustes)</span>':'')+'</div>'+
+          '<div style="font-family:monospace;font-size:13px;font-weight:600;color:#4a4a4a;margin-bottom:2px">'+p.lote+(agotado?' <span class="c40-nocount" style="background:#ECEFF1;color:#546E7A">Agotado</span>':'')+atrasadoBadgeHtml+(!agotado&&bloqueoAjuste?' <span class="c40-nocount" style="background:#FFEBEE;color:#C62828">Bloqueado</span>':'')+(!agotado&&numAjustes>=2?' <span class="c40-nocount" style="background:#FFF3E0;color:#E65100">⚠️ Incidencia ('+numAjustes+' ajustes)</span>':'')+'</div>'+
+          (agotado?'<div style="font-size:10.5px;color:#00695C;font-weight:700;margin-bottom:2px">♻️ ¿Lo encontraste físico? Captura la cantidad para revivirlo</div>':'')+
           (ubicTxt?'<div style="font-size:10.5px;color:#1F4E79;font-weight:700;margin-bottom:2px">📍 '+ubicTxt+'</div>':'')+
           '<div style="font-size:12px;color:#7a7a7a">SAI: '+p.existSAI.toLocaleString('en-US')+' '+p.unidad+
             (contado?' &nbsp;<span class="'+diffCls+'">→ '+cantNum.toLocaleString('en-US')+(diffStr?' ('+diffStr+')':'')+'</span>':'')+
@@ -2224,18 +2369,14 @@ function _renderCicData(){
           (bloqueoAjuste&&!agotado?'<div style="font-size:10px;color:#C62828;margin-top:2px">🔒 Ya se ajustó — bloqueado para recontar hasta '+bloqueoTxt+'</div>':'')+
           (numAjustes>=2&&!agotado?'<div style="font-size:10px;color:#E65100;font-weight:700;margin-top:2px">⚠️ '+numAjustes+'º ajuste en este lote — repórtalo a jefe de almacén</div>':'')+
         '</div>'+
-        (agotado?
-          '<div style="grid-column:2/4;font-size:11px;color:#9e9e9e;text-align:center">Ya no está en Inventario</div>'
-        :
-          '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cant." '+
-            'value="'+(contado?cantNum:'')+'" '+
-            'data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'" '+
-            'style="width:90px;padding:8px;font-size:15px;text-align:center;font-weight:600"'+
-            (lockedLote?' readonly':'')+'>'+ 
-          (!lockedLote?'<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)" '+
-            'style="padding:8px;font-size:16px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center">✓</button>':
-            '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:'+(semCerradaLote?'#2E7D32':'#C62828')+';font-size:18px" title="'+(semCerradaLote?'Semana cerrada':'Bloqueado hasta '+bloqueoTxt)+'">🔒</div>')
-        )+
+        '<input class="c40-input" type="number" id="inp-'+cardId+'" placeholder="Cant." '+
+          'value="'+(contado?cantNum:'')+'" '+
+          'data-clave="'+p.clave+'" data-lote="'+p.lote+'" data-card="'+cardId+'" '+
+          'style="width:90px;padding:8px;font-size:15px;text-align:center;font-weight:600"'+
+          (lockedLote?' readonly':'')+'>'+
+        (!lockedLote?'<button class="c40-btn" id="btn-'+cardId+'" onclick="registrarConteo(this)" '+
+          'style="padding:8px;font-size:16px;width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center">✓</button>':
+          '<div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:'+(semCerradaLote?'#2E7D32':'#C62828')+';font-size:18px" title="'+(semCerradaLote?'Semana cerrada':'Bloqueado hasta '+bloqueoTxt)+'">🔒</div>')+
         '<div id="msg-'+cardId+'" style="grid-column:1/-1;font-size:10px;color:#2E7D32;margin-top:-4px;padding-bottom:2px"></div>'+
         histSection+
       '</div>';
@@ -2308,7 +2449,14 @@ function registrarConteo(btn){
   const sai=lotData?lotData.existSAI:0;
   const diff=Math.abs(parseFloat(cantidad)-sai);
 
-  if(diff>3000){
+  // Umbral de causa obligatoria: 3% sobre la existencia SAI de TODA la
+  // clave (todos sus lotes sumados), no solo la de este lote -- así un
+  // código con varios lotes chicos no pide causa por una diferencia
+  // trivial en uno solo. (Antes era un fijo de 3,000 piezas.)
+  const saiTotalClave=cicData.filter(function(p){return p.clave===clave;}).reduce(function(s,p){return s+(p.existSAI||0);},0);
+  const umbral=saiTotalClave*0.03;
+
+  if(diff>umbral){
     const old=document.getElementById('causa-modal');
     if(old)old.remove();
 
@@ -2322,12 +2470,12 @@ function registrarConteo(btn){
 
     const title=document.createElement('div');
     title.style.cssText='font-size:14px;font-weight:800;color:#C62828;margin-bottom:4px';
-    title.textContent='⚠️ Diferencia mayor a 3,000';
+    title.textContent='⚠️ Diferencia mayor al 3% de la existencia SAI';
     box.appendChild(title);
 
     const info=document.createElement('div');
     info.style.cssText='font-size:12px;color:#7a7a7a;margin-bottom:12px';
-    info.textContent=clave+' · '+lote+' — Diferencia: '+(parseFloat(cantidad)-sai).toFixed(0)+' piezas';
+    info.textContent=clave+' · '+lote+' — Diferencia: '+(parseFloat(cantidad)-sai).toFixed(0)+' piezas (umbral 3% de '+fmt(saiTotalClave)+' pz SAI de la clave: '+umbral.toFixed(0)+' pz)';
     box.appendChild(info);
 
     const lbl=document.createElement('div');
