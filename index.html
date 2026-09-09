@@ -207,6 +207,26 @@ header.h-emb{background:var(--gn)}
 .nav-btn.a-emb{color:var(--gn)}
 .chip.a-emb{background:#fff;color:var(--gn)}
 
+/* Clave y lote más grandes y con más contraste en Embarques -- se pidió
+   explícitamente porque a simple vista son muy chiquitos para ubicarlos
+   rápido. Se escala solo dentro de #list-emb para no afectar el tamaño de
+   letra en Inventario/Cíclicos/Carátulas, que comparten las mismas clases
+   base (.clave, .lot-lote, etc). */
+#list-emb .card{box-shadow:0 1px 5px rgba(0,0,0,.07)}
+#list-emb .card-head{padding:14px 16px 12px}
+#list-emb .card-row1{align-items:center;margin-bottom:7px}
+#list-emb .clave{font-size:19px;font-weight:900;letter-spacing:.4px;background:#E8F5E9;color:var(--gn);padding:4px 12px;border-radius:8px;display:inline-block}
+#list-emb .pill{font-size:14px;padding:5px 13px}
+#list-emb .desc{font-size:14px;margin-top:2px}
+#list-emb .card-meta{font-size:12px}
+#list-emb .emb-lote-row{padding:13px 16px;gap:8px}
+#list-emb .emb-lote-top{gap:9px}
+#list-emb .lot-lote{font-size:17px;font-weight:800;color:#333;background:#F0F0F0;padding:4px 11px;border-radius:6px;letter-spacing:.3px}
+#list-emb .tag{font-size:11.5px;padding:3px 9px}
+#list-emb .lot-cad{font-size:11px;font-weight:700}
+#list-emb .emb-lote-qty{font-size:12.5px;font-weight:600;color:var(--gr)}
+#list-emb .sec-hdr{font-size:12px}
+
 /* ===== Carátulas tab ===== */
 header.h-car{background:var(--rd)}
 .nav-btn.a-car{color:var(--rd)}
