@@ -431,6 +431,11 @@ header.h-dash{background:var(--bl)}
     <div class="chip" data-cat="CAJ" style="background:#E1BEE7;color:#6A1B9A">🟪 Caja</div>
     <div class="chip" data-cat="OTRO">Otros</div>
   </div>
+  <div class="filters hidden" id="fi-car-ubic" style="padding-top:0">
+    <div class="chip cat-active" data-ubic="TODOS">Todos</div>
+    <div class="chip" data-ubic="CON">📍 Con ubicación</div>
+    <div class="chip" data-ubic="SIN">Sin ubicación</div>
+  </div>
 </header>
 
 <header class="h-dash hidden" id="hdr-dash">
@@ -603,7 +608,7 @@ try{
 let embItemsCount=0,embLotesCount=0;
 
 const CAR_STORAGE_KEY='anteii_caratulas_impresas_v1';
-let CAR_LOADED=[],carLoaded=false,sCar='',carMode='PT',fCarCat='TODOS';
+let CAR_LOADED=[],carLoaded=false,sCar='',carMode='PT',fCarCat='TODOS',fCarUbic='TODOS';
 
 // Categoría de material a partir del segundo tramo de la clave (ej.
 // "EYE-ENV-017"->ENV, "EYESO-ETI-008"->ETI) -- se usa para colorear en
@@ -3599,6 +3604,8 @@ async function loadCaratulas(){
   });
   const catFilterEl=document.getElementById('fi-car-cat');
   if(catFilterEl) catFilterEl.classList.toggle('hidden', carMode!=='EYE');
+  const ubicFilterEl=document.getElementById('fi-car-ubic');
+  if(ubicFilterEl) ubicFilterEl.classList.toggle('hidden', carMode!=='EYE');
   if(carMode==='EYE'){
     if(tit) tit.textContent='🏷️ Carátulas EYE';
     if(sub){ sub.style.display='block'; sub.textContent='Materiales EYEJAL, 40EYE y REPROJAL'; }
@@ -3673,6 +3680,11 @@ function getFiltCar(){
         const cat=claveCategoria_(r.clave);
         if(fCarCat==='OTRO'){ if(CAR_CAT_COLORS[cat])return false; }
         else if(cat!==fCarCat)return false;
+      }
+      if(fCarUbic!=='TODOS'){
+        const tieneUbic=!!ubicTexto_(r.clave,r.lote);
+        if(fCarUbic==='CON'&&!tieneUbic)return false;
+        if(fCarUbic==='SIN'&&tieneUbic)return false;
       }
       if(q&&!smartMatch(r.clave,sCar)&&!smartMatch(r.desc,sCar)&&!smartMatch(r.lote,sCar))return false;
       return true;
@@ -3989,7 +4001,9 @@ document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
     document.getElementById('search-car').value='';
     sCar='';
     fCarCat='TODOS';
+    fCarUbic='TODOS';
     document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.toggle('cat-active',x.dataset.cat==='TODOS');});
+    document.querySelectorAll('#fi-car-ubic .chip').forEach(function(x){x.classList.toggle('cat-active',x.dataset.ubic==='TODOS');});
     syncCarEyeCantUI();
     loadCaratulas();
   });
@@ -4018,6 +4032,7 @@ document.getElementById('search-emb').addEventListener('input',function(){sEmb=t
 if(document.getElementById('search-car')) document.getElementById('search-car').addEventListener('input',function(){sCar=this.value;renderCar();});
 document.querySelectorAll('#fi-emb .chip').forEach(function(c){c.addEventListener('click',function(){fEmb=this.dataset.f;document.querySelectorAll('#fi-emb .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
 document.querySelectorAll('#fi-car-cat .chip').forEach(function(c){c.addEventListener('click',function(){fCarCat=this.dataset.cat;document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
+document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventListener('click',function(){fCarUbic=this.dataset.ubic;document.querySelectorAll('#fi-car-ubic .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 // Init
 loadInventario();
 </script>
