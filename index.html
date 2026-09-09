@@ -231,6 +231,10 @@ header.h-emb{background:var(--gn)}
 header.h-car{background:var(--rd)}
 .nav-btn.a-car{color:var(--rd)}
 .chip.a-car{background:#fff;color:var(--rd)}
+/* Chips de categoría (Envase/Tapa/Etiqueta/Caja) llevan su propio color
+   pastel inline, así que la selección no puede usar background/color (el
+   inline style les gana en especificidad) -- se marca con un anillo blanco. */
+.chip.cat-active{box-shadow:0 0 0 2px rgba(255,255,255,.95);font-weight:900}
 .tag-PTJAL{background:#efebe9;color:#5d4037}
 .tag-PTFGUAD{background:#e0f2f1;color:#00695c}
 .emb-lots{border-top:1px solid var(--bd)}
@@ -419,6 +423,14 @@ header.h-dash{background:var(--bl)}
     <input type="search" id="search-car" placeholder="Buscar clave, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
     <button class="clr" id="clr-car" onclick="document.getElementById('search-car').value='';sCar='';renderCar();">✕</button>
   </div>
+  <div class="filters hidden" id="fi-car-cat">
+    <div class="chip cat-active" data-cat="TODOS">Todos</div>
+    <div class="chip" data-cat="ENV" style="background:#C8E6C9;color:#2E7D32">🟩 Envase</div>
+    <div class="chip" data-cat="TAP" style="background:#FFF9C4;color:#F57F17">🟨 Tapa</div>
+    <div class="chip" data-cat="ETI" style="background:#BBDEFB;color:#1565C0">🟦 Etiqueta</div>
+    <div class="chip" data-cat="CAJ" style="background:#E1BEE7;color:#6A1B9A">🟪 Caja</div>
+    <div class="chip" data-cat="OTRO">Otros</div>
+  </div>
 </header>
 
 <header class="h-dash hidden" id="hdr-dash">
@@ -591,7 +603,30 @@ try{
 let embItemsCount=0,embLotesCount=0;
 
 const CAR_STORAGE_KEY='anteii_caratulas_impresas_v1';
-let CAR_LOADED=[],carLoaded=false,sCar='',carMode='PT';
+let CAR_LOADED=[],carLoaded=false,sCar='',carMode='PT',fCarCat='TODOS';
+
+// Categoría de material a partir del segundo tramo de la clave (ej.
+// "EYE-ENV-017"->ENV, "EYESO-ETI-008"->ETI) -- se usa para colorear en
+// pantalla y filtrar Carátulas EYE por lote de hoja de color (verde para
+// ENV, amarilla para TAP, etc.), para que el color en pantalla avise qué
+// papel cargar antes de imprimir ese grupo. La carátula impresa en sí no
+// lleva color -- cae sobre el papel de color que ya se cargó a mano.
+const CAR_CAT_COLORS={
+  ENV:{bg:'#C8E6C9',fg:'#2E7D32',label:'Envase'},
+  TAP:{bg:'#FFF9C4',fg:'#F57F17',label:'Tapa'},
+  ETI:{bg:'#BBDEFB',fg:'#1565C0',label:'Etiqueta'},
+  CAJ:{bg:'#E1BEE7',fg:'#6A1B9A',label:'Caja'}
+};
+function claveCategoria_(clave){
+  const parts=String(clave||'').split('-');
+  return parts.length>=2?parts[1].toUpperCase().trim():'';
+}
+function catBadge_(clave){
+  const cat=claveCategoria_(clave);
+  const info=CAR_CAT_COLORS[cat];
+  if(!info)return '';
+  return '<span style="background:'+info.bg+';color:'+info.fg+';font-size:10px;font-weight:800;border-radius:5px;padding:2px 7px;margin-left:6px;vertical-align:middle">'+info.label+'</span>';
+}
 let PZAS_MAP={};
 let carQty={};
 try{
@@ -3562,6 +3597,8 @@ async function loadCaratulas(){
   document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
     c.classList.toggle('a-car', c.dataset.m===carMode);
   });
+  const catFilterEl=document.getElementById('fi-car-cat');
+  if(catFilterEl) catFilterEl.classList.toggle('hidden', carMode!=='EYE');
   if(carMode==='EYE'){
     if(tit) tit.textContent='🏷️ Carátulas EYE';
     if(sub){ sub.style.display='block'; sub.textContent='Materiales EYEJAL, 40EYE y REPROJAL'; }
@@ -3632,6 +3669,11 @@ function getFiltCar(){
     return (CAR_EYE_LOADED||[]).filter(function(r){
       const alm=(r.almacen||'').toUpperCase();
       if(ALMS_EYE.indexOf(alm)===-1)return false;
+      if(fCarCat!=='TODOS'){
+        const cat=claveCategoria_(r.clave);
+        if(fCarCat==='OTRO'){ if(CAR_CAT_COLORS[cat])return false; }
+        else if(cat!==fCarCat)return false;
+      }
       if(q&&!smartMatch(r.clave,sCar)&&!smartMatch(r.desc,sCar)&&!smartMatch(r.lote,sCar))return false;
       return true;
     });
@@ -3698,8 +3740,10 @@ function renderCar(){
           const lots=g.lotes.map(function(l){
             const almU=(l.almacen||'').toUpperCase();
             const cad=cadInfo(l.caducidad);
+            const ubicTxt=ubicTexto_(g.clave,l.lote);
             return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-unidad="'+escAttr(l.unidad||'pzas')+'">'
               +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
+              +(ubicTxt?'<div style="font-size:11px;color:#E65100;font-weight:700">📍 '+ubicTxt+'</div>':'')
               +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
               +'<div class="emb-tarima-eye-status"></div>'
               +'<div class="emb-tarima-add">'
@@ -3707,7 +3751,7 @@ function renderCar(){
               +'</div>'
             +'</div>';
           }).join('');
-          return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span class="clave c-rd">'+g.clave+'</span><span class="pill p-rd">'+fmt(g.totalExist)+'</span></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
+          return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span style="display:flex;align-items:center;min-width:0"><span class="clave c-rd">'+g.clave+'</span>'+catBadge_(g.clave)+'</span><span class="pill p-rd">'+fmt(g.totalExist)+'</span></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
         }).join('');
     }).join('');
     recalcCarEyeStatus();
@@ -3887,16 +3931,22 @@ function imprimirCaratulaEye(btn){
   const exist=parseFloat(row.dataset.exist)||0;
   const unidad=pluralizarUnidad_(row.dataset.unidad||'pzas',exist);
   const lineaCantidad=carEyeImprimirCantidad?('<div class="linea desc">CANTIDAD: '+fmt(exist)+' '+unidad+'</div>'):'';
+  const ubicTxt=ubicTexto_(clave,lote);
+  // Sin color -- esta carátula cae sobre el papel de color que ya se cargó
+  // a mano (verde/amarillo/etc. según la categoría), no lleva fondo propio.
+  const lineaUbic=ubicTxt?('<div class="linea ubic">📍 '+ubicTxt+'</div>'):'';
 
   const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
     '<style>@page{size:letter landscape;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
     '.linea{font-size:64px;font-weight:900;margin-bottom:22px;line-height:1.15;word-break:break-word}'+
-    '.linea.desc{font-size:44px;margin-top:14px}</style>'+
+    '.linea.desc{font-size:44px;margin-top:14px}'+
+    '.linea.ubic{font-size:36px;margin-top:10px;margin-bottom:0;color:#333}</style>'+
     '</head><body>'+
     '<div class="linea">'+clave+'</div>'+
     '<div class="linea">'+lote+'</div>'+
     '<div class="linea desc">'+desc+'</div>'+
     lineaCantidad+
+    lineaUbic+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
   try{
@@ -3938,6 +3988,8 @@ document.querySelectorAll('#fi-car-modo .chip').forEach(function(c){
     carMode=m;
     document.getElementById('search-car').value='';
     sCar='';
+    fCarCat='TODOS';
+    document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.toggle('cat-active',x.dataset.cat==='TODOS');});
     syncCarEyeCantUI();
     loadCaratulas();
   });
@@ -3965,6 +4017,7 @@ document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListene
 document.getElementById('search-emb').addEventListener('input',function(){sEmb=this.value;renderEmb();});
 if(document.getElementById('search-car')) document.getElementById('search-car').addEventListener('input',function(){sCar=this.value;renderCar();});
 document.querySelectorAll('#fi-emb .chip').forEach(function(c){c.addEventListener('click',function(){fEmb=this.dataset.f;document.querySelectorAll('#fi-emb .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
+document.querySelectorAll('#fi-car-cat .chip').forEach(function(c){c.addEventListener('click',function(){fCarCat=this.dataset.cat;document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 // Init
 loadInventario();
 </script>
