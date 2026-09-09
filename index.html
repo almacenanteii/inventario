@@ -213,19 +213,19 @@ header.h-emb{background:var(--gn)}
    letra en Inventario/Cíclicos/Carátulas, que comparten las mismas clases
    base (.clave, .lot-lote, etc). */
 #list-emb .card{box-shadow:0 1px 5px rgba(0,0,0,.07)}
-#list-emb .card-head{padding:14px 16px 12px}
-#list-emb .card-row1{align-items:center;margin-bottom:7px}
-#list-emb .clave{font-size:19px;font-weight:900;letter-spacing:.4px;background:#E8F5E9;color:var(--gn);padding:4px 12px;border-radius:8px;display:inline-block}
-#list-emb .pill{font-size:14px;padding:5px 13px}
-#list-emb .desc{font-size:14px;margin-top:2px}
-#list-emb .card-meta{font-size:12px}
-#list-emb .emb-lote-row{padding:13px 16px;gap:8px}
-#list-emb .emb-lote-top{gap:9px}
-#list-emb .lot-lote{font-size:17px;font-weight:800;color:#333;background:#F0F0F0;padding:4px 11px;border-radius:6px;letter-spacing:.3px}
-#list-emb .tag{font-size:11.5px;padding:3px 9px}
-#list-emb .lot-cad{font-size:11px;font-weight:700}
-#list-emb .emb-lote-qty{font-size:12.5px;font-weight:600;color:var(--gr)}
-#list-emb .sec-hdr{font-size:12px}
+#list-emb .card-head{padding:13px 15px 11px}
+#list-emb .card-row1{align-items:center;margin-bottom:6px}
+#list-emb .clave{font-size:16px;font-weight:800;letter-spacing:.3px;background:#E8F5E9;color:var(--gn);padding:3px 10px;border-radius:7px;display:inline-block}
+#list-emb .pill{font-size:13px;padding:4px 11px}
+#list-emb .desc{font-size:13px;margin-top:2px}
+#list-emb .card-meta{font-size:11.5px}
+#list-emb .emb-lote-row{padding:12px 15px;gap:7px}
+#list-emb .emb-lote-top{gap:8px}
+#list-emb .lot-lote{font-size:14px;font-weight:700;color:#333;background:#F0F0F0;padding:3px 9px;border-radius:6px;letter-spacing:.2px}
+#list-emb .tag{font-size:11px;padding:3px 8px}
+#list-emb .lot-cad{font-size:10.5px;font-weight:700}
+#list-emb .emb-lote-qty{font-size:12px;font-weight:600;color:var(--gr)}
+#list-emb .sec-hdr{font-size:11.5px}
 
 /* ===== Carátulas tab ===== */
 header.h-car{background:var(--rd)}
@@ -262,6 +262,32 @@ header.h-car{background:var(--rd)}
 .btn-emb-close{background:var(--bg);color:var(--gr)}
 .btn-emb-print{background:var(--gn);color:#fff}
 
+/* ===== Dashboard tab ===== */
+header.h-dash{background:var(--bl)}
+.nav-btn.a-dash{color:var(--bl)}
+.chip.a-dash{background:#fff;color:var(--bl)}
+.dash-sec-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--gr2);padding:14px 4px 8px;display:flex;align-items:center;gap:6px}
+.dash-sec-title:first-child{padding-top:2px}
+.dash-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px}
+.dash-card{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:12px 14px}
+.dash-card-lbl{font-size:10px;color:var(--gr2);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px}
+.dash-card-val{font-size:21px;font-weight:800;color:var(--gr);line-height:1.1}
+.dash-card-sub{font-size:10.5px;color:var(--gr2);margin-top:2px}
+.dash-block{background:#fff;border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:8px}
+.dash-block-title{font-size:12px;font-weight:800;color:var(--gr);margin-bottom:10px}
+.dash-bar-row{margin-bottom:9px}
+.dash-bar-row:last-child{margin-bottom:0}
+.dash-bar-lbl{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--gr);margin-bottom:3px}
+.dash-bar-lbl span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-bar-lbl b{font-weight:700;flex-shrink:0}
+.dash-bar-track{background:#f0f0f0;border-radius:6px;height:8px;overflow:hidden}
+.dash-bar-fill{height:100%;border-radius:6px}
+.dash-top-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:12px}
+.dash-top-row:last-child{border-bottom:none}
+.dash-top-rank{font-weight:800;color:var(--bl);width:20px;flex-shrink:0}
+.dash-top-clave{font-family:monospace;font-weight:700;color:var(--gr);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-top-val{font-weight:700;color:var(--gr);flex-shrink:0;margin-left:8px}
+
 </style>
 </head>
 <body>
@@ -271,6 +297,7 @@ header.h-car{background:var(--rd)}
   <button class="nav-btn" id="nb-cic" onclick="switchTab('cic')"><span class="nav-ico">📊</span>Cíclicos</button>
   <button class="nav-btn" id="nb-emb" onclick="switchTab('emb')"><span class="nav-ico">🚚</span>Embarques</button>
   <button class="nav-btn" id="nb-car" onclick="switchTab('car')"><span class="nav-ico">🏷️</span>Carátulas</button>
+  <button class="nav-btn" id="nb-dash" onclick="switchTab('dash')"><span class="nav-ico">📈</span>Dashboard</button>
 </nav>
 
 <header class="h-inv" id="hdr-inv">
@@ -394,6 +421,11 @@ header.h-car{background:var(--rd)}
   </div>
 </header>
 
+<header class="h-dash hidden" id="hdr-dash">
+  <div class="hdr-top"><h1>📈 Dashboard</h1></div>
+  <div class="update-bar" id="dash-update-bar">📅 Cargando estadísticas...</div>
+</header>
+
 <div class="kpis hidden" id="kpis-car">
   <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val rv" id="k-car-piezas">—</div><div class="kpi-sub" id="k-car-piezas-sub">en PTJAL + PTFGUAD</div></div>
   <div class="kpi"><div class="kpi-lbl">Claves</div><div class="kpi-val rv" id="k-car-claves">—</div><div class="kpi-sub">en este filtro</div></div>
@@ -403,6 +435,8 @@ header.h-car{background:var(--rd)}
 <div class="bar hidden" id="bar-car"></div>
 <div class="list hidden" id="list-car"></div>
 <div class="empty hidden" id="empty-car"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-car"></span>"</p></div>
+
+<div class="list hidden" id="list-dash"></div>
 
 <div class="kpis" id="kpis-inv">
   <div class="kpi"><div class="kpi-lbl">Existencia</div><div class="kpi-val ov" id="k-exist">—</div><div class="kpi-sub">unidades</div></div>
@@ -612,9 +646,9 @@ function ubicTexto_(clave,lote){
 
 function switchTab(t){
   tab=t;
-  const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)'};
+  const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)'};
   // Show/hide standard sections
-  ['inv','emb','car'].forEach(function(x){
+  ['inv','emb','car','dash'].forEach(function(x){
     ['hdr-','kpis-','bar-','list-','empty-'].forEach(function(p){
       document.getElementById(p+x)?.classList.toggle('hidden',x!==t);
     });
@@ -638,6 +672,13 @@ function switchTab(t){
   else if(t==='cic'){checkNombre();renderCic();}
   else if(t==='emb')loadEmbarque();
   else if(t==='car')loadCaratulas();
+  else if(t==='dash'){
+    // El Dashboard solo lee datos ya cargados (Inventario + Cíclicos), no
+    // tiene su propio fetch. Si todavía no se ha abierto Cíclicos nunca,
+    // lo carga primero para poder calcular sus estadísticas.
+    if(!cicLoaded){loadCic().then(renderDash);}
+    else{renderDash();}
+  }
 }
 
 
@@ -2128,6 +2169,251 @@ function bloqueadoHasta(clave,lote){
   const limite=new Date(u.getFullYear(),u.getMonth()+3,u.getDate());
   const hoy=new Date(); hoy.setHours(0,0,0,0);
   return hoy<limite?limite:null;
+}
+
+// ============================================================
+// Dashboard: solo lectura de estadísticas ya cargadas (Inventario +
+// Cíclicos), no hace fetch propio. Reutiliza exactamente la misma lógica
+// de "atrasado" que getFiltCic() para que los números cuadren con lo que
+// se ve en la pestaña de Cíclicos.
+// ============================================================
+const DASH_COLORS=['#E8671A','#2E7D32','#1565C0','#1F4E79','#C62828','#8E24AA','#00897B','#F9A825'];
+
+function dashBarRow_(label,value,total,color,unidad){
+  const pct=total>0?Math.round(value/total*100):0;
+  return '<div class="dash-bar-row">'
+    +'<div class="dash-bar-lbl"><span>'+label+'</span><b>'+fmt(value)+(unidad?(' '+unidad):'')+' · '+pct+'%</b></div>'
+    +'<div class="dash-bar-track"><div class="dash-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
+  +'</div>';
+}
+
+function computeDashStats_(){
+  const lotes=ACTUAL_LOADED||[];
+
+  // ---- Inventario ----
+  const existTotal=lotes.reduce(function(s,l){return s+(l.exist||0);},0);
+  const clavesSet=new Set(lotes.map(function(l){return l.clave;}));
+
+  const ubicSet=new Set();
+  Object.keys(ubicMap).forEach(function(k){
+    (ubicMap[k]||[]).forEach(function(u){
+      const t=(u.ubicacion||'').trim().toLowerCase();
+      if(t)ubicSet.add(t);
+    });
+  });
+  const lotesMultiUbic=Object.keys(ubicMap).filter(function(k){return (ubicMap[k]||[]).length>1;}).length;
+
+  let clavesConUbic=0;
+  clavesSet.forEach(function(clave){
+    const lotesDeClave=lotes.filter(function(l){return l.clave===clave;});
+    if(lotesDeClave.some(function(l){return (ubicMap[clave+'|'+l.lote]||[]).length>0;}))clavesConUbic++;
+  });
+
+  const almMap={};
+  lotes.forEach(function(l){
+    const a=(l.almacen||'Sin almacén').toUpperCase();
+    if(!almMap[a])almMap[a]={exist:0,lotes:0};
+    almMap[a].exist+=l.exist||0;almMap[a].lotes++;
+  });
+
+  const claseMap={};
+  lotes.forEach(function(l){
+    const c=l.clase||'Otro';
+    if(!claseMap[c])claseMap[c]={exist:0,lotes:0};
+    claseMap[c].exist+=l.exist||0;claseMap[c].lotes++;
+  });
+
+  const hoyInv=new Date();
+  let cadVenc=0,cadWarn=0,cadOk=0,cadSin=0;
+  lotes.forEach(function(l){
+    const s=l.caducidad;
+    const p=s?s.split('/'):[];
+    if(!s||p.length<3){cadSin++;return;}
+    const d=new Date(+p[2],+p[1]-1,+p[0]);
+    if(isNaN(d.getTime())){cadSin++;return;}
+    const diff=(d-hoyInv)/864e5;
+    if(diff<0)cadVenc++;else if(diff<90)cadWarn++;else cadOk++;
+  });
+
+  const cuarLotes=lotes.filter(function(l){return (l.almacen||'').toUpperCase()==='40EYE';});
+  const cuarPiezas=cuarLotes.reduce(function(s,l){return s+(l.exist||0);},0);
+
+  const porClave={};
+  lotes.forEach(function(l){
+    if(!porClave[l.clave])porClave[l.clave]={clave:l.clave,desc:l.desc,exist:0};
+    porClave[l.clave].exist+=l.exist||0;
+  });
+  const top10=Object.values(porClave).sort(function(a,b){return b.exist-a.exist;}).slice(0,10);
+
+  // ---- Cíclicos ----
+  const histMap={};
+  cicHist.forEach(function(h){const k=h.clave+'|'+h.lote;if(!histMap[k])histMap[k]=[];histMap[k].push(h);});
+  const parseDMY=function(s){
+    if(!s)return null;
+    const p=s.split('/');
+    if(p.length<3)return null;
+    const d=new Date(+p[2],+p[1]-1,+p[0]);
+    return isNaN(d.getTime())?null:d;
+  };
+  const hoyC=new Date();hoyC.setHours(0,0,0,0);
+  const semanaAct=getCurrentSemana();
+  const semClaves=new Set(getSchedForSemana(semanaAct).map(function(s){return s.clave;}));
+
+  const rowsSemana=cicData.filter(function(p){return semClaves.has(p.clave);});
+  const contadosSemana=rowsSemana.filter(function(p){return (histMap[p.clave+'|'+p.lote]||[]).length>0;});
+
+  const porClaseAvance={};
+  ['A','B','C'].forEach(function(c){
+    const rs=rowsSemana.filter(function(p){return p.abc===c;});
+    const cs=rs.filter(function(p){return (histMap[p.clave+'|'+p.lote]||[]).length>0;});
+    porClaseAvance[c]={total:rs.length,contados:cs.length};
+  });
+
+  const contadosTodos=cicData.filter(function(p){return p.fechaConteo;});
+  let conDiferencia=0,coinciden=0,sobrante=0,faltante=0;
+  contadosTodos.forEach(function(p){
+    const diff=(parseFloat(p.cantidad)||0)-(p.existSAI||0);
+    if(Math.abs(diff)<0.01)coinciden++;else conDiferencia++;
+    if(diff>0)sobrante+=diff;else faltante+=diff;
+  });
+
+  let atrasadosActivos=0,diasAtrasoSum=0;
+  const atrasadosPorClase={A:0,B:0,C:0};
+  cicData.forEach(function(p){
+    const k=p.clave+'|'+p.lote;
+    const contado=(histMap[k]||[]).length>0;
+    const schedInfo=SCHED.find(function(s){return s.clave===p.clave;});
+    const fin=schedInfo?parseDMY(schedInfo.fecha_fin):null;
+    const califica=!!(fin&&fin<hoyC&&!contado);
+    const excluido=!!atrasadosExcluidos[k];
+    if(califica&&!excluido){
+      atrasadosActivos++;
+      if(atrasadosPorClase[p.abc]!==undefined)atrasadosPorClase[p.abc]++;
+      diasAtrasoSum+=Math.round((hoyC-fin)/864e5);
+    }
+  });
+  const diasAtrasoProm=atrasadosActivos?Math.round(diasAtrasoSum/atrasadosActivos):0;
+
+  const incidenciasSet=new Set();
+  cicData.forEach(function(p){
+    if(contarAjustes(p.clave,p.lote)>=2)incidenciasSet.add(p.clave+'|'+p.lote);
+  });
+
+  const sinClasificar=cicData.filter(function(p){return !p.abc||!p.semana;}).length;
+  const agotados=cicData.filter(function(p){return p.estatus==='Agotado';}).length;
+  const exclusionesActivas=Object.keys(atrasadosExcluidos).length;
+
+  const porResponsable={};
+  cicHist.forEach(function(h){
+    const r=h.registrado||'Sin nombre';
+    porResponsable[r]=(porResponsable[r]||0)+1;
+  });
+  const topResponsables=Object.keys(porResponsable).map(function(r){return{nombre:r,n:porResponsable[r]};}).sort(function(a,b){return b.n-a.n;}).slice(0,5);
+
+  return{
+    existTotal:existTotal,lotesTotal:lotes.length,clavesTotal:clavesSet.size,ubicTotal:ubicSet.size,
+    clavesConUbic:clavesConUbic,clavesSinUbic:clavesSet.size-clavesConUbic,lotesMultiUbic:lotesMultiUbic,
+    almMap:almMap,claseMap:claseMap,
+    cadVenc:cadVenc,cadWarn:cadWarn,cadOk:cadOk,cadSin:cadSin,
+    cuarLotes:cuarLotes.length,cuarPiezas:cuarPiezas,
+    top10:top10,
+    semanaAct:semanaAct,rowsSemanaTotal:rowsSemana.length,contadosSemana:contadosSemana.length,porClaseAvance:porClaseAvance,
+    contadosTotal:contadosTodos.length,conDiferencia:conDiferencia,coinciden:coinciden,sobrante:sobrante,faltante:faltante,
+    atrasadosActivos:atrasadosActivos,atrasadosPorClase:atrasadosPorClase,diasAtrasoProm:diasAtrasoProm,
+    incidencias:incidenciasSet.size,
+    sinClasificar:sinClasificar,agotados:agotados,exclusionesActivas:exclusionesActivas,
+    cicHistTotal:cicHist.length,topResponsables:topResponsables
+  };
+}
+
+function renderDash(){
+  const list=document.getElementById('list-dash');
+  if(!list)return;
+  if(!(ACTUAL_LOADED&&ACTUAL_LOADED.length)||!cicLoaded){
+    list.innerHTML='<div class="empty"><div class="empty-ico">📈</div><p>Cargando estadísticas...</p></div>';
+    return;
+  }
+  const s=computeDashStats_();
+  const bar=document.getElementById('dash-update-bar');
+  if(bar)bar.textContent='📅 Inventario actualizado al: '+(fechaGlobal||'—')+' · '+s.cicHistTotal+' conteos en historial';
+
+  let html='';
+
+  html+='<div class="dash-sec-title">📦 Inventario</div>';
+  html+='<div class="dash-grid">'
+    +'<div class="dash-card"><div class="dash-card-lbl">Existencia</div><div class="dash-card-val">'+fmt(s.existTotal)+'</div><div class="dash-card-sub">piezas</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Lotes</div><div class="dash-card-val">'+fmt(s.lotesTotal)+'</div><div class="dash-card-sub">registrados</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Claves</div><div class="dash-card-val">'+fmt(s.clavesTotal)+'</div><div class="dash-card-sub">únicas</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Ubicaciones</div><div class="dash-card-val">'+fmt(s.ubicTotal)+'</div><div class="dash-card-sub">registradas</div></div>'
+  +'</div>';
+
+  html+='<div class="dash-block"><div class="dash-block-title">Claves con ubicación</div>'
+    +dashBarRow_('Con ubicación',s.clavesConUbic,s.clavesTotal,'var(--gn)')
+    +dashBarRow_('Sin ubicación',s.clavesSinUbic,s.clavesTotal,'var(--rd)')
+    +(s.lotesMultiUbic>0?'<div class="dash-card-sub" style="margin-top:6px">📍 '+s.lotesMultiUbic+' lote'+(s.lotesMultiUbic>1?'s':'')+' con más de 1 ubicación (tarima partida)</div>':'')
+  +'</div>';
+
+  const almKeys=Object.keys(s.almMap).sort(function(a,b){return s.almMap[b].exist-s.almMap[a].exist;});
+  html+='<div class="dash-block"><div class="dash-block-title">Existencia por almacén</div>'
+    +almKeys.map(function(a,i){return dashBarRow_(a,s.almMap[a].exist,s.existTotal,DASH_COLORS[i%DASH_COLORS.length],'pz');}).join('')
+  +'</div>';
+
+  const claseKeys=Object.keys(s.claseMap).sort(function(a,b){return s.claseMap[b].exist-s.claseMap[a].exist;});
+  html+='<div class="dash-block"><div class="dash-block-title">Existencia por tipo</div>'
+    +claseKeys.map(function(c,i){return dashBarRow_(c,s.claseMap[c].exist,s.existTotal,DASH_COLORS[i%DASH_COLORS.length],'pz');}).join('')
+  +'</div>';
+
+  const cadTotal=s.cadVenc+s.cadWarn+s.cadOk+s.cadSin;
+  html+='<div class="dash-block"><div class="dash-block-title">Caducidad (lotes)</div>'
+    +dashBarRow_('⚠ Vencidos',s.cadVenc,cadTotal,'var(--rd)')
+    +dashBarRow_('⏳ Por vencer (&lt;90d)',s.cadWarn,cadTotal,'#F9A825')
+    +dashBarRow_('✓ Vigentes',s.cadOk,cadTotal,'var(--gn)')
+    +(s.cadSin>0?dashBarRow_('Sin fecha',s.cadSin,cadTotal,'#bbb'):'')
+  +'</div>';
+
+  html+='<div class="dash-grid">'
+    +'<div class="dash-card"><div class="dash-card-lbl">Cuarentena (40EYE)</div><div class="dash-card-val">'+fmt(s.cuarLotes)+'</div><div class="dash-card-sub">lotes</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Piezas detenidas</div><div class="dash-card-val">'+fmt(s.cuarPiezas)+'</div><div class="dash-card-sub">en 40EYE</div></div>'
+  +'</div>';
+
+  html+='<div class="dash-block"><div class="dash-block-title">Top 10 claves por existencia</div>'
+    +(s.top10.length?s.top10.map(function(p,i){return '<div class="dash-top-row"><span class="dash-top-rank">'+(i+1)+'</span><span class="dash-top-clave" title="'+escAttr(p.desc||'')+'">'+p.clave+'</span><span class="dash-top-val">'+fmt(p.exist)+'</span></div>';}).join(''):'<div class="dash-card-sub">Sin datos</div>')
+  +'</div>';
+
+  html+='<div class="dash-sec-title">📊 Cíclicos</div>';
+
+  html+='<div class="dash-block"><div class="dash-block-title">Avance semana actual (Semana '+s.semanaAct+')</div>'
+    +dashBarRow_('Contados',s.contadosSemana,s.rowsSemanaTotal,'var(--pu)')
+    +['A','B','C'].map(function(c,i){const d=s.porClaseAvance[c];return d.total?dashBarRow_('Clase '+c,d.contados,d.total,DASH_COLORS[i]):'';}).join('')
+  +'</div>';
+
+  html+='<div class="dash-grid">'
+    +'<div class="dash-card"><div class="dash-card-lbl">Conteos totales</div><div class="dash-card-val">'+fmt(s.contadosTotal)+'</div><div class="dash-card-sub">en Cíclicos</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Con diferencia</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.conDiferencia)+'</div><div class="dash-card-sub">de '+fmt(s.contadosTotal)+' contados</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Sobrante neto</div><div class="dash-card-val" style="color:var(--gn)">+'+fmt(s.sobrante)+'</div><div class="dash-card-sub">piezas</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Faltante neto</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.faltante)+'</div><div class="dash-card-sub">piezas</div></div>'
+  +'</div>';
+
+  html+='<div class="dash-grid">'
+    +'<div class="dash-card"><div class="dash-card-lbl">Atrasados activos</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.atrasadosActivos)+'</div><div class="dash-card-sub">'+(s.diasAtrasoProm?s.diasAtrasoProm+' días promedio':'—')+'</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Incidencias</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.incidencias)+'</div><div class="dash-card-sub">2+ ajustes</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Sin clasificar</div><div class="dash-card-val">'+fmt(s.sinClasificar)+'</div><div class="dash-card-sub">códigos</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Agotados</div><div class="dash-card-val">'+fmt(s.agotados)+'</div><div class="dash-card-sub">'+fmt(s.exclusionesActivas)+' excluidos de atrasados</div></div>'
+  +'</div>';
+
+  if(s.atrasadosActivos>0){
+    html+='<div class="dash-block"><div class="dash-block-title">Atrasados por clase</div>'
+      +['A','B','C'].map(function(c,i){return s.atrasadosPorClase[c]>0?dashBarRow_('Clase '+c,s.atrasadosPorClase[c],s.atrasadosActivos,DASH_COLORS[i]):'';}).join('')
+    +'</div>';
+  }
+
+  if(s.topResponsables.length){
+    html+='<div class="dash-block"><div class="dash-block-title">Quién ha contado más (histórico)</div>'
+      +s.topResponsables.map(function(r,i){return '<div class="dash-top-row"><span class="dash-top-rank">'+(i+1)+'</span><span class="dash-top-clave">'+r.nombre+'</span><span class="dash-top-val">'+fmt(r.n)+'</span></div>';}).join('')
+    +'</div>';
+  }
+
+  list.innerHTML=html;
 }
 
 function _renderCicData(){
