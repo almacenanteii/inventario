@@ -291,6 +291,16 @@ header.h-dash{background:var(--bl)}
 .dash-top-rank{font-weight:800;color:var(--bl);width:20px;flex-shrink:0}
 .dash-top-clave{font-family:monospace;font-weight:700;color:var(--gr);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dash-top-val{font-weight:700;color:var(--gr);flex-shrink:0;margin-left:8px}
+.dash-donut-row{display:flex;align-items:center;gap:16px}
+.dash-donut-legend{flex:1;min-width:0}
+.dash-legend-item{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gr);margin-bottom:7px}
+.dash-legend-item:last-child{margin-bottom:0}
+.dash-legend-swatch{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.dash-legend-lbl{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-legend-val{font-weight:700;flex-shrink:0;white-space:nowrap}
+.dash-gauge-row{display:flex;align-items:center;gap:16px;margin-bottom:12px}
+.dash-gauge-sub{flex:1;font-size:11.5px;color:var(--gr2)}
+.dash-gauge-sub b{color:var(--gr);font-weight:800}
 
 </style>
 </head>
@@ -684,6 +694,26 @@ function ubicTexto_(clave,lote){
   return arr.map(function(u){return u.ubicacion;}).filter(Boolean).join(', ');
 }
 
+// Compara una ubicación (ej. "01-C-02" = rack 01, nivel C, posición 02)
+// contra lo que se escribió en el buscador. Si lo que se buscó es SOLO
+// números (ej. "01" o "1"), se interpreta como filtro de RACK -- compara
+// nomás el primer tramo de la ubicación (antes de la primera letra), así
+// "01" encuentra todo lo que está en el rack 01 sin importar nivel o
+// posición, en vez de un texto suelto que también agarraría un "01" que
+// apareciera como posición de otro rack. Si la búsqueda trae letras (ej.
+// "01-C" o solo "C"), se hace match de texto normal sobre toda la ubicación.
+function ubicMatchQuery_(ubicacion,rawQuery){
+  const u=(ubicacion||'').trim();
+  const q=(rawQuery||'').trim();
+  if(!u||!q)return false;
+  if(/^\d+$/.test(q)){
+    const m=u.match(/^0*(\d+)/);
+    if(!m)return false;
+    return parseInt(m[1],10)===parseInt(q,10);
+  }
+  return smartMatch(u,q);
+}
+
 function switchTab(t){
   tab=t;
   const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)'};
@@ -744,7 +774,7 @@ function getFiltA(){
   const ALL_A=window._ALL_A||[];return ALL_A.filter(p=>{
     if(ALMS.includes(fInv)&&!p.alms.includes(fInv))return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
-    if(q&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!smartMatch(p.loc||'',sInv)&&!p.lotes.some(function(l){return smartMatch(l.lote,sInv)||(ubicMap[p.clave+'|'+l.lote]||[]).some(function(u){return smartMatch(u.ubicacion||'',sInv);});}))return false;
+    if(q&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!smartMatch(p.loc||'',sInv)&&!p.lotes.some(function(l){return smartMatch(l.lote,sInv)||(ubicMap[p.clave+'|'+l.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sInv);});}))return false;
     return true;
   });
 }
@@ -2169,7 +2199,7 @@ function getFiltCic(){
     if(fCic==='NUEVO'&&schedInfo)return false;
     if(fCic==='ATRASADO'&&!calificaAtrasado)return false;
     if(fCic==='INCIDENCIA'&&contarAjustes(p.clave,p.lote)<2)return false;
-    if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic)&&!smartMatch(p.lote,sCic))return false;
+    if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic)&&!smartMatch(p.lote,sCic)&&!(ubicMap[k]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sCic);}))return false;
     return true;
   });
 }
@@ -2225,6 +2255,54 @@ function dashBarRow_(label,value,total,color,unidad){
     +'<div class="dash-bar-lbl"><span>'+label+'</span><b>'+fmt(value)+(unidad?(' '+unidad):'')+' · '+pct+'%</b></div>'
     +'<div class="dash-bar-track"><div class="dash-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'
   +'</div>';
+}
+
+// Dona SVG "a mano" (sin librerías -- funciona igual de confiable sin
+// internet que el resto de la app). Cada segmento es un círculo con
+// stroke-dasharray recortado a su proporción, rotados -90° para que
+// empiecen arriba (12 en punto) en vez de a la derecha.
+function svgDonut_(segments,size,strokeWidth){
+  const total=segments.reduce(function(s,x){return s+x.value;},0);
+  const r=(size-strokeWidth)/2,cx=size/2,cy=size/2;
+  const circ=2*Math.PI*r;
+  if(total<=0){
+    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#f0f0f0" stroke-width="'+strokeWidth+'"/></svg>';
+  }
+  let offset=0,paths='';
+  segments.forEach(function(seg){
+    if(seg.value<=0)return;
+    const frac=seg.value/total;
+    const dash=frac*circ;
+    paths+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+seg.color+'" stroke-width="'+strokeWidth+'" stroke-dasharray="'+dash+' '+(circ-dash)+'" stroke-dashoffset="'+(-offset)+'" transform="rotate(-90 '+cx+' '+cy+')"/>';
+    offset+=dash;
+  });
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+paths+'</svg>';
+}
+
+// Bloque dona + leyenda lado a lado, reemplaza las barras cuando se quiere
+// ver "de qué está compuesto el total" de un vistazo.
+function dashDonutBlock_(segments,unidad){
+  const total=segments.reduce(function(s,x){return s+x.value;},0);
+  const donut=svgDonut_(segments,108,20);
+  const legend=segments.filter(function(s){return s.value>0;}).map(function(seg){
+    const pct=total>0?Math.round(seg.value/total*100):0;
+    return '<div class="dash-legend-item"><span class="dash-legend-swatch" style="background:'+seg.color+'"></span><span class="dash-legend-lbl">'+seg.label+'</span><span class="dash-legend-val">'+fmt(seg.value)+(unidad?(' '+unidad):'')+' · '+pct+'%</span></div>';
+  }).join('');
+  return '<div class="dash-donut-row"><div style="flex-shrink:0">'+donut+'</div><div class="dash-donut-legend">'+(legend||'<div class="dash-card-sub">Sin datos</div>')+'</div></div>';
+}
+
+// Medidor circular (gauge) de una sola proporción, con el % en el centro --
+// para el avance semanal en Cíclicos.
+function svgGauge_(pct,size,strokeWidth,color){
+  const r=(size-strokeWidth)/2,cx=size/2,cy=size/2;
+  const circ=2*Math.PI*r;
+  const p=Math.max(0,Math.min(100,pct));
+  const dash=p/100*circ;
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#f0f0f0" stroke-width="'+strokeWidth+'"/>'
+    +'<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+strokeWidth+'" stroke-linecap="round" stroke-dasharray="'+dash+' '+(circ-dash)+'" transform="rotate(-90 '+cx+' '+cy+')"/>'
+    +'<text x="'+cx+'" y="'+(cy+9)+'" text-anchor="middle" font-size="28" font-weight="800" fill="#333">'+Math.round(p)+'%</text>'
+  +'</svg>';
 }
 
 function computeDashStats_(){
@@ -2395,20 +2473,21 @@ function renderDash(){
 
   const almKeys=Object.keys(s.almMap).sort(function(a,b){return s.almMap[b].exist-s.almMap[a].exist;});
   html+='<div class="dash-block"><div class="dash-block-title">Existencia por almacén</div>'
-    +almKeys.map(function(a,i){return dashBarRow_(a,s.almMap[a].exist,s.existTotal,DASH_COLORS[i%DASH_COLORS.length],'pz');}).join('')
+    +dashDonutBlock_(almKeys.map(function(a,i){return{label:a,value:s.almMap[a].exist,color:DASH_COLORS[i%DASH_COLORS.length]};}),'pz')
   +'</div>';
 
   const claseKeys=Object.keys(s.claseMap).sort(function(a,b){return s.claseMap[b].exist-s.claseMap[a].exist;});
   html+='<div class="dash-block"><div class="dash-block-title">Existencia por tipo</div>'
-    +claseKeys.map(function(c,i){return dashBarRow_(c,s.claseMap[c].exist,s.existTotal,DASH_COLORS[i%DASH_COLORS.length],'pz');}).join('')
+    +dashDonutBlock_(claseKeys.map(function(c,i){return{label:c,value:s.claseMap[c].exist,color:DASH_COLORS[i%DASH_COLORS.length]};}),'pz')
   +'</div>';
 
-  const cadTotal=s.cadVenc+s.cadWarn+s.cadOk+s.cadSin;
   html+='<div class="dash-block"><div class="dash-block-title">Caducidad (lotes)</div>'
-    +dashBarRow_('⚠ Vencidos',s.cadVenc,cadTotal,'var(--rd)')
-    +dashBarRow_('⏳ Por vencer (&lt;90d)',s.cadWarn,cadTotal,'#F9A825')
-    +dashBarRow_('✓ Vigentes',s.cadOk,cadTotal,'var(--gn)')
-    +(s.cadSin>0?dashBarRow_('Sin fecha',s.cadSin,cadTotal,'#bbb'):'')
+    +dashDonutBlock_([
+      {label:'⚠ Vencidos',value:s.cadVenc,color:'#C62828'},
+      {label:'⏳ Por vencer (<90d)',value:s.cadWarn,color:'#F9A825'},
+      {label:'✓ Vigentes',value:s.cadOk,color:'#2E7D32'},
+      {label:'Sin fecha',value:s.cadSin,color:'#bbb'}
+    ],'lotes')
   +'</div>';
 
   html+='<div class="dash-grid">'
@@ -2422,8 +2501,12 @@ function renderDash(){
 
   html+='<div class="dash-sec-title">📊 Cíclicos</div>';
 
+  const avanceSemanaPct=s.rowsSemanaTotal>0?(s.contadosSemana/s.rowsSemanaTotal*100):0;
   html+='<div class="dash-block"><div class="dash-block-title">Avance semana actual (Semana '+s.semanaAct+')</div>'
-    +dashBarRow_('Contados',s.contadosSemana,s.rowsSemanaTotal,'var(--pu)')
+    +'<div class="dash-gauge-row">'
+      +svgGauge_(avanceSemanaPct,96,14,'#1F4E79')
+      +'<div class="dash-gauge-sub"><b>'+fmt(s.contadosSemana)+'</b> de <b>'+fmt(s.rowsSemanaTotal)+'</b> lotes contados esta semana</div>'
+    +'</div>'
     +['A','B','C'].map(function(c,i){const d=s.porClaseAvance[c];return d.total?dashBarRow_('Clase '+c,d.contados,d.total,DASH_COLORS[i]):'';}).join('')
   +'</div>';
 
@@ -3338,7 +3421,7 @@ function getFiltEmb(){
     const alm=(r.almacen||'').toUpperCase();
     if(EMB_ALMACENES.indexOf(alm)===-1)return false;
     if(fEmb!=='TODOS'&&alm!==fEmb)return false;
-    if(q&&!smartMatch(r.clave,sEmb)&&!smartMatch(r.desc,sEmb)&&!smartMatch(r.lote,sEmb))return false;
+    if(q&&!smartMatch(r.clave,sEmb)&&!smartMatch(r.desc,sEmb)&&!smartMatch(r.lote,sEmb)&&!(ubicMap[r.clave+'|'+r.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sEmb);}))return false;
     return true;
   });
 }
@@ -3686,14 +3769,14 @@ function getFiltCar(){
         if(fCarUbic==='CON'&&!tieneUbic)return false;
         if(fCarUbic==='SIN'&&tieneUbic)return false;
       }
-      if(q&&!smartMatch(r.clave,sCar)&&!smartMatch(r.desc,sCar)&&!smartMatch(r.lote,sCar))return false;
+      if(q&&!smartMatch(r.clave,sCar)&&!smartMatch(r.desc,sCar)&&!smartMatch(r.lote,sCar)&&!(ubicMap[r.clave+'|'+r.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sCar);}))return false;
       return true;
     });
   }
   return (CAR_LOADED||[]).filter(function(r){
     const alm=(r.almacen||'').toUpperCase();
     if(alm!=='PTJAL'&&alm!=='PTFGUAD'&&alm!=='40PT')return false;
-    if(q&&!smartMatch(r.clave,sCar)&&!smartMatch(r.desc,sCar)&&!smartMatch(r.lote,sCar))return false;
+    if(q&&!smartMatch(r.clave,sCar)&&!smartMatch(r.desc,sCar)&&!smartMatch(r.lote,sCar)&&!(ubicMap[r.clave+'|'+r.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sCar);}))return false;
     return true;
   });
 }
