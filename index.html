@@ -2466,9 +2466,11 @@ function renderDash(){
   +'</div>';
 
   html+='<div class="dash-block"><div class="dash-block-title">Claves con ubicación</div>'
-    +dashBarRow_('Con ubicación',s.clavesConUbic,s.clavesTotal,'var(--gn)')
-    +dashBarRow_('Sin ubicación',s.clavesSinUbic,s.clavesTotal,'var(--rd)')
-    +(s.lotesMultiUbic>0?'<div class="dash-card-sub" style="margin-top:6px">📍 '+s.lotesMultiUbic+' lote'+(s.lotesMultiUbic>1?'s':'')+' con más de 1 ubicación (tarima partida)</div>':'')
+    +dashDonutBlock_([
+      {label:'Con ubicación',value:s.clavesConUbic,color:'#2E7D32'},
+      {label:'Sin ubicación',value:s.clavesSinUbic,color:'#C62828'}
+    ],'claves')
+    +(s.lotesMultiUbic>0?'<div class="dash-card-sub" style="margin-top:10px">📍 '+s.lotesMultiUbic+' lote'+(s.lotesMultiUbic>1?'s':'')+' con más de 1 ubicación (tarima partida)</div>':'')
   +'</div>';
 
   const almKeys=Object.keys(s.almMap).sort(function(a,b){return s.almMap[b].exist-s.almMap[a].exist;});
