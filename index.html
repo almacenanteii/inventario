@@ -1361,6 +1361,19 @@ function aplicarCicSemanaOverrides_(){
   });
 }
 
+// Orden estándar para las tablas de los reportes de Cíclicos: por clave
+// (alfanumérico natural, así EYE-ENV-2 queda antes que EYE-ENV-10) y, si
+// coincide la clave, por número de lote (más viejo primero).
+function ordenarPorClave_(arr){
+  return arr.slice().sort(function(a,b){
+    const c=(a.clave||'').localeCompare(b.clave||'','es',{numeric:true,sensitivity:'base'});
+    if(c!==0)return c;
+    const la=embParseLote(a.lote),lb=embParseLote(b.lote);
+    if(la!==null&&lb!==null&&la!==lb)return la-lb;
+    return (a.lote||'').localeCompare(b.lote||'');
+  });
+}
+
 function generarReporte(semana){
   const items=getSchedForSemana(semana);
   if(!items.length){alert('No hay claves asignadas para la semana '+semana);return;}
@@ -1379,7 +1392,7 @@ function generarReporte(semana){
   });
 
   const clavesSem=new Set(items.map(function(s){return s.clave;}));
-  const lotesSem=cicData.filter(function(p){return clavesSem.has(p.clave);});
+  const lotesSem=ordenarPorClave_(cicData.filter(function(p){return clavesSem.has(p.clave);}));
 
   // Stats
   const conteos=lotesSem.filter(function(p){return histMap[p.clave+'|'+p.lote];});
@@ -1670,7 +1683,7 @@ function imprimirSemana(semana){
 
   // Get all lotes for this week's claves from cicData
   const clavesSem=new Set(items.map(function(s){return s.clave;}));
-  const lotesSem=cicData.filter(function(p){return clavesSem.has(p.clave);});
+  const lotesSem=ordenarPorClave_(cicData.filter(function(p){return clavesSem.has(p.clave);}));
 
   const rows=lotesSem.map(function(p){
     const k=p.clave+'|'+p.lote;
@@ -1836,7 +1849,10 @@ function imprimirAtrasados(){
   atrasados.sort(function(a,b){
     const pa=pesoAbc[a.abc]||0, pb=pesoAbc[b.abc]||0;
     if(pb!==pa)return pb-pa;
-    return b.dias-a.dias;
+    if(b.dias!==a.dias)return b.dias-a.dias;
+    // Empate en clase y días de atraso: ordena por clave para que no
+    // salgan revueltas.
+    return (a.p.clave||'').localeCompare(b.p.clave||'','es',{numeric:true,sensitivity:'base'});
   });
 
   const rows=atrasados.map(function(x){
