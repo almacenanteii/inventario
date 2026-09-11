@@ -3202,6 +3202,16 @@ function embParseCad(s){
   return isNaN(d.getTime())?null:d.getTime();
 }
 
+// El lote es AAMMNNNN (año 2 díg + mes 2 díg + consecutivo), ej. 26060379
+// = año 26, mes 06, consecutivo 0379. Al ser puramente numérico con ancho
+// fijo, ordenar el número completo de forma ascendente ya da el orden
+// cronológico real de fabricación (FIFO), sin depender de la caducidad.
+function embParseLote(lote){
+  const s=String(lote||'').trim();
+  if(!/^\d+$/.test(s)) return null;
+  return parseInt(s,10);
+}
+
 const EMB_NO_VIAJA=['PT-S.O-071','PT-S.O-072','PT-S.O-127'];
 
 // Antes estos códigos se ocultaban por completo del Embarque. Ahora se
@@ -3440,11 +3450,11 @@ function buildEmbGroups(){
   });
   return Object.values(gm).map(function(g){
     g.lotes=g.lotes.slice().sort(function(a,b){
-      const da=embParseCad(a.caducidad),db=embParseCad(b.caducidad);
-      if(da===null&&db===null)return 0;
-      if(da===null)return 1;
-      if(db===null)return -1;
-      return da-db;
+      const la=embParseLote(a.lote),lb=embParseLote(b.lote);
+      if(la===null&&lb===null)return 0;
+      if(la===null)return 1;
+      if(lb===null)return -1;
+      return la-lb;
     });
     g.totalExist=g.lotes.reduce(function(s,l){return s+l.exist;},0);
     g.alms=[...g.alms];
@@ -3463,12 +3473,12 @@ function renderEmb(){
   const orderExtra=Object.keys(byClase).filter(function(c){return orderBase.indexOf(c)===-1;}).sort();
   const order=orderBase.concat(orderExtra);
   // Dentro de cada sección, primero las claves con el lote más viejo
-  // (misma lógica de caducidad que ya se usa para ordenar los lotes
-  // dentro de cada tarjeta) — así lo que hay que embarcar primero (FIFO)
-  // queda arriba en vez de orden alfabético.
+  // (mismo criterio de número de lote —AAMMNNNN— que ya se usa para
+  // ordenar los lotes dentro de cada tarjeta) — así lo que hay que
+  // embarcar primero (FIFO) queda arriba en vez de orden alfabético.
   order.forEach(function(c){ if(byClase[c])byClase[c].sort(function(a,b){
-    const da=embParseCad(a.lotes[0]&&a.lotes[0].caducidad);
-    const db=embParseCad(b.lotes[0]&&b.lotes[0].caducidad);
+    const da=embParseLote(a.lotes[0]&&a.lotes[0].lote);
+    const db=embParseLote(b.lotes[0]&&b.lotes[0].lote);
     if(da===null&&db===null)return a.clave.localeCompare(b.clave);
     if(da===null)return 1;
     if(db===null)return -1;
