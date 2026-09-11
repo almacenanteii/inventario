@@ -714,6 +714,48 @@ function ubicMatchQuery_(ubicacion,rawQuery){
   return smartMatch(u,q);
 }
 
+// Fila de ubicación (chips 📍 + botón ➕ agregar) para un lote específico.
+// Reutilizable en cualquier pestaña (Inventario, Embarques, Carátulas PT)
+// ya que el sistema de ubicaciones es genérico por clave+lote, sin importar
+// de qué hoja/almacén venga el producto.
+function ubicRowHtml_(clave,lote){
+  const key=clave+'|'+lote;
+  const entradas=ubicMap[key]||[];
+  let chipsHtml=entradas.map(function(u){
+    return '<span class="loc-chip">'+
+      '<span class="loc-badge">📍 '+u.ubicacion+'</span>'+
+      '<span class="loc-copy" data-ubic="'+escAttr(u.ubicacion)+'" onclick="event.stopPropagation();copiarUbicacion(this)" title="Copiar">📋</span>'+
+      '<span class="loc-del" data-id="'+escAttr(u.id||'')+'" onclick="event.stopPropagation();borrarUbicacion(this)" title="Quitar">✕</span>'+
+    '</span>';
+  }).join('');
+  // La sugerencia de la clave (última ubicación conocida de otro lote de
+  // este mismo código) NO se muestra como badge -- solo precarga el
+  // formulario al tocar ➕.
+  const heredada=entradas.length===0?ubicPorClave[clave]:null;
+  const sugerida=heredada&&heredada.ubicacion?heredada.ubicacion:'';
+  if(entradas.length===0){
+    chipsHtml='<span class="loc-badge loc-empty">Sin ubicación</span>';
+  }
+  const pasteMode=ubicCopiada!==null;
+  const addCls=pasteMode?' paste-mode':'';
+  const addAttr=pasteMode?'📥':'➕';
+  const addTitle=pasteMode?'Pegar ubicación copiada aquí':'Agregar ubicación';
+  const addBtn='<span class="loc-add'+addCls+'" data-clave="'+escAttr(clave)+'" data-lote="'+escAttr(lote)+'" data-ubic="'+escAttr(sugerida)+'" onclick="editarUbicacion(this)" title="'+addTitle+'">'+addAttr+'</span>';
+  return '<div class="loc-row">'+chipsHtml+addBtn+'</div>';
+}
+
+// Vuelve a pintar la pestaña que esté activa en este momento. Se usa desde
+// las funciones de ubicaciones (guardar/borrar/copiar) porque ahora esos
+// botones pueden aparecer en Inventario, Embarques o Carátulas -- no solo
+// en Inventario como antes.
+function renderActiveTab_(){
+  if(tab==='inv')renderInv();
+  else if(tab==='cic')renderCic();
+  else if(tab==='emb')renderEmb();
+  else if(tab==='car')renderCar();
+  else if(tab==='dash')renderDash();
+}
+
 function switchTab(t){
   tab=t;
   const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)'};
@@ -796,7 +838,7 @@ function copiarUbicacion(el){
   ubicCopiada=el.dataset.ubic||'';
   if(!ubicCopiada)return;
   mostrarBannerCopiaUbicacion();
-  renderInv();
+  renderActiveTab_();
 }
 
 function pegarUbicacion(el){
@@ -818,7 +860,7 @@ function mostrarBannerCopiaUbicacion(){
   const cancel=document.createElement('span');
   cancel.textContent='✕';
   cancel.style.cssText='cursor:pointer;font-weight:900;padding:2px 8px;flex-shrink:0';
-  cancel.onclick=function(){ubicCopiada=null;ocultarBannerCopiaUbicacion();renderInv();};
+  cancel.onclick=function(){ubicCopiada=null;ocultarBannerCopiaUbicacion();renderActiveTab_();};
   b.appendChild(cancel);
   document.body.appendChild(b);
 }
@@ -915,7 +957,7 @@ function guardarUbicacion(clave,lote,ubicacion){
   if(!ubicMap[key])ubicMap[key]=[];
   ubicMap[key].push(entry);
   ubicPorClave[clave]=entry;
-  renderInv();
+  renderActiveTab_();
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'ubicacion',clave:clave,lote:lote,ubicacion:ubicacion,registrado:nombre,fecha:fecha})})
     .catch(function(e){console.error('Error guardando ubicación:',e);});
   setTimeout(function(){recargarUbicaciones();},1500);
@@ -928,7 +970,7 @@ function borrarUbicacion(el){
   Object.keys(ubicMap).forEach(function(key){
     ubicMap[key]=ubicMap[key].filter(function(u){return u.id!==id;});
   });
-  renderInv();
+  renderActiveTab_();
   if(id.indexOf('tmp-')===0){
     // Todavía no tenemos el Id real del servidor (se guardó hace instantes)
     // -- solo refresca, no hay nada remoto que borrar con este Id temporal.
@@ -955,7 +997,7 @@ async function recargarUbicaciones(){
         ubicPorClave[u.clave]=u;
       }
     });
-    renderInv();
+    renderActiveTab_();
   }catch(e){console.warn('No se pudo refrescar ubicaciones:',e);}
 }
 
@@ -1142,29 +1184,7 @@ function renderInv(){
       const lots=p.lotes.map(l=>{
         const cad=cadInfo(l.caducidad);
         const key=p.clave+'|'+l.lote;
-        const entradas=ubicMap[key]||[];
-        let chipsHtml=entradas.map(function(u){
-          return '<span class="loc-chip">'+
-            '<span class="loc-badge">📍 '+u.ubicacion+'</span>'+
-            '<span class="loc-copy" data-ubic="'+escAttr(u.ubicacion)+'" onclick="event.stopPropagation();copiarUbicacion(this)" title="Copiar">📋</span>'+
-            '<span class="loc-del" data-id="'+escAttr(u.id||'')+'" onclick="event.stopPropagation();borrarUbicacion(this)" title="Quitar">✕</span>'+
-          '</span>';
-        }).join('');
-        // La sugerencia de la clave (última ubicación conocida de otro lote
-        // de este mismo código) NO se muestra como badge -- eso confundía,
-        // parecía que ya estaba puesta en este lote sin estarlo. Solo se
-        // usa para precargar el formulario al tocar ➕.
-        const heredada=entradas.length===0?ubicPorClave[p.clave]:null;
-        const sugerida=heredada&&heredada.ubicacion?heredada.ubicacion:'';
-        if(entradas.length===0){
-          chipsHtml='<span class="loc-badge loc-empty">Sin ubicación</span>';
-        }
-        const pasteMode=ubicCopiada!==null;
-        const addCls=pasteMode?' paste-mode':'';
-        const addAttr=pasteMode?'📥':'➕';
-        const addTitle=pasteMode?'Pegar ubicación copiada aquí':'Agregar ubicación';
-        const addBtn='<span class="loc-add'+addCls+'" data-clave="'+escAttr(p.clave)+'" data-lote="'+escAttr(l.lote)+'" data-ubic="'+escAttr(sugerida)+'" onclick="editarUbicacion(this)" title="'+addTitle+'">'+addAttr+'</span>';
-        const ubicBtn='<div class="loc-row">'+chipsHtml+addBtn+'</div>';
+        const ubicBtn=ubicRowHtml_(p.clave,l.lote);
         const ultimoConteo=ultimoConteoMap[key];
         const conteoHtml=ultimoConteo?
           `<div class="lot-conteo">🕒 Último conteo: ${(ultimoConteo.fecha||'').split(',')[0]} · ${fmt(ultimoConteo.cantidad)} pz</div>`:
@@ -3517,6 +3537,7 @@ function renderEmb(){
           return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-origen="'+escAttr(l.origen||'')+'">'
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
             +manualBadge
+            +ubicRowHtml_(g.clave,l.lote)
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
             +'<div class="emb-tarima-chips"></div>'
             +'<div class="emb-tarima-add">'
@@ -3883,6 +3904,7 @@ function renderCar(){
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
             +manualBadgeCar
             +(cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena — revisar liberación de Calidad antes de mover</div>':'')
+            +ubicRowHtml_(g.clave,l.lote)
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+' · U. Empaque: '+uEmp+'</div>'
             +'<div class="emb-tarima-chips"></div>'
             +'<div class="emb-tarima-add">'
