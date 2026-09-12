@@ -350,7 +350,9 @@ header.h-dev{background:var(--tl)}
    propio scroll -- así agregar materiales de la OP no te obliga a bajar y
    subir por toda la ventana para ver la lista de la derecha crecer. */
 .dev-modal-wide{align-items:center;padding:12px}
-.dev-modal-box-wide{border-radius:16px;max-width:1300px;width:98%;height:96vh;max-height:96vh}
+.dev-modal-box-wide{border-radius:16px;max-width:1300px;width:98%;height:96vh;max-height:96vh;border:5px solid transparent;transition:border-color .15s}
+.dev-modal-box-wide.tipo-no_utilizado{border-color:#1565C0}
+.dev-modal-box-wide.tipo-destruccion{border-color:#8E24AA}
 .emb-modal-body.dev-modal-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1;min-height:0;overflow:hidden}
 .dev-col-left,.dev-col-right{min-width:0;height:100%;overflow-y:auto;padding-right:6px}
 .dev-col-right{border-left:1px solid var(--bd);padding-left:24px}
@@ -4386,6 +4388,8 @@ function abrirModalDevolucion(){
   devLineas=[];
   document.getElementById('dev-tipo-btn-no_utilizado').classList.remove('sel-no_utilizado');
   document.getElementById('dev-tipo-btn-destruccion').classList.remove('sel-destruccion');
+  const boxIni=document.querySelector('#modal-dev-folio .dev-modal-box-wide');
+  if(boxIni)boxIni.classList.remove('tipo-no_utilizado','tipo-destruccion');
   renderDevLineas_();
   cargarTrazOP_();
   updateDevDatalist_();
@@ -4403,6 +4407,11 @@ function seleccionarDevTipo(tipo){
   devTipoSel=tipo;
   document.getElementById('dev-tipo-btn-no_utilizado').classList.toggle('sel-no_utilizado',tipo==='no_utilizado');
   document.getElementById('dev-tipo-btn-destruccion').classList.toggle('sel-destruccion',tipo==='destruccion');
+  const box=document.querySelector('#modal-dev-folio .dev-modal-box-wide');
+  if(box){
+    box.classList.toggle('tipo-no_utilizado',tipo==='no_utilizado');
+    box.classList.toggle('tipo-destruccion',tipo==='destruccion');
+  }
 }
 
 // El datalist de códigos se arma con lo que ya está en Inventario (mismo
