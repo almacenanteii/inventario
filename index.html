@@ -10,7 +10,7 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--or:#E8671A;--gr:#3a3a3a;--gr2:#7a7a7a;--bg:#f0f0f0;--wh:#fff;--bd:#e2e2e2;--rad:10px;
-      --bl:#1565C0;--gn:#2E7D32;--rd:#C62828;--pu:#1F4E79}
+      --bl:#1565C0;--gn:#2E7D32;--rd:#C62828;--pu:#1F4E79;--tl:#00695C}
 .c40-card{background:#fff;border-radius:12px;margin-bottom:8px;border:1px solid var(--bd);padding:12px 14px}
 .c40-row1{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
 .c40-meta{font-size:11px;color:var(--gr2);margin-top:6px;display:flex;gap:10px;flex-wrap:wrap}
@@ -302,6 +302,43 @@ header.h-dash{background:var(--bl)}
 .dash-gauge-sub{flex:1;font-size:11.5px;color:var(--gr2)}
 .dash-gauge-sub b{color:var(--gr);font-weight:800}
 
+/* ===== Devoluciones tab ===== */
+header.h-dev{background:var(--tl)}
+.nav-btn.a-dev{color:var(--tl)}
+.chip.a-dev{background:#fff;color:var(--tl)}
+.dev-card{border-left:6px solid #ccc}
+.dev-card.t-no_utilizado{border-left-color:#1565C0}
+.dev-card.t-destruccion{border-left-color:#8E24AA}
+.dev-card-head{padding:12px 14px}
+.dev-card-row1{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
+.dev-folio{font-size:15px;font-weight:800;color:var(--gr);font-family:monospace}
+.dev-tag{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.dev-tag.t-no_utilizado{background:#E3F2FD;color:#1565C0}
+.dev-tag.t-destruccion{background:#F3E5F5;color:#8E24AA}
+.dev-op-info{font-size:12px;color:var(--gr);margin-bottom:2px}
+.dev-op-info b{color:var(--tl);font-family:monospace}
+.dev-meta{font-size:11px;color:var(--gr2)}
+.dev-lineas{border-top:1px solid #f0f0f0}
+.dev-linea-row{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid #f5f5f5;font-size:12px}
+.dev-linea-row:last-child{border-bottom:none}
+.dev-linea-clave{font-family:monospace;font-weight:700;color:var(--tl)}
+.dev-linea-desc{color:var(--gr2);font-size:11px}
+.dev-linea-lote{font-family:monospace;font-size:11px;color:var(--gr2)}
+.dev-linea-cant{font-weight:700;color:var(--gr);flex-shrink:0}
+.dev-del{color:#C62828;cursor:pointer;font-size:11px;font-weight:700;padding:4px 8px;flex-shrink:0}
+.dev-tipo-btns{display:flex;gap:8px;margin-bottom:12px}
+.dev-tipo-btn{flex:1;padding:12px;border-radius:10px;border:2px solid var(--bd);background:#fff;font-size:13px;font-weight:700;color:var(--gr2);cursor:pointer;text-align:center}
+.dev-tipo-btn.sel-no_utilizado{border-color:#1565C0;background:#E3F2FD;color:#1565C0}
+.dev-tipo-btn.sel-destruccion{border-color:#8E24AA;background:#F3E5F5;color:#8E24AA}
+.dev-op-sel{background:#F0F4F3;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px}
+.dev-op-sel b{color:var(--tl)}
+.dev-linea-form{background:var(--bg);border-radius:10px;padding:10px;margin-bottom:8px;position:relative}
+.dev-linea-form .row{display:flex;gap:8px;margin-bottom:6px}
+.dev-linea-form input,.dev-linea-form select{flex:1;padding:9px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;outline:none;min-width:0}
+.dev-linea-form .desc{font-size:11px;color:var(--gr2);padding:0 2px;min-height:14px}
+.dev-linea-quitar{position:absolute;top:8px;right:8px;color:#C62828;font-size:16px;font-weight:900;cursor:pointer;line-height:1}
+.btn-dev-add{width:100%;padding:10px;border:1.5px dashed var(--tl);border-radius:8px;background:none;color:var(--tl);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:12px}
+
 </style>
 </head>
 <body>
@@ -312,6 +349,7 @@ header.h-dash{background:var(--bl)}
   <button class="nav-btn" id="nb-emb" onclick="switchTab('emb')"><span class="nav-ico">🚚</span>Embarques</button>
   <button class="nav-btn" id="nb-car" onclick="switchTab('car')"><span class="nav-ico">🏷️</span>Carátulas</button>
   <button class="nav-btn" id="nb-dash" onclick="switchTab('dash')"><span class="nav-ico">📈</span>Dashboard</button>
+  <button class="nav-btn" id="nb-dev" onclick="switchTab('dev')"><span class="nav-ico">↩️</span>Devoluciones</button>
 </nav>
 
 <header class="h-inv" id="hdr-inv">
@@ -453,6 +491,24 @@ header.h-dash{background:var(--bl)}
   <div class="update-bar" id="dash-update-bar">📅 Cargando estadísticas...</div>
 </header>
 
+<header class="h-dev hidden" id="hdr-dev">
+  <div class="hdr-top">
+    <h1>↩️ Devoluciones</h1>
+    <button onclick="abrirModalDevolucion()" style="background:#fff;color:var(--tl);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Nuevo folio</button>
+  </div>
+  <div class="update-bar" id="dev-update-bar">📅 Cargando folios...</div>
+  <div class="search-box">
+    <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="search-dev" placeholder="Buscar folio, OP, código o lote…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clr" id="clr-dev" onclick="document.getElementById('search-dev').value='';sDev='';renderDev();">✕</button>
+  </div>
+  <div class="filters" id="fi-dev">
+    <div class="chip a-dev" data-f="TODOS">Todos</div>
+    <div class="chip" data-f="no_utilizado">🔵 No utilizado</div>
+    <div class="chip" data-f="destruccion">🟣 Destrucción</div>
+  </div>
+</header>
+
 <div class="kpis hidden" id="kpis-car">
   <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val rv" id="k-car-piezas">—</div><div class="kpi-sub" id="k-car-piezas-sub">en PTJAL + PTFGUAD</div></div>
   <div class="kpi"><div class="kpi-lbl">Claves</div><div class="kpi-val rv" id="k-car-claves">—</div><div class="kpi-sub">en este filtro</div></div>
@@ -464,6 +520,54 @@ header.h-dash{background:var(--bl)}
 <div class="empty hidden" id="empty-car"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-car"></span>"</p></div>
 
 <div class="list hidden" id="list-dash"></div>
+
+<div class="kpis hidden" id="kpis-dev">
+  <div class="kpi"><div class="kpi-lbl">Folios</div><div class="kpi-val" style="color:var(--tl)" id="k-dev-folios">—</div><div class="kpi-sub">en este filtro</div></div>
+  <div class="kpi"><div class="kpi-lbl">No utilizado</div><div class="kpi-val" style="color:#1565C0" id="k-dev-nu">—</div><div class="kpi-sub">folios</div></div>
+  <div class="kpi"><div class="kpi-lbl">Destrucción</div><div class="kpi-val" style="color:#8E24AA" id="k-dev-dest">—</div><div class="kpi-sub">folios</div></div>
+</div>
+<div class="bar hidden" id="bar-dev"></div>
+<div class="list hidden" id="list-dev"></div>
+<div class="empty hidden" id="empty-dev"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-dev"></span>"</p></div>
+
+<datalist id="dev-clave-list"></datalist>
+
+<div class="emb-modal" id="modal-dev-folio">
+  <div class="emb-modal-box">
+    <div class="emb-modal-head">
+      <div>
+        <h2>↩️ Nuevo folio de devolución</h2>
+        <div class="emb-modal-sub">Captura lo que trae la papeleta</div>
+      </div>
+      <button onclick="cerrarModalDevolucion()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gr2)">✕</button>
+    </div>
+    <div class="emb-modal-body" style="padding:16px">
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Folio</label>
+      <input type="text" id="dev-folio" placeholder="Folio de la papeleta" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
+
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Tipo</label>
+      <div class="dev-tipo-btns">
+        <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-no_utilizado" onclick="seleccionarDevTipo('no_utilizado')">🔵 No utilizado</button>
+        <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-destruccion" onclick="seleccionarDevTipo('destruccion')">🟣 Destrucción</button>
+      </div>
+
+      <div style="position:relative;margin-bottom:12px">
+        <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Producto (buscar por OP, código o producto)</label>
+        <input type="text" id="dev-buscar-op" placeholder="Escribe el # de OP o el producto…" autocomplete="off" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none">
+        <div id="dev-op-results" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1.5px solid #e2e2e2;border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.12)"></div>
+      </div>
+      <div id="dev-op-sel" class="dev-op-sel" style="display:none"></div>
+
+      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Materiales devueltos</label>
+      <div id="dev-lineas-list"></div>
+      <button type="button" class="btn-dev-add" onclick="agregarDevLinea()">+ Agregar material</button>
+    </div>
+    <div class="emb-modal-foot">
+      <button class="btn-emb-close" onclick="cerrarModalDevolucion()">Cancelar</button>
+      <button class="btn-emb-print" onclick="guardarDevolucion()" style="background:var(--tl)">✓ Guardar folio</button>
+    </div>
+  </div>
+</div>
 
 <div class="kpis" id="kpis-inv">
   <div class="kpi"><div class="kpi-lbl">Existencia</div><div class="kpi-val ov" id="k-exist">—</div><div class="kpi-sub">unidades</div></div>
@@ -754,13 +858,14 @@ function renderActiveTab_(){
   else if(tab==='emb')renderEmb();
   else if(tab==='car')renderCar();
   else if(tab==='dash')renderDash();
+  else if(tab==='dev')renderDev();
 }
 
 function switchTab(t){
   tab=t;
-  const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)'};
+  const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)',dev:'var(--tl)'};
   // Show/hide standard sections
-  ['inv','emb','car','dash'].forEach(function(x){
+  ['inv','emb','car','dash','dev'].forEach(function(x){
     ['hdr-','kpis-','bar-','list-','empty-'].forEach(function(p){
       document.getElementById(p+x)?.classList.toggle('hidden',x!==t);
     });
@@ -791,6 +896,7 @@ function switchTab(t){
     if(!cicLoaded){loadCic().then(renderDash);}
     else{renderDash();}
   }
+  else if(t==='dev')loadDevoluciones();
 }
 
 
@@ -4153,6 +4259,263 @@ if(carEyeCantChk) carEyeCantChk.addEventListener('change',function(){
   }
 });
 
+// ===== Devoluciones / Destrucciones =====
+// Cada folio (papeleta) se guarda en la hoja "Devoluciones" como varias
+// filas (una por material devuelto), todas con el mismo Id -- aquí se
+// vuelven a agrupar por Id para mostrarlas como tarjetas de folio.
+let DEV_LOADED=[],devLoaded=false,sDev='',fDev='TODOS';
+// Estado del modal de captura mientras está abierto.
+let devLineas=[],devTipoSel='',devOpSelData=null;
+
+async function loadDevoluciones(){
+  const bar=document.getElementById('dev-update-bar');
+  try{
+    const r=await fetch(APPS_URL+'?accion=devoluciones&t='+Date.now());
+    const rows=await r.json();
+    const porId={};
+    (Array.isArray(rows)?rows:[]).forEach(function(row){
+      if(!porId[row.id]){
+        porId[row.id]={id:row.id,folio:row.folio,tipo:row.tipo,op:row.op,codigoPT:row.codigoPT,productoPT:row.productoPT,lotePT:row.lotePT,fecha:row.fecha,registrado:row.registrado,lineas:[]};
+      }
+      porId[row.id].lineas.push({codigo:row.codigo,descripcion:row.descripcion,lote:row.lote,cantidad:row.cantidad});
+    });
+    DEV_LOADED=Object.values(porId).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
+    devLoaded=true;
+    if(bar)bar.textContent='📅 '+DEV_LOADED.length+' folio'+(DEV_LOADED.length===1?'':'s')+' capturado'+(DEV_LOADED.length===1?'':'s');
+  }catch(e){
+    console.error('Error cargando Devoluciones:',e);
+    if(!devLoaded)DEV_LOADED=[];
+    if(bar)bar.textContent='❌ Error al cargar Devoluciones.';
+  }
+  renderDev();
+}
+
+function getFiltDev(){
+  const q=sDev.toLowerCase().trim();
+  return (DEV_LOADED||[]).filter(function(f){
+    if(fDev!=='TODOS'&&f.tipo!==fDev)return false;
+    if(!q)return true;
+    if(smartMatch(f.folio,sDev)||smartMatch(f.op,sDev)||smartMatch(f.codigoPT,sDev)||smartMatch(f.productoPT,sDev)||smartMatch(f.lotePT,sDev))return true;
+    return f.lineas.some(function(l){return smartMatch(l.codigo,sDev)||smartMatch(l.descripcion,sDev)||smartMatch(l.lote,sDev);});
+  });
+}
+
+function renderDev(){
+  const folios=getFiltDev();
+  const kF=document.getElementById('k-dev-folios'); if(kF)kF.textContent=folios.length.toLocaleString('en-US');
+  const kN=document.getElementById('k-dev-nu'); if(kN)kN.textContent=folios.filter(function(f){return f.tipo==='no_utilizado';}).length.toLocaleString('en-US');
+  const kD=document.getElementById('k-dev-dest'); if(kD)kD.textContent=folios.filter(function(f){return f.tipo==='destruccion';}).length.toLocaleString('en-US');
+  const barEl=document.getElementById('bar-dev'); if(barEl)barEl.textContent=folios.length+' folio'+(folios.length===1?'':'s');
+
+  const list=document.getElementById('list-dev'),empty=document.getElementById('empty-dev');
+  if(!list)return;
+  if(!folios.length){
+    list.innerHTML='';
+    if(empty){empty.classList.remove('hidden');const eq=document.getElementById('eq-dev');if(eq)eq.textContent=sDev;}
+    return;
+  }
+  if(empty)empty.classList.add('hidden');
+
+  list.innerHTML=folios.map(function(f){
+    const tagTxt=f.tipo==='destruccion'?'🟣 Destrucción':'🔵 No utilizado';
+    const totalCant=f.lineas.reduce(function(s,l){return s+(l.cantidad||0);},0);
+    const lineasHtml=f.lineas.map(function(l){
+      return '<div class="dev-linea-row">'
+        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span></div>'
+        +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
+      +'</div>';
+    }).join('');
+    return '<div class="card dev-card t-'+f.tipo+'">'
+      +'<div class="dev-card-head">'
+        +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span></div>'
+        +(f.op?'<div class="dev-op-info">OP <b>'+escAttr(f.op)+'</b> · '+escAttr(f.codigoPT)+' — '+escAttr(f.productoPT)+' · Lote '+escAttr(f.lotePT)+'</div>':'')
+        +'<div class="dev-meta">'+f.lineas.length+' material'+(f.lineas.length>1?'es':'')+' · '+fmt(totalCant)+' pz · '+escAttr(f.fecha)+(f.registrado?' · '+escAttr(f.registrado):'')+' <span class="dev-del" onclick="borrarDevolucion(\''+f.id+'\')">🗑️ Borrar folio</span></div>'
+      +'</div>'
+      +'<div class="dev-lineas">'+lineasHtml+'</div>'
+    +'</div>';
+  }).join('');
+}
+
+function borrarDevolucion(id){
+  if(!confirm('¿Borrar este folio completo? Esto no se puede deshacer.'))return;
+  DEV_LOADED=DEV_LOADED.filter(function(f){return f.id!==id;});
+  renderDev();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_devolucion',id:id})})
+    .catch(function(e){console.error('Error borrando devolución:',e);});
+}
+
+// ---- Modal de captura de folio ----
+function abrirModalDevolucion(){
+  checkNombre();
+  document.getElementById('dev-folio').value='';
+  document.getElementById('dev-buscar-op').value='';
+  document.getElementById('dev-op-results').style.display='none';
+  document.getElementById('dev-op-sel').style.display='none';
+  document.getElementById('dev-op-sel').innerHTML='';
+  devTipoSel='';
+  devOpSelData=null;
+  devLineas=[];
+  document.getElementById('dev-tipo-btn-no_utilizado').classList.remove('sel-no_utilizado');
+  document.getElementById('dev-tipo-btn-destruccion').classList.remove('sel-destruccion');
+  renderDevLineas_();
+  cargarTrazOP_();
+  updateDevDatalist_();
+  const modal=document.getElementById('modal-dev-folio');
+  if(modal)modal.style.display='flex';
+  setTimeout(function(){document.getElementById('dev-folio').focus();},50);
+}
+
+function cerrarModalDevolucion(){
+  const modal=document.getElementById('modal-dev-folio');
+  if(modal)modal.style.display='none';
+}
+
+function seleccionarDevTipo(tipo){
+  devTipoSel=tipo;
+  document.getElementById('dev-tipo-btn-no_utilizado').classList.toggle('sel-no_utilizado',tipo==='no_utilizado');
+  document.getElementById('dev-tipo-btn-destruccion').classList.toggle('sel-destruccion',tipo==='destruccion');
+}
+
+// El datalist de códigos se arma con lo que ya está en Inventario (mismo
+// arreglo que usa la pestaña Inventario) -- así "Código" en cada renglón
+// de material sugiere claves reales en vez de escribirlas a ciegas.
+function updateDevDatalist_(){
+  const dl=document.getElementById('dev-clave-list');
+  if(!dl)return;
+  dl.innerHTML=(window._ALL_A||[]).map(function(p){return '<option value="'+escAttr(p.clave)+'">';}).join('');
+}
+
+function renderDevOpResultados_(){
+  const q=document.getElementById('dev-buscar-op').value.trim();
+  const box=document.getElementById('dev-op-results');
+  if(trazOpLoading){
+    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--gr2)">Cargando Trazabilidad OP…</div>';
+    box.style.display='block';
+    return;
+  }
+  if(trazOpError){
+    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:#C62828">No se pudo cargar Trazabilidad OP. Revisa que el script ya tenga la acción "trazabilidad_op" pegada y republicada.</div>';
+    box.style.display='block';
+    return;
+  }
+  if(!q){ box.style.display='none'; box.innerHTML=''; return; }
+  const matches=TRAZ_OP.filter(function(o){
+    return smartMatch(o.op,q)||smartMatch(o.codigo,q)||smartMatch(o.producto,q)||smartMatch(o.lote,q);
+  }).slice(0,8);
+  if(!matches.length){
+    box.innerHTML='<div style="padding:10px 12px;font-size:12px;color:var(--gr2)">Sin resultados en Trazabilidad OP para "'+q+'"</div>';
+    box.style.display='block';
+    return;
+  }
+  box.innerHTML=matches.map(function(o,i){
+    return '<div class="pt-manual-op-row" data-i="'+i+'" style="padding:9px 12px;font-size:12px;border-bottom:1px solid #f0f0f0;cursor:pointer" onmousedown="event.preventDefault();elegirDevOp('+i+')">'
+      +'OP <b>'+escAttr(o.op)+'</b> · '+escAttr(o.codigo)+' — '+escAttr(o.producto)+' · Lote '+(o.lote||'—')
+    +'</div>';
+  }).join('');
+  box.style.display='block';
+  window._devOpMatches=matches;
+}
+document.getElementById('dev-buscar-op').addEventListener('input',renderDevOpResultados_);
+
+function elegirDevOp(i){
+  const o=(window._devOpMatches||[])[i];
+  if(!o)return;
+  devOpSelData=o;
+  document.getElementById('dev-buscar-op').value='OP '+o.op+' · '+o.codigo;
+  document.getElementById('dev-op-results').style.display='none';
+  const sel=document.getElementById('dev-op-sel');
+  sel.innerHTML='OP <b>'+escAttr(o.op)+'</b> · Código <b>'+escAttr(o.codigo)+'</b> · '+escAttr(o.producto)+' · Lote <b>'+escAttr(o.lote||'—')+'</b>';
+  sel.style.display='block';
+}
+
+// ---- Renglones de material dentro del folio ----
+function agregarDevLinea(){
+  devLineas.push({codigo:'',descripcion:'',lote:'',cantidad:''});
+  renderDevLineas_();
+}
+
+function quitarDevLinea(idx){
+  devLineas.splice(idx,1);
+  renderDevLineas_();
+}
+
+function renderDevLineas_(){
+  const cont=document.getElementById('dev-lineas-list');
+  if(!cont)return;
+  if(!devLineas.length){
+    cont.innerHTML='<div style="font-size:12px;color:var(--gr2);padding:8px 2px 12px">Sin materiales agregados todavía.</div>';
+    return;
+  }
+  cont.innerHTML=devLineas.map(function(l,idx){
+    const p=(window._ALL_A||[]).find(function(x){return x.clave.toUpperCase()===String(l.codigo||'').toUpperCase();});
+    const lotesOpts=(p?p.lotes:[]).map(function(lt){
+      return '<option value="'+escAttr(lt.lote)+'"'+(lt.lote===l.lote?' selected':'')+'>'+escAttr(lt.lote)+'</option>';
+    }).join('');
+    return '<div class="dev-linea-form">'
+      +'<span class="dev-linea-quitar" onclick="quitarDevLinea('+idx+')">✕</span>'
+      +'<div class="row">'
+        +'<input type="text" list="dev-clave-list" placeholder="Código" value="'+escAttr(l.codigo)+'" oninput="devLineas['+idx+'].codigo=this.value" onchange="onDevCodigoChange(this,'+idx+')">'
+      +'</div>'
+      +'<div class="desc">'+(l.descripcion?escAttr(l.descripcion):'Se autocompleta al elegir el código')+'</div>'
+      +'<div class="row" style="margin-top:6px">'
+        +'<select onchange="devLineas['+idx+'].lote=this.value">'
+          +'<option value="">Lote…</option>'+lotesOpts
+        +'</select>'
+        +'<input type="number" min="0" step="any" inputmode="decimal" placeholder="Cantidad" value="'+(l.cantidad||'')+'" oninput="devLineas['+idx+'].cantidad=parseFloat(this.value)||0">'
+      +'</div>'
+    +'</div>';
+  }).join('');
+}
+
+function onDevCodigoChange(el,idx){
+  const val=el.value.trim();
+  devLineas[idx].codigo=val;
+  const p=(window._ALL_A||[]).find(function(x){return x.clave.toUpperCase()===val.toUpperCase();});
+  devLineas[idx].descripcion=p?p.desc:'';
+  devLineas[idx].lote='';
+  renderDevLineas_();
+}
+
+function guardarDevolucion(){
+  const folio=document.getElementById('dev-folio').value.trim();
+  if(!folio){alert('Falta el folio.');return;}
+  if(!devTipoSel){alert('Elige si es "No utilizado" o "Destrucción".');return;}
+  if(!devOpSelData){alert('Busca y elige la OP del producto.');return;}
+  const lineasValidas=devLineas.filter(function(l){return l.codigo&&l.lote&&l.cantidad>0;});
+  if(!lineasValidas.length){alert('Agrega al menos un material con código, lote y cantidad.');return;}
+
+  const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
+  const fecha=new Date().toLocaleDateString('es-MX');
+  const payload={
+    accion:'devolucion',
+    folio:folio,
+    tipo:devTipoSel,
+    op:devOpSelData.op,
+    codigoPT:devOpSelData.codigo,
+    productoPT:devOpSelData.producto,
+    lotePT:devOpSelData.lote,
+    fecha:fecha,
+    registrado:nombre,
+    lineas:lineasValidas
+  };
+
+  const btn=document.querySelector('#modal-dev-folio .btn-emb-print');
+  if(btn){btn.disabled=true;btn.textContent='Guardando...';}
+
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)})
+    .then(function(){
+      if(btn){btn.disabled=false;btn.textContent='✓ Guardar folio';}
+      cerrarModalDevolucion();
+      devLoaded=false;
+      setTimeout(function(){loadDevoluciones();},1200);
+    })
+    .catch(function(e){
+      console.error('Error guardando devolución:',e);
+      if(btn){btn.disabled=false;btn.textContent='✓ Guardar folio';}
+      alert('Error al guardar. Intenta de nuevo.');
+    });
+}
+
 // Search event listeners
 document.getElementById('search-inv').addEventListener('input',function(){sInv=this.value;renderInv();});
 document.getElementById('search-cic').addEventListener('input',function(){sCic=this.value;cicLoaded=false;loadCic();});
@@ -4166,6 +4529,8 @@ if(document.getElementById('search-car')) document.getElementById('search-car').
 document.querySelectorAll('#fi-emb .chip').forEach(function(c){c.addEventListener('click',function(){fEmb=this.dataset.f;document.querySelectorAll('#fi-emb .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
 document.querySelectorAll('#fi-car-cat .chip').forEach(function(c){c.addEventListener('click',function(){fCarCat=this.dataset.cat;document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventListener('click',function(){fCarUbic=this.dataset.ubic;document.querySelectorAll('#fi-car-ubic .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
+document.getElementById('search-dev').addEventListener('input',function(){sDev=this.value;renderDev();});
+document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListener('click',function(){fDev=this.dataset.f;document.querySelectorAll('#fi-dev .chip').forEach(function(x){x.classList.remove('active','a-dev');});this.classList.add('active');renderDev();});});
 // Init
 loadInventario();
 </script>
