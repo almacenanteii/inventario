@@ -332,6 +332,13 @@ header.h-dev{background:var(--tl)}
 .dev-tipo-btn.sel-destruccion{border-color:#8E24AA;background:#F3E5F5;color:#8E24AA}
 .dev-op-sel{background:#F0F4F3;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:12px}
 .dev-op-sel b{color:var(--tl)}
+.dev-op-mat-title{font-size:11px;font-weight:700;color:var(--gr2);margin-bottom:6px}
+.dev-op-mat-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:1.5px solid var(--bd);border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px}
+.dev-op-mat-row.agregado{opacity:.5}
+.dev-op-mat-info b{font-family:monospace;color:var(--tl)}
+.dev-op-mat-sub{font-size:10.5px;color:var(--gr2)}
+.dev-op-mat-add{flex-shrink:0;background:var(--tl);color:#fff;border:none;border-radius:7px;padding:6px 12px;font-size:11px;font-weight:700;cursor:pointer}
+.dev-op-mat-add:disabled{background:#ccc;cursor:default}
 .dev-linea-form{background:var(--bg);border-radius:10px;padding:10px;margin-bottom:8px;position:relative}
 .dev-linea-form .row{display:flex;gap:8px;margin-bottom:6px}
 .dev-linea-form input,.dev-linea-form select{flex:1;padding:9px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;outline:none;min-width:0}
@@ -557,6 +564,7 @@ header.h-dev{background:var(--tl)}
         <div id="dev-op-results" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1.5px solid #e2e2e2;border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.12)"></div>
       </div>
       <div id="dev-op-sel" class="dev-op-sel" style="display:none"></div>
+      <div id="dev-op-materiales"></div>
 
       <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Materiales devueltos</label>
       <div id="dev-lineas-list"></div>
@@ -4265,7 +4273,7 @@ if(carEyeCantChk) carEyeCantChk.addEventListener('change',function(){
 // vuelven a agrupar por Id para mostrarlas como tarjetas de folio.
 let DEV_LOADED=[],devLoaded=false,sDev='',fDev='TODOS';
 // Estado del modal de captura mientras está abierto.
-let devLineas=[],devTipoSel='',devOpSelData=null;
+let devLineas=[],devTipoSel='',devOpSelData=null,devMaterialesOP=[];
 
 async function loadDevoluciones(){
   const bar=document.getElementById('dev-update-bar');
@@ -4352,6 +4360,8 @@ function abrirModalDevolucion(){
   document.getElementById('dev-op-results').style.display='none';
   document.getElementById('dev-op-sel').style.display='none';
   document.getElementById('dev-op-sel').innerHTML='';
+  document.getElementById('dev-op-materiales').innerHTML='';
+  devMaterialesOP=[];
   devTipoSel='';
   devOpSelData=null;
   devLineas=[];
@@ -4426,6 +4436,53 @@ function elegirDevOp(i){
   const sel=document.getElementById('dev-op-sel');
   sel.innerHTML='OP <b>'+escAttr(o.op)+'</b> · Código <b>'+escAttr(o.codigo)+'</b> · '+escAttr(o.producto)+' · Lote <b>'+escAttr(o.lote||'—')+'</b>';
   sel.style.display='block';
+  devMaterialesOP=parseMaterialesOP_(o.materiales);
+  renderDevOpMateriales_();
+}
+
+// La columna "Materiales" de Trazabilidad OP trae, para cada OP, todo lo
+// que se usó en formato "clave:cantidad:lote, clave:cantidad:lote, ...".
+// Se parsea aquí para poder ofrecerlo como sugerencia -- así no hay que
+// volver a escribir a mano lo que ya sabemos que se usó en esa orden.
+function parseMaterialesOP_(raw){
+  const s=(raw||'').trim();
+  if(!s)return [];
+  return s.split(',').map(function(chunk){
+    const partes=chunk.trim().split(':');
+    if(partes.length<3)return null;
+    return {
+      clave:partes[0].trim(),
+      cantidad:parseFloat(partes[1])||0,
+      lote:partes.slice(2).join(':').trim() // por si el lote trajera ":" (raro, pero por si acaso)
+    };
+  }).filter(Boolean);
+}
+
+function renderDevOpMateriales_(){
+  const cont=document.getElementById('dev-op-materiales');
+  if(!cont)return;
+  if(!devMaterialesOP.length){
+    cont.innerHTML='';
+    return;
+  }
+  cont.innerHTML='<div class="dev-op-mat-title">Materiales usados en esta OP (toca ➕ para agregarlos con su lote)</div>'
+    +devMaterialesOP.map(function(m,idx){
+      const yaAgregado=devLineas.some(function(l){return l.codigo===m.clave&&l.lote===m.lote;});
+      const p=(window._ALL_A||[]).find(function(x){return x.clave.toUpperCase()===m.clave.toUpperCase();});
+      return '<div class="dev-op-mat-row'+(yaAgregado?' agregado':'')+'">'
+        +'<div class="dev-op-mat-info"><b>'+escAttr(m.clave)+'</b>'+(p?' — '+escAttr(p.desc):'')+'<div class="dev-op-mat-sub">Lote '+escAttr(m.lote)+' · se usaron '+fmt(m.cantidad)+' en la OP</div></div>'
+        +'<button type="button" class="dev-op-mat-add" '+(yaAgregado?'disabled':'')+' onclick="agregarDevLineaDesdeOP_('+idx+')">'+(yaAgregado?'✓ Agregado':'➕ Agregar')+'</button>'
+      +'</div>';
+    }).join('');
+}
+
+function agregarDevLineaDesdeOP_(idx){
+  const m=devMaterialesOP[idx];
+  if(!m)return;
+  const p=(window._ALL_A||[]).find(function(x){return x.clave.toUpperCase()===m.clave.toUpperCase();});
+  devLineas.push({codigo:m.clave,descripcion:p?p.desc:'',lote:m.lote,cantidad:''});
+  renderDevLineas_();
+  renderDevOpMateriales_();
 }
 
 // ---- Renglones de material dentro del folio ----
@@ -4437,6 +4494,7 @@ function agregarDevLinea(){
 function quitarDevLinea(idx){
   devLineas.splice(idx,1);
   renderDevLineas_();
+  renderDevOpMateriales_();
 }
 
 function renderDevLineas_(){
@@ -4448,8 +4506,14 @@ function renderDevLineas_(){
   }
   cont.innerHTML=devLineas.map(function(l,idx){
     const p=(window._ALL_A||[]).find(function(x){return x.clave.toUpperCase()===String(l.codigo||'').toUpperCase();});
-    const lotesOpts=(p?p.lotes:[]).map(function(lt){
-      return '<option value="'+escAttr(lt.lote)+'"'+(lt.lote===l.lote?' selected':'')+'>'+escAttr(lt.lote)+'</option>';
+    const lotesDisponibles=(p?p.lotes.map(function(lt){return lt.lote;}):[]);
+    // Si el lote ya viene precargado (ej. desde los materiales de la OP) y
+    // no aparece entre los lotes vigentes en Inventario (puede que ya se
+    // haya consumido por completo), se agrega igual como opción para que
+    // el selector no se vea vacío aunque el dato sí esté guardado.
+    if(l.lote&&lotesDisponibles.indexOf(l.lote)===-1)lotesDisponibles.push(l.lote);
+    const lotesOpts=lotesDisponibles.map(function(lt){
+      return '<option value="'+escAttr(lt)+'"'+(lt===l.lote?' selected':'')+'>'+escAttr(lt)+'</option>';
     }).join('');
     return '<div class="dev-linea-form">'
       +'<span class="dev-linea-quitar" onclick="quitarDevLinea('+idx+')">✕</span>'
