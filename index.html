@@ -345,6 +345,22 @@ header.h-dev{background:var(--tl)}
 .dev-linea-form .desc{font-size:11px;color:var(--gr2);padding:0 2px;min-height:14px}
 .dev-linea-quitar{position:absolute;top:8px;right:8px;color:#C62828;font-size:16px;font-weight:900;cursor:pointer;line-height:1}
 .btn-dev-add{width:100%;padding:10px;border:1.5px dashed var(--tl);border-radius:8px;background:none;color:var(--tl);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:12px}
+/* Modal de captura en escritorio: dos columnas lado a lado (izquierda:
+   folio/tipo/OP/sugerencias, derecha: lo ya agregado) cada una con su
+   propio scroll -- así agregar materiales de la OP no te obliga a bajar y
+   subir por toda la ventana para ver la lista de la derecha crecer. */
+.dev-modal-wide{align-items:center}
+.dev-modal-box-wide{border-radius:16px;max-width:960px;width:94%;max-height:88vh}
+.dev-modal-cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.dev-col-left,.dev-col-right{min-width:0;max-height:62vh;overflow-y:auto;padding-right:4px}
+.dev-col-right{border-left:1px solid var(--bd);padding-left:20px}
+@media (max-width:700px){
+  .dev-modal-wide{align-items:flex-end}
+  .dev-modal-box-wide{border-radius:16px 16px 0 0;width:100%;max-height:90vh}
+  .dev-modal-cols{grid-template-columns:1fr}
+  .dev-col-left,.dev-col-right{max-height:none;overflow-y:visible;padding-right:0}
+  .dev-col-right{border-left:none;padding-left:0;border-top:1px solid var(--bd);padding-top:14px;margin-top:4px}
+}
 
 </style>
 </head>
@@ -539,8 +555,8 @@ header.h-dev{background:var(--tl)}
 
 <datalist id="dev-clave-list"></datalist>
 
-<div class="emb-modal" id="modal-dev-folio">
-  <div class="emb-modal-box">
+<div class="emb-modal dev-modal-wide" id="modal-dev-folio">
+  <div class="emb-modal-box dev-modal-box-wide">
     <div class="emb-modal-head">
       <div>
         <h2>↩️ Nuevo folio de devolución</h2>
@@ -548,27 +564,30 @@ header.h-dev{background:var(--tl)}
       </div>
       <button onclick="cerrarModalDevolucion()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gr2)">✕</button>
     </div>
-    <div class="emb-modal-body" style="padding:16px">
-      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Folio</label>
-      <input type="text" id="dev-folio" placeholder="Folio de la papeleta" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
+    <div class="emb-modal-body dev-modal-cols" style="padding:16px">
+      <div class="dev-col-left">
+        <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Folio</label>
+        <input type="text" id="dev-folio" placeholder="Folio de la papeleta" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
 
-      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Tipo</label>
-      <div class="dev-tipo-btns">
-        <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-no_utilizado" onclick="seleccionarDevTipo('no_utilizado')">🔵 No utilizado</button>
-        <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-destruccion" onclick="seleccionarDevTipo('destruccion')">🟣 Destrucción</button>
+        <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Tipo</label>
+        <div class="dev-tipo-btns">
+          <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-no_utilizado" onclick="seleccionarDevTipo('no_utilizado')">🔵 No utilizado</button>
+          <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-destruccion" onclick="seleccionarDevTipo('destruccion')">🟣 Destrucción</button>
+        </div>
+
+        <div style="position:relative;margin-bottom:12px">
+          <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Producto (buscar por OP, código o producto)</label>
+          <input type="text" id="dev-buscar-op" placeholder="Escribe el # de OP o el producto…" autocomplete="off" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none">
+          <div id="dev-op-results" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1.5px solid #e2e2e2;border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.12)"></div>
+        </div>
+        <div id="dev-op-sel" class="dev-op-sel" style="display:none"></div>
+        <div id="dev-op-materiales"></div>
       </div>
-
-      <div style="position:relative;margin-bottom:12px">
-        <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Producto (buscar por OP, código o producto)</label>
-        <input type="text" id="dev-buscar-op" placeholder="Escribe el # de OP o el producto…" autocomplete="off" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none">
-        <div id="dev-op-results" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1.5px solid #e2e2e2;border-radius:8px;margin-top:4px;max-height:220px;overflow-y:auto;z-index:5;box-shadow:0 4px 14px rgba(0,0,0,.12)"></div>
+      <div class="dev-col-right">
+        <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Materiales devueltos</label>
+        <div id="dev-lineas-list"></div>
+        <button type="button" class="btn-dev-add" onclick="agregarDevLinea()">+ Agregar material</button>
       </div>
-      <div id="dev-op-sel" class="dev-op-sel" style="display:none"></div>
-      <div id="dev-op-materiales"></div>
-
-      <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Materiales devueltos</label>
-      <div id="dev-lineas-list"></div>
-      <button type="button" class="btn-dev-add" onclick="agregarDevLinea()">+ Agregar material</button>
     </div>
     <div class="emb-modal-foot">
       <button class="btn-emb-close" onclick="cerrarModalDevolucion()">Cancelar</button>
