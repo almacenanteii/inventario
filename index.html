@@ -291,13 +291,6 @@ header.h-dash{background:var(--bl)}
 .dash-top-rank{font-weight:800;color:var(--bl);width:20px;flex-shrink:0}
 .dash-top-clave{font-family:monospace;font-weight:700;color:var(--gr);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dash-top-val{font-weight:700;color:var(--gr);flex-shrink:0;margin-left:8px}
-.dash-cont-list{max-height:280px;overflow-y:auto}
-.dash-cont-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:12.5px}
-.dash-cont-row:last-child{border-bottom:none}
-.dash-cont-clave{font-family:monospace;font-weight:700;color:var(--gr)}
-.dash-cont-lote{font-family:monospace;font-size:11px;color:var(--gr2)}
-.dash-cont-sub{font-size:10.5px;color:var(--gr2)}
-.dash-cont-val{font-weight:800;flex-shrink:0;color:var(--gr)}
 .dash-donut-row{display:flex;align-items:center;gap:16px}
 .dash-donut-legend{flex:1;min-width:0}
 .dash-legend-item{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gr);margin-bottom:7px}
@@ -2583,17 +2576,16 @@ function computeDashStats_(){
   const contadosSemanaArr=rowsSemana.filter(function(p){return (histMap[p.clave+'|'+p.lote]||[]).length>0;});
   const contadosSemana=contadosSemanaArr;
 
-  // De lo contado esta semana, separa lo que coincidió con SAI de lo que
-  // salió con diferencia -- para mostrar ambas listas en el Dashboard, no
-  // solo el conteo.
-  const semSinDiferencia=[],semConDiferencia=[];
+  // De lo contado esta semana, solo se necesitan los TOTALES (resumen
+  // ejecutivo) -- cuántos coincidieron con SAI, cuántos salieron con
+  // diferencia, y el neto de sobrante/faltante. No se lista código por
+  // código (eso ya está en la propia pestaña Cíclicos si hace falta).
+  let semSinDiferenciaN=0,semConDiferenciaN=0,semSobrante=0,semFaltante=0;
   contadosSemanaArr.forEach(function(p){
     const diff=(parseFloat(p.cantidad)||0)-(p.existSAI||0);
-    const item={clave:p.clave,lote:p.lote,desc:p.desc,cantidad:p.cantidad,existSAI:p.existSAI,diff:diff};
-    if(Math.abs(diff)<0.01)semSinDiferencia.push(item);else semConDiferencia.push(item);
+    if(Math.abs(diff)<0.01)semSinDiferenciaN++;else semConDiferenciaN++;
+    if(diff>0)semSobrante+=diff;else semFaltante+=diff;
   });
-  semConDiferencia.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
-  semSinDiferencia.sort(function(a,b){return (a.clave||'').localeCompare(b.clave||'','es',{numeric:true,sensitivity:'base'});});
 
   const porClaseAvance={};
   ['A','B','C'].forEach(function(c){
@@ -2690,7 +2682,7 @@ function computeDashStats_(){
     cuarLotes:cuarLotes.length,cuarPiezas:cuarPiezas,
     top10:top10,
     semanaAct:semanaAct,semanaActReal:semanaActReal,rowsSemanaTotal:rowsSemana.length,contadosSemana:contadosSemana.length,porClaseAvance:porClaseAvance,
-    semSinDiferencia:semSinDiferencia,semConDiferencia:semConDiferencia,
+    semSinDiferenciaN:semSinDiferenciaN,semConDiferenciaN:semConDiferenciaN,semSobrante:semSobrante,semFaltante:semFaltante,
     contadosTotal:contadosTodos.length,conDiferencia:conDiferencia,coinciden:coinciden,sobrante:sobrante,faltante:faltante,
     atrasadosActivos:atrasadosActivos,atrasadosPorClase:atrasadosPorClase,diasAtrasoProm:diasAtrasoProm,
     incidencias:incidenciasSet.size,
@@ -2796,22 +2788,11 @@ function renderDash(){
     +['A','B','C'].map(function(c,i){const d=s.porClaseAvance[c];return d.total?dashBarRow_('Clase '+c,d.contados,d.total,DASH_COLORS[i]):'';}).join('')
   +'</div>';
 
-  html+='<div class="dash-block"><div class="dash-block-title">✅ Contados sin diferencia — semana '+s.semanaAct+' ('+s.semSinDiferencia.length+')</div>'
-    +(s.semSinDiferencia.length
-      ? '<div class="dash-cont-list">'+s.semSinDiferencia.map(function(x){
-          return '<div class="dash-cont-row"><div><span class="dash-cont-clave">'+escAttr(x.clave)+'</span> <span class="dash-cont-lote">Lote '+escAttr(x.lote)+'</span></div><div class="dash-cont-val">'+fmt(x.cantidad)+' pz</div></div>';
-        }).join('')+'</div>'
-      : '<div class="dash-card-sub">Nada contado todavía esta semana sin diferencia.</div>')
-  +'</div>';
-
-  html+='<div class="dash-block"><div class="dash-block-title">⚠️ Contados con diferencia — semana '+s.semanaAct+' ('+s.semConDiferencia.length+')</div>'
-    +(s.semConDiferencia.length
-      ? '<div class="dash-cont-list">'+s.semConDiferencia.map(function(x){
-          const dcolor=x.diff>0?'var(--gn)':'var(--rd)';
-          const dtxt=(x.diff>0?'+':'')+fmt(x.diff);
-          return '<div class="dash-cont-row"><div><span class="dash-cont-clave">'+escAttr(x.clave)+'</span> <span class="dash-cont-lote">Lote '+escAttr(x.lote)+'</span><div class="dash-cont-sub">Contado '+fmt(x.cantidad)+' · SAI '+fmt(x.existSAI)+'</div></div><div class="dash-cont-val" style="color:'+dcolor+'">'+dtxt+'</div></div>';
-        }).join('')+'</div>'
-      : '<div class="dash-card-sub">Nada contado con diferencia esta semana.</div>')
+  html+='<div class="dash-grid">'
+    +'<div class="dash-card"><div class="dash-card-lbl">Sin diferencia</div><div class="dash-card-val" style="color:var(--gn)">'+fmt(s.semSinDiferenciaN)+'</div><div class="dash-card-sub">códigos · semana '+s.semanaAct+'</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Con diferencia</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.semConDiferenciaN)+'</div><div class="dash-card-sub">códigos · semana '+s.semanaAct+'</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Sobrante neto</div><div class="dash-card-val" style="color:var(--gn)">+'+fmt(s.semSobrante)+'</div><div class="dash-card-sub">piezas · semana '+s.semanaAct+'</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Faltante neto</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.semFaltante)+'</div><div class="dash-card-sub">piezas · semana '+s.semanaAct+'</div></div>'
   +'</div>';
 
   html+='<div class="dash-grid">'
