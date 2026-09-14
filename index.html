@@ -3206,25 +3206,86 @@ function registrarConteo(btn){
 }
 
 function enviarConteo(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,inp,msg){
+  // Si el código está programado para OTRA semana (atrasado o adelantado),
+  // ya NO se reasigna solo -- antes lo hacía automático en cuanto se
+  // guardaba el conteo, y eso descuadraba códigos que ya estaban
+  // planeados a propósito para semanas futuras. Ahora se pregunta primero
+  // y solo se mueve si el usuario lo confirma a mano.
+  const semActual=semanaActualInfo_();
+  const claveSched=semActual?SCHED.find(function(s){return s.clave===clave;}):null;
+  if(claveSched&&claveSched.semana_cal!==semActual.semana_cal){
+    confirmarMoverSemana_(clave,claveSched,semActual,function(mover){
+      enviarConteoFinal_(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,inp,msg,mover?semActual:null);
+    });
+    return;
+  }
+  enviarConteoFinal_(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,inp,msg,null);
+}
+
+// Modal de confirmación: el código que se está por contar está programado
+// para una semana distinta a la actual (atrasado o adelantado). Pregunta
+// si se quiere mover TODA la clave a la semana en curso, o dejarla tal
+// cual estaba planeada -- por default se deja igual (el botón de
+// "dejar" es el recomendado/resaltado) para no descuadrar la planeación
+// a menos que el usuario lo pida explícitamente.
+function confirmarMoverSemana_(clave,claveSched,semActual,cb){
+  const old=document.getElementById('mover-semana-modal');
+  if(old)old.remove();
+
+  const overlay=document.createElement('div');
+  overlay.id='mover-semana-modal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px';
+
+  const title=document.createElement('div');
+  title.style.cssText='font-size:14px;font-weight:800;color:#1F4E79;margin-bottom:4px';
+  title.textContent='📅 '+clave+' está planeado para otra semana';
+  box.appendChild(title);
+
+  const info=document.createElement('div');
+  info.style.cssText='font-size:12px;color:#7a7a7a;margin-bottom:16px;line-height:1.4';
+  const fechaClaveSched=(claveSched.fecha_ini&&claveSched.fecha_fin)?(claveSched.fecha_ini+' – '+claveSched.fecha_fin):'';
+  info.textContent='Programado para la semana '+claveSched.semana_cal+(fechaClaveSched?' ('+fechaClaveSched+')':'')+'. Estás contando en la semana actual ('+semActual.semana_cal+'). ¿Quieres moverlo a la semana actual, o dejarlo en la semana en que ya estaba planeado?';
+  box.appendChild(info);
+
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;flex-direction:column;gap:8px';
+
+  const btnDejar=document.createElement('button');
+  btnDejar.textContent='Dejarlo en su semana planeada';
+  btnDejar.style.cssText='padding:11px;border:none;border-radius:8px;font-size:13px;font-weight:700;background:#1F4E79;color:#fff;cursor:pointer';
+  btnDejar.onclick=function(){overlay.remove();cb(false);};
+  row.appendChild(btnDejar);
+
+  const btnMover=document.createElement('button');
+  btnMover.textContent='Mover a la semana actual';
+  btnMover.style.cssText='padding:11px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#333';
+  btnMover.onclick=function(){overlay.remove();cb(true);};
+  row.appendChild(btnMover);
+
+  box.appendChild(row);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+function enviarConteoFinal_(clave,lote,cardId,cantidad,nombre,fechaConteo,causa,btn,inp,msg,semActualDestino){
   if(btn){btn.classList.add('saving');btn.textContent='...';}
   const payload={fechaConteo:fechaConteo,clave:clave,lote:lote,cantidad:parseFloat(cantidad),registrado:nombre,causa:causa||''};
 
-  // Si el código estaba programado para OTRA semana (atrasado o adelantado),
-  // al contarlo se reasigna a la semana en curso -- toda la clave, no solo
-  // este lote, para que no quede desfasada entre sus propios lotes.
-  const semActual=semanaActualInfo_();
-  if(semActual){
-    const claveSched=SCHED.find(function(s){return s.clave===clave;});
-    if(claveSched&&claveSched.semana_cal!==semActual.semana_cal){
-      const semanaFechaDestino=semActual.fecha_ini+' – '+semActual.fecha_fin;
-      payload.semanaDestino=semActual.semana_cal;
-      payload.semanaFechaDestino=semanaFechaDestino;
-      cicSemanaOverride[clave]={semana:semActual.semana_cal,semanaFecha:semanaFechaDestino};
-      cicData.forEach(function(p){
-        if(p.clave===clave){ p.semana=semActual.semana_cal; p.semanaFecha=semanaFechaDestino; }
-      });
-      buildSchedFromCic();
-    }
+  // Solo se manda semanaDestino si el usuario confirmó moverlo (ver
+  // confirmarMoverSemana_) -- se reasigna TODA la clave, no solo este
+  // lote, para que no quede desfasada entre sus propios lotes.
+  if(semActualDestino){
+    const semanaFechaDestino=semActualDestino.fecha_ini+' – '+semActualDestino.fecha_fin;
+    payload.semanaDestino=semActualDestino.semana_cal;
+    payload.semanaFechaDestino=semanaFechaDestino;
+    cicSemanaOverride[clave]={semana:semActualDestino.semana_cal,semanaFecha:semanaFechaDestino};
+    cicData.forEach(function(p){
+      if(p.clave===clave){ p.semana=semActualDestino.semana_cal; p.semanaFecha=semanaFechaDestino; }
+    });
+    buildSchedFromCic();
   }
 
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)})
