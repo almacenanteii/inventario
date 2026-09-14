@@ -2452,12 +2452,13 @@ function dashBarRow_(label,value,total,color,unidad){
 // internet que el resto de la app). Cada segmento es un círculo con
 // stroke-dasharray recortado a su proporción, rotados -90° para que
 // empiecen arriba (12 en punto) en vez de a la derecha.
-function svgDonut_(segments,size,strokeWidth){
+function svgDonut_(segments,size,strokeWidth,centerText,centerColor){
   const total=segments.reduce(function(s,x){return s+x.value;},0);
   const r=(size-strokeWidth)/2,cx=size/2,cy=size/2;
   const circ=2*Math.PI*r;
+  const centerTxt=centerText?'<text x="'+cx+'" y="'+(cy+7)+'" text-anchor="middle" font-size="20" font-weight="800" fill="'+(centerColor||'#333')+'">'+centerText+'</text>':'';
   if(total<=0){
-    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#f0f0f0" stroke-width="'+strokeWidth+'"/></svg>';
+    return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'"><circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="#f0f0f0" stroke-width="'+strokeWidth+'"/>'+centerTxt+'</svg>';
   }
   let offset=0,paths='';
   segments.forEach(function(seg){
@@ -2467,14 +2468,16 @@ function svgDonut_(segments,size,strokeWidth){
     paths+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+seg.color+'" stroke-width="'+strokeWidth+'" stroke-dasharray="'+dash+' '+(circ-dash)+'" stroke-dashoffset="'+(-offset)+'" transform="rotate(-90 '+cx+' '+cy+')"/>';
     offset+=dash;
   });
-  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+paths+'</svg>';
+  return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'">'+paths+centerTxt+'</svg>';
 }
 
 // Bloque dona + leyenda lado a lado, reemplaza las barras cuando se quiere
-// ver "de qué está compuesto el total" de un vistazo.
-function dashDonutBlock_(segments,unidad){
+// ver "de qué está compuesto el total" de un vistazo. centerText/centerColor
+// son opcionales -- si se pasan, se ve ese valor dentro del hueco de la
+// dona (ej. un % ya calculado), igual que hace svgGauge_ con el medidor.
+function dashDonutBlock_(segments,unidad,centerText,centerColor){
   const total=segments.reduce(function(s,x){return s+x.value;},0);
-  const donut=svgDonut_(segments,108,20);
+  const donut=svgDonut_(segments,108,20,centerText,centerColor);
   const legend=segments.filter(function(s){return s.value>0;}).map(function(seg){
     const pct=total>0?Math.round(seg.value/total*100):0;
     return '<div class="dash-legend-item"><span class="dash-legend-swatch" style="background:'+seg.color+'"></span><span class="dash-legend-lbl">'+seg.label+'</span><span class="dash-legend-val">'+fmt(seg.value)+(unidad?(' '+unidad):'')+' · '+pct+'%</span></div>';
@@ -2800,11 +2803,11 @@ function renderDash(){
   const semContadasTotal=s.semSinDiferenciaN+s.semConDiferenciaN;
   const semPctSinDif=semContadasTotal>0?Math.round(s.semSinDiferenciaN/semContadasTotal*100):0;
   html+='<div class="dash-block"><div class="dash-block-title">Con diferencia vs sin diferencia — semana '+s.semanaAct+'</div>'
-    +'<div class="dash-card-sub" style="margin-bottom:10px;font-size:13px"><b style="color:var(--gn);font-size:16px">'+semPctSinDif+'%</b> sin diferencia (<b>'+fmt(s.semSinDiferenciaN)+'</b> de <b>'+fmt(semContadasTotal)+'</b> claves contadas)</div>'
+    +'<div class="dash-card-sub" style="margin-bottom:10px">'+fmt(s.semSinDiferenciaN)+' de '+fmt(semContadasTotal)+' claves contadas sin diferencia</div>'
     +dashDonutBlock_([
       {label:'Sin diferencia',value:s.semSinDiferenciaN,color:'#2E7D32'},
       {label:'Con diferencia',value:s.semConDiferenciaN,color:'#C62828'}
-    ],'códigos')
+    ],'códigos',semPctSinDif+'%','#2E7D32')
   +'</div>';
 
   html+='<div class="dash-sec-title">↩️ Devoluciones</div>';
