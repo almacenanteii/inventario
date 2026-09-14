@@ -2580,11 +2580,19 @@ function computeDashStats_(){
   // ejecutivo) -- cuántos coincidieron con SAI, cuántos salieron con
   // diferencia, y el neto de sobrante/faltante. No se lista código por
   // código (eso ya está en la propia pestaña Cíclicos si hace falta).
-  let semSinDiferenciaN=0,semConDiferenciaN=0,semSobrante=0,semFaltante=0;
+  // El umbral de "diferencia mayor al 3%" es el mismo que pide causa al
+  // capturar el conteo (ver registrarConteo): 3% sobre la existencia SAI
+  // de TODA la clave (todos sus lotes sumados), no solo la de ese lote.
+  const saiPorClaveMap={};
+  cicData.forEach(function(p){saiPorClaveMap[p.clave]=(saiPorClaveMap[p.clave]||0)+(p.existSAI||0);});
+
+  let semSinDiferenciaN=0,semConDiferenciaN=0,semSobrante=0,semFaltante=0,semMayor3pct=0;
   contadosSemanaArr.forEach(function(p){
     const diff=(parseFloat(p.cantidad)||0)-(p.existSAI||0);
     if(Math.abs(diff)<0.01)semSinDiferenciaN++;else semConDiferenciaN++;
     if(diff>0)semSobrante+=diff;else semFaltante+=diff;
+    const umbral=(saiPorClaveMap[p.clave]||0)*0.03;
+    if(Math.abs(diff)>umbral)semMayor3pct++;
   });
 
   const porClaseAvance={};
@@ -2682,7 +2690,7 @@ function computeDashStats_(){
     cuarLotes:cuarLotes.length,cuarPiezas:cuarPiezas,
     top10:top10,
     semanaAct:semanaAct,semanaActReal:semanaActReal,rowsSemanaTotal:rowsSemana.length,contadosSemana:contadosSemana.length,porClaseAvance:porClaseAvance,
-    semSinDiferenciaN:semSinDiferenciaN,semConDiferenciaN:semConDiferenciaN,semSobrante:semSobrante,semFaltante:semFaltante,
+    semSinDiferenciaN:semSinDiferenciaN,semConDiferenciaN:semConDiferenciaN,semSobrante:semSobrante,semFaltante:semFaltante,semMayor3pct:semMayor3pct,
     contadosTotal:contadosTodos.length,conDiferencia:conDiferencia,coinciden:coinciden,sobrante:sobrante,faltante:faltante,
     atrasadosActivos:atrasadosActivos,atrasadosPorClase:atrasadosPorClase,diasAtrasoProm:diasAtrasoProm,
     incidencias:incidenciasSet.size,
@@ -2752,74 +2760,20 @@ function renderDash(){
 
   html+='<div class="dash-sec-title">📊 Cíclicos</div>';
 
-  // Selector de semana: por default muestra la actual, pero se puede
-  // elegir cualquier otra ya programada para ver sus estadísticas y qué
-  // se contó esa semana (ver dashSemanaSel / cambiarDashSemana).
-  const dashAllSems=[...new Set(SCHED.map(function(x){return x.semana_cal;}))].sort(function(a,b){return a-b;});
-  let dashSemOpts='',dashPrevAbc='';
-  dashAllSems.forEach(function(sw){
-    const swItems=getSchedForSemana(sw);
-    const abc=swItems.length?swItems[0].abc:'';
-    if(abc!==dashPrevAbc){
-      if(dashPrevAbc)dashSemOpts+='</optgroup>';
-      const abcLabel={'A':'Clase A — Alta rotación','B':'Clase B — Rotación media','C':'Clase C — Baja rotación'}[abc]||'';
-      dashSemOpts+='<optgroup label="'+abcLabel+'">';
-      dashPrevAbc=abc;
-    }
-    const isCur=sw===s.semanaActReal;
-    const isSel=sw===s.semanaAct;
-    dashSemOpts+='<option value="'+sw+'"'+(isSel?' selected':'')+'>Semana '+sw+(isCur?' ★ (esta semana)':'')+'</option>';
-  });
-  if(dashPrevAbc)dashSemOpts+='</optgroup>';
-
-  html+='<div style="position:relative;margin-bottom:10px">'
-    +'<select id="dash-sem-select" onchange="cambiarDashSemana(this.value)" style="width:100%;padding:10px 14px;border:2px solid #C9DCEA;border-radius:10px;font-size:13px;font-weight:700;color:var(--bl);background:#fff;appearance:none;-webkit-appearance:none;cursor:pointer;outline:none">'
-      +dashSemOpts
-    +'</select>'
-    +'<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--bl);pointer-events:none">▾</span>'
-  +'</div>';
-
   const avanceSemanaPct=s.rowsSemanaTotal>0?(s.contadosSemana/s.rowsSemanaTotal*100):0;
-  html+='<div class="dash-block"><div class="dash-block-title">Avance semana '+s.semanaAct+(s.semanaAct===s.semanaActReal?' (actual)':'')+'</div>'
+  html+='<div class="dash-block"><div class="dash-block-title">Avance semana actual (Semana '+s.semanaAct+')</div>'
     +'<div class="dash-gauge-row">'
       +svgGauge_(avanceSemanaPct,96,14,'#1F4E79')
       +'<div class="dash-gauge-sub"><b>'+fmt(s.contadosSemana)+'</b> de <b>'+fmt(s.rowsSemanaTotal)+'</b> lotes contados esta semana</div>'
     +'</div>'
-    +['A','B','C'].map(function(c,i){const d=s.porClaseAvance[c];return d.total?dashBarRow_('Clase '+c,d.contados,d.total,DASH_COLORS[i]):'';}).join('')
   +'</div>';
 
-  html+='<div class="dash-grid">'
-    +'<div class="dash-card"><div class="dash-card-lbl">Sin diferencia</div><div class="dash-card-val" style="color:var(--gn)">'+fmt(s.semSinDiferenciaN)+'</div><div class="dash-card-sub">códigos · semana '+s.semanaAct+'</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Con diferencia</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.semConDiferenciaN)+'</div><div class="dash-card-sub">códigos · semana '+s.semanaAct+'</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Sobrante neto</div><div class="dash-card-val" style="color:var(--gn)">+'+fmt(s.semSobrante)+'</div><div class="dash-card-sub">piezas · semana '+s.semanaAct+'</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Faltante neto</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.semFaltante)+'</div><div class="dash-card-sub">piezas · semana '+s.semanaAct+'</div></div>'
+  html+='<div class="dash-block"><div class="dash-block-title">Con diferencia vs sin diferencia (semana actual)</div>'
+    +dashDonutBlock_([
+      {label:'Sin diferencia',value:s.semSinDiferenciaN,color:'#2E7D32'},
+      {label:'Con diferencia',value:s.semConDiferenciaN,color:'#C62828'}
+    ],'códigos')
   +'</div>';
-
-  html+='<div class="dash-grid">'
-    +'<div class="dash-card"><div class="dash-card-lbl">Conteos totales</div><div class="dash-card-val">'+fmt(s.contadosTotal)+'</div><div class="dash-card-sub">en Cíclicos</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Con diferencia</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.conDiferencia)+'</div><div class="dash-card-sub">de '+fmt(s.contadosTotal)+' contados</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Sobrante neto</div><div class="dash-card-val" style="color:var(--gn)">+'+fmt(s.sobrante)+'</div><div class="dash-card-sub">piezas</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Faltante neto</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.faltante)+'</div><div class="dash-card-sub">piezas</div></div>'
-  +'</div>';
-
-  html+='<div class="dash-grid">'
-    +'<div class="dash-card"><div class="dash-card-lbl">Atrasados activos</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.atrasadosActivos)+'</div><div class="dash-card-sub">'+(s.diasAtrasoProm?s.diasAtrasoProm+' días promedio':'—')+'</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Incidencias</div><div class="dash-card-val" style="color:var(--rd)">'+fmt(s.incidencias)+'</div><div class="dash-card-sub">2+ ajustes</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Sin clasificar</div><div class="dash-card-val">'+fmt(s.sinClasificar)+'</div><div class="dash-card-sub">códigos</div></div>'
-    +'<div class="dash-card"><div class="dash-card-lbl">Agotados</div><div class="dash-card-val">'+fmt(s.agotados)+'</div><div class="dash-card-sub">'+fmt(s.exclusionesActivas)+' excluidos de atrasados</div></div>'
-  +'</div>';
-
-  if(s.atrasadosActivos>0){
-    html+='<div class="dash-block"><div class="dash-block-title">Atrasados por clase</div>'
-      +['A','B','C'].map(function(c,i){return s.atrasadosPorClase[c]>0?dashBarRow_('Clase '+c,s.atrasadosPorClase[c],s.atrasadosActivos,DASH_COLORS[i]):'';}).join('')
-    +'</div>';
-  }
-
-  if(s.topResponsables.length){
-    html+='<div class="dash-block"><div class="dash-block-title">Quién ha contado más (histórico)</div>'
-      +s.topResponsables.map(function(r,i){return '<div class="dash-top-row"><span class="dash-top-rank">'+(i+1)+'</span><span class="dash-top-clave">'+r.nombre+'</span><span class="dash-top-val">'+fmt(r.n)+'</span></div>';}).join('')
-    +'</div>';
-  }
 
   html+='<div class="dash-sec-title">↩️ Devoluciones</div>';
 
