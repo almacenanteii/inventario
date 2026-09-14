@@ -2760,15 +2760,44 @@ function renderDash(){
 
   html+='<div class="dash-sec-title">📊 Cíclicos</div>';
 
+  // Selector de semana -- va JUSTO AQUÍ, pegado al título de la sección,
+  // no hasta abajo del Dashboard. Cambiarlo llama a cambiarDashSemana(),
+  // que actualiza dashSemanaSel y vuelve a llamar renderDash() completo,
+  // así que tanto el avance como la dona de abajo se recalculan para la
+  // semana elegida (ver computeDashStats_: semanaAct=dashSemanaSel||semanaActReal).
+  const dashAllSems=[...new Set(SCHED.map(function(x){return x.semana_cal;}))].sort(function(a,b){return a-b;});
+  let dashSemOpts='',dashPrevAbc='';
+  dashAllSems.forEach(function(sw){
+    const swItems=getSchedForSemana(sw);
+    const abc=swItems.length?swItems[0].abc:'';
+    if(abc!==dashPrevAbc){
+      if(dashPrevAbc)dashSemOpts+='</optgroup>';
+      const abcLabel={'A':'Clase A — Alta rotación','B':'Clase B — Rotación media','C':'Clase C — Baja rotación'}[abc]||'';
+      dashSemOpts+='<optgroup label="'+abcLabel+'">';
+      dashPrevAbc=abc;
+    }
+    const isCur=sw===s.semanaActReal;
+    const isSel=sw===s.semanaAct;
+    dashSemOpts+='<option value="'+sw+'"'+(isSel?' selected':'')+'>Semana '+sw+(isCur?' ★ (esta semana)':'')+'</option>';
+  });
+  if(dashPrevAbc)dashSemOpts+='</optgroup>';
+
+  html+='<div style="position:relative;margin-bottom:10px">'
+    +'<select id="dash-sem-select" onchange="cambiarDashSemana(this.value)" style="width:100%;padding:10px 14px;border:2px solid #C9DCEA;border-radius:10px;font-size:13px;font-weight:700;color:var(--bl);background:#fff;appearance:none;-webkit-appearance:none;cursor:pointer;outline:none">'
+      +dashSemOpts
+    +'</select>'
+    +'<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--bl);pointer-events:none">▾</span>'
+  +'</div>';
+
   const avanceSemanaPct=s.rowsSemanaTotal>0?(s.contadosSemana/s.rowsSemanaTotal*100):0;
-  html+='<div class="dash-block"><div class="dash-block-title">Avance semana actual (Semana '+s.semanaAct+')</div>'
+  html+='<div class="dash-block"><div class="dash-block-title">Avance semana '+s.semanaAct+(s.semanaAct===s.semanaActReal?' (actual)':'')+'</div>'
     +'<div class="dash-gauge-row">'
       +svgGauge_(avanceSemanaPct,96,14,'#1F4E79')
       +'<div class="dash-gauge-sub"><b>'+fmt(s.contadosSemana)+'</b> de <b>'+fmt(s.rowsSemanaTotal)+'</b> lotes contados esta semana</div>'
     +'</div>'
   +'</div>';
 
-  html+='<div class="dash-block"><div class="dash-block-title">Con diferencia vs sin diferencia (semana actual)</div>'
+  html+='<div class="dash-block"><div class="dash-block-title">Con diferencia vs sin diferencia — semana '+s.semanaAct+'</div>'
     +dashDonutBlock_([
       {label:'Sin diferencia',value:s.semSinDiferenciaN,color:'#2E7D32'},
       {label:'Con diferencia',value:s.semConDiferenciaN,color:'#C62828'}
