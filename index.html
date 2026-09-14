@@ -2797,8 +2797,10 @@ function renderDash(){
     +'</div>'
   +'</div>';
 
+  const semContadasTotal=s.semSinDiferenciaN+s.semConDiferenciaN;
+  const semPctSinDif=semContadasTotal>0?Math.round(s.semSinDiferenciaN/semContadasTotal*100):0;
   html+='<div class="dash-block"><div class="dash-block-title">Con diferencia vs sin diferencia — semana '+s.semanaAct+'</div>'
-    +'<div class="dash-card-sub" style="margin-bottom:10px;font-size:13px"><b style="color:var(--gn)">'+fmt(s.semSinDiferenciaN)+'</b> sin diferencia / <b style="color:var(--rd)">'+fmt(s.semConDiferenciaN)+'</b> con diferencia</div>'
+    +'<div class="dash-card-sub" style="margin-bottom:10px;font-size:13px"><b style="color:var(--gn);font-size:16px">'+semPctSinDif+'%</b> sin diferencia (<b>'+fmt(s.semSinDiferenciaN)+'</b> de <b>'+fmt(semContadasTotal)+'</b> claves contadas)</div>'
     +dashDonutBlock_([
       {label:'Sin diferencia',value:s.semSinDiferenciaN,color:'#2E7D32'},
       {label:'Con diferencia',value:s.semConDiferenciaN,color:'#C62828'}
