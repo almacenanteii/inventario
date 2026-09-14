@@ -337,10 +337,13 @@ header.h-dev{background:var(--tl)}
 .dev-op-sel{background:#F0F4F3;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13.5px}
 .dev-op-sel b{color:var(--tl)}
 .dev-op-mat-title{font-size:12.5px;font-weight:700;color:var(--gr2);margin-bottom:6px}
-.dev-op-mat-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:1.5px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:14px;cursor:pointer;transition:background .1s,border-color .1s}
+.dev-op-mat-row{display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:1.5px solid var(--bd);border-radius:8px;padding:10px 12px;margin-bottom:6px;font-size:14px;cursor:grab;transition:background .1s,border-color .1s;touch-action:none;user-select:none}
 .dev-op-mat-row:hover{background:#F0F4F3;border-color:var(--tl)}
-.dev-op-mat-row.agregado{opacity:.5;cursor:default}
+.dev-op-mat-row.agregado{opacity:.5;cursor:default;touch-action:auto}
 .dev-op-mat-row.agregado:hover{background:#fff;border-color:var(--bd)}
+.dev-op-mat-row.dev-dragging{opacity:.35}
+.dev-op-mat-ghost{position:fixed;z-index:1200;pointer-events:none;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:grabbing;transform:scale(1.02);margin:0}
+.dev-drop-activa{outline:2.5px dashed var(--tl);outline-offset:4px;background:#F0F8F6;border-radius:10px}
 .dev-op-mat-info b{font-family:monospace;color:var(--tl);font-size:15px}
 .dev-op-mat-sub{font-size:13px;font-weight:600;color:var(--gr2);margin-top:2px}
 .dev-op-mat-ok{flex-shrink:0;color:var(--tl);font-size:12.5px;font-weight:700}
@@ -596,7 +599,7 @@ header.h-dev{background:var(--tl)}
         <div id="dev-op-sel" class="dev-op-sel" style="display:none"></div>
         <div id="dev-op-materiales"></div>
       </div>
-      <div class="dev-col-right">
+      <div class="dev-col-right" id="dev-drop-materiales">
         <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Materiales devueltos</label>
         <div id="dev-lineas-list"></div>
         <button type="button" class="btn-dev-add" onclick="agregarDevLinea()">+ Agregar material</button>
@@ -4773,15 +4776,98 @@ function renderDevOpMateriales_(){
     cont.innerHTML='';
     return;
   }
-  cont.innerHTML='<div class="dev-op-mat-title">Materiales usados en esta OP (toca uno para agregarlo con su lote)</div>'
+  cont.innerHTML='<div class="dev-op-mat-title">Materiales usados en esta OP (tócalo o arrástralo a "Materiales devueltos")</div>'
     +devMaterialesOP.map(function(m,idx){
       const yaAgregado=devLineas.some(function(l){return l.codigo===m.clave&&l.lote===m.lote;});
       const p=(window._ALL_A||[]).find(function(x){return x.clave.toUpperCase()===m.clave.toUpperCase();});
-      return '<div class="dev-op-mat-row'+(yaAgregado?' agregado':'')+'" '+(yaAgregado?'':'onclick="agregarDevLineaDesdeOP_('+idx+')"')+'>'
+      return '<div class="dev-op-mat-row'+(yaAgregado?' agregado':'')+'" '+(yaAgregado?'':'onpointerdown="iniciarArrastreDevMat_(event,'+idx+')"')+'>'
         +'<div class="dev-op-mat-info"><b>'+escAttr(m.clave)+'</b>'+(p?' — '+escAttr(p.desc):'')+'<div class="dev-op-mat-sub">Lote '+escAttr(m.lote)+' · se usaron '+fmt(m.cantidad)+' en la OP</div></div>'
         +(yaAgregado?'<span class="dev-op-mat-ok">✓ Agregado</span>':'')
       +'</div>';
     }).join('');
+}
+
+// ---- Arrastrar un material sugerido de la OP hacia "Materiales devueltos" ----
+// Usa Pointer Events (funciona igual con mouse y con dedo en tablet/celular).
+// Si no hay arrastre real (solo toca y suelta en el mismo lugar) se comporta
+// igual que un click normal y agrega el material directo.
+let devDragState_=null;
+
+function iniciarArrastreDevMat_(ev,idx){
+  const row=ev.currentTarget;
+  if(row.classList.contains('agregado'))return;
+  const rect=row.getBoundingClientRect();
+  devDragState_={
+    idx:idx,row:row,startX:ev.clientX,startY:ev.clientY,
+    offsetX:ev.clientX-rect.left,offsetY:ev.clientY-rect.top,
+    width:rect.width,height:rect.height,moved:false,ghost:null,pointerId:ev.pointerId
+  };
+  try{row.setPointerCapture(ev.pointerId);}catch(e){}
+  document.addEventListener('pointermove',moverArrastreDevMat_);
+  document.addEventListener('pointerup',soltarArrastreDevMat_);
+  document.addEventListener('pointercancel',soltarArrastreDevMat_);
+}
+
+function crearGhostDevMat_(){
+  const st=devDragState_;
+  const ghost=st.row.cloneNode(true);
+  ghost.className='dev-op-mat-row dev-op-mat-ghost';
+  ghost.style.width=st.width+'px';
+  document.body.appendChild(ghost);
+  st.ghost=ghost;
+  st.row.classList.add('dev-dragging');
+}
+
+function posicionarGhostDevMat_(x,y){
+  const st=devDragState_;
+  if(!st||!st.ghost)return;
+  st.ghost.style.left=(x-st.offsetX)+'px';
+  st.ghost.style.top=(y-st.offsetY)+'px';
+}
+
+function zonaDropDevMat_(){return document.getElementById('dev-drop-materiales');}
+
+function moverArrastreDevMat_(ev){
+  const st=devDragState_;
+  if(!st)return;
+  const dx=ev.clientX-st.startX,dy=ev.clientY-st.startY;
+  if(!st.moved&&(Math.abs(dx)>6||Math.abs(dy)>6)){
+    st.moved=true;
+    crearGhostDevMat_();
+  }
+  if(!st.moved)return;
+  ev.preventDefault();
+  posicionarGhostDevMat_(ev.clientX,ev.clientY);
+  const zone=zonaDropDevMat_();
+  if(zone){
+    const r=zone.getBoundingClientRect();
+    const sobre=ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom;
+    zone.classList.toggle('dev-drop-activa',sobre);
+  }
+}
+
+function soltarArrastreDevMat_(ev){
+  const st=devDragState_;
+  document.removeEventListener('pointermove',moverArrastreDevMat_);
+  document.removeEventListener('pointerup',soltarArrastreDevMat_);
+  document.removeEventListener('pointercancel',soltarArrastreDevMat_);
+  if(!st)return;
+  devDragState_=null;
+  try{st.row.releasePointerCapture(st.pointerId);}catch(e){}
+  const zone=zonaDropDevMat_();
+  if(!st.moved){
+    // No hubo arrastre real: se comporta como un toque/click normal.
+    agregarDevLineaDesdeOP_(st.idx);
+    return;
+  }
+  st.row.classList.remove('dev-dragging');
+  if(st.ghost)st.ghost.remove();
+  if(zone){
+    zone.classList.remove('dev-drop-activa');
+    const r=zone.getBoundingClientRect();
+    const sobre=ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom;
+    if(sobre)agregarDevLineaDesdeOP_(st.idx);
+  }
 }
 
 function agregarDevLineaDesdeOP_(idx){
