@@ -291,6 +291,13 @@ header.h-dash{background:var(--bl)}
 .dash-top-rank{font-weight:800;color:var(--bl);width:20px;flex-shrink:0}
 .dash-top-clave{font-family:monospace;font-weight:700;color:var(--gr);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dash-top-val{font-weight:700;color:var(--gr);flex-shrink:0;margin-left:8px}
+.dash-cont-list{max-height:280px;overflow-y:auto}
+.dash-cont-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f5f5f5;font-size:12.5px}
+.dash-cont-row:last-child{border-bottom:none}
+.dash-cont-clave{font-family:monospace;font-weight:700;color:var(--gr)}
+.dash-cont-lote{font-family:monospace;font-size:11px;color:var(--gr2)}
+.dash-cont-sub{font-size:10.5px;color:var(--gr2)}
+.dash-cont-val{font-weight:800;flex-shrink:0;color:var(--gr)}
 .dash-donut-row{display:flex;align-items:center;gap:16px}
 .dash-donut-legend{flex:1;min-width:0}
 .dash-legend-item{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gr);margin-bottom:7px}
@@ -1437,6 +1444,13 @@ let SCHED=[]; // se reconstruye en vivo desde Ciclicos (ver buildSchedFromCic)
 let cicSemanaOverride={};
 const CIC_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=440919640&single=true&output=csv';
 let cicData=[],cicHist=[],cicAjustes=[],cicLoaded=false,fCic='TODOS',sCic='',fCicSemana=0;
+// Semana elegida en el selector del Dashboard (sección Cíclicos). 0 =
+// usa la semana actual, igual que fCicSemana en la pestaña Cíclicos.
+let dashSemanaSel=0;
+function cambiarDashSemana(sw){
+  dashSemanaSel=parseInt(sw)||0;
+  renderDash();
+}
 
 function parseCicCSV(text){
   const lines=text.trim().split('\n');
@@ -2558,11 +2572,28 @@ function computeDashStats_(){
     return isNaN(d.getTime())?null:d;
   };
   const hoyC=new Date();hoyC.setHours(0,0,0,0);
-  const semanaAct=getCurrentSemana();
+  const semanaActReal=getCurrentSemana();
+  // Semana que se está mostrando en el bloque de Cíclicos del Dashboard --
+  // por default la actual, pero el usuario puede elegir cualquier otra
+  // desde el selector (ver dashSemanaSel / cambiarDashSemana).
+  const semanaAct=dashSemanaSel||semanaActReal;
   const semClaves=new Set(getSchedForSemana(semanaAct).map(function(s){return s.clave;}));
 
   const rowsSemana=cicData.filter(function(p){return semClaves.has(p.clave);});
-  const contadosSemana=rowsSemana.filter(function(p){return (histMap[p.clave+'|'+p.lote]||[]).length>0;});
+  const contadosSemanaArr=rowsSemana.filter(function(p){return (histMap[p.clave+'|'+p.lote]||[]).length>0;});
+  const contadosSemana=contadosSemanaArr;
+
+  // De lo contado esta semana, separa lo que coincidió con SAI de lo que
+  // salió con diferencia -- para mostrar ambas listas en el Dashboard, no
+  // solo el conteo.
+  const semSinDiferencia=[],semConDiferencia=[];
+  contadosSemanaArr.forEach(function(p){
+    const diff=(parseFloat(p.cantidad)||0)-(p.existSAI||0);
+    const item={clave:p.clave,lote:p.lote,desc:p.desc,cantidad:p.cantidad,existSAI:p.existSAI,diff:diff};
+    if(Math.abs(diff)<0.01)semSinDiferencia.push(item);else semConDiferencia.push(item);
+  });
+  semConDiferencia.sort(function(a,b){return Math.abs(b.diff)-Math.abs(a.diff);});
+  semSinDiferencia.sort(function(a,b){return (a.clave||'').localeCompare(b.clave||'','es',{numeric:true,sensitivity:'base'});});
 
   const porClaseAvance={};
   ['A','B','C'].forEach(function(c){
@@ -2658,7 +2689,8 @@ function computeDashStats_(){
     cadVenc:cadVenc,cadWarn:cadWarn,cadOk:cadOk,cadSin:cadSin,
     cuarLotes:cuarLotes.length,cuarPiezas:cuarPiezas,
     top10:top10,
-    semanaAct:semanaAct,rowsSemanaTotal:rowsSemana.length,contadosSemana:contadosSemana.length,porClaseAvance:porClaseAvance,
+    semanaAct:semanaAct,semanaActReal:semanaActReal,rowsSemanaTotal:rowsSemana.length,contadosSemana:contadosSemana.length,porClaseAvance:porClaseAvance,
+    semSinDiferencia:semSinDiferencia,semConDiferencia:semConDiferencia,
     contadosTotal:contadosTodos.length,conDiferencia:conDiferencia,coinciden:coinciden,sobrante:sobrante,faltante:faltante,
     atrasadosActivos:atrasadosActivos,atrasadosPorClase:atrasadosPorClase,diasAtrasoProm:diasAtrasoProm,
     incidencias:incidenciasSet.size,
@@ -2728,13 +2760,58 @@ function renderDash(){
 
   html+='<div class="dash-sec-title">📊 Cíclicos</div>';
 
+  // Selector de semana: por default muestra la actual, pero se puede
+  // elegir cualquier otra ya programada para ver sus estadísticas y qué
+  // se contó esa semana (ver dashSemanaSel / cambiarDashSemana).
+  const dashAllSems=[...new Set(SCHED.map(function(x){return x.semana_cal;}))].sort(function(a,b){return a-b;});
+  let dashSemOpts='',dashPrevAbc='';
+  dashAllSems.forEach(function(sw){
+    const swItems=getSchedForSemana(sw);
+    const abc=swItems.length?swItems[0].abc:'';
+    if(abc!==dashPrevAbc){
+      if(dashPrevAbc)dashSemOpts+='</optgroup>';
+      const abcLabel={'A':'Clase A — Alta rotación','B':'Clase B — Rotación media','C':'Clase C — Baja rotación'}[abc]||'';
+      dashSemOpts+='<optgroup label="'+abcLabel+'">';
+      dashPrevAbc=abc;
+    }
+    const isCur=sw===s.semanaActReal;
+    const isSel=sw===s.semanaAct;
+    dashSemOpts+='<option value="'+sw+'"'+(isSel?' selected':'')+'>Semana '+sw+(isCur?' ★ (esta semana)':'')+'</option>';
+  });
+  if(dashPrevAbc)dashSemOpts+='</optgroup>';
+
+  html+='<div style="position:relative;margin-bottom:10px">'
+    +'<select id="dash-sem-select" onchange="cambiarDashSemana(this.value)" style="width:100%;padding:10px 14px;border:2px solid #C9DCEA;border-radius:10px;font-size:13px;font-weight:700;color:var(--bl);background:#fff;appearance:none;-webkit-appearance:none;cursor:pointer;outline:none">'
+      +dashSemOpts
+    +'</select>'
+    +'<span style="position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--bl);pointer-events:none">▾</span>'
+  +'</div>';
+
   const avanceSemanaPct=s.rowsSemanaTotal>0?(s.contadosSemana/s.rowsSemanaTotal*100):0;
-  html+='<div class="dash-block"><div class="dash-block-title">Avance semana actual (Semana '+s.semanaAct+')</div>'
+  html+='<div class="dash-block"><div class="dash-block-title">Avance semana '+s.semanaAct+(s.semanaAct===s.semanaActReal?' (actual)':'')+'</div>'
     +'<div class="dash-gauge-row">'
       +svgGauge_(avanceSemanaPct,96,14,'#1F4E79')
       +'<div class="dash-gauge-sub"><b>'+fmt(s.contadosSemana)+'</b> de <b>'+fmt(s.rowsSemanaTotal)+'</b> lotes contados esta semana</div>'
     +'</div>'
     +['A','B','C'].map(function(c,i){const d=s.porClaseAvance[c];return d.total?dashBarRow_('Clase '+c,d.contados,d.total,DASH_COLORS[i]):'';}).join('')
+  +'</div>';
+
+  html+='<div class="dash-block"><div class="dash-block-title">✅ Contados sin diferencia — semana '+s.semanaAct+' ('+s.semSinDiferencia.length+')</div>'
+    +(s.semSinDiferencia.length
+      ? '<div class="dash-cont-list">'+s.semSinDiferencia.map(function(x){
+          return '<div class="dash-cont-row"><div><span class="dash-cont-clave">'+escAttr(x.clave)+'</span> <span class="dash-cont-lote">Lote '+escAttr(x.lote)+'</span></div><div class="dash-cont-val">'+fmt(x.cantidad)+' pz</div></div>';
+        }).join('')+'</div>'
+      : '<div class="dash-card-sub">Nada contado todavía esta semana sin diferencia.</div>')
+  +'</div>';
+
+  html+='<div class="dash-block"><div class="dash-block-title">⚠️ Contados con diferencia — semana '+s.semanaAct+' ('+s.semConDiferencia.length+')</div>'
+    +(s.semConDiferencia.length
+      ? '<div class="dash-cont-list">'+s.semConDiferencia.map(function(x){
+          const dcolor=x.diff>0?'var(--gn)':'var(--rd)';
+          const dtxt=(x.diff>0?'+':'')+fmt(x.diff);
+          return '<div class="dash-cont-row"><div><span class="dash-cont-clave">'+escAttr(x.clave)+'</span> <span class="dash-cont-lote">Lote '+escAttr(x.lote)+'</span><div class="dash-cont-sub">Contado '+fmt(x.cantidad)+' · SAI '+fmt(x.existSAI)+'</div></div><div class="dash-cont-val" style="color:'+dcolor+'">'+dtxt+'</div></div>';
+        }).join('')+'</div>'
+      : '<div class="dash-card-sub">Nada contado con diferencia esta semana.</div>')
   +'</div>';
 
   html+='<div class="dash-grid">'
