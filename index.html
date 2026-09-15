@@ -357,6 +357,21 @@ header.h-dev{background:var(--tl)}
 .dev-linea-row.dev-linea-row-warn{background:#FFF8E1}
 .dev-linea-row-warn .dev-linea-lote{color:#8a5a00;font-weight:700}
 .dev-linea-warn-tag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#8a5a00;background:#FFECB3;border-radius:5px;padding:2px 6px;vertical-align:middle}
+
+/* ===== Plan de Embarque (sub-pestaña dentro de Embarques) ===== */
+.plan-emb-card{border-left:6px solid var(--gn)}
+.plan-emb-head{padding:12px 14px;border-bottom:1px solid #f0f0f0}
+.plan-emb-folio{font-size:15px;font-weight:800;color:var(--gr);font-family:monospace}
+.plan-emb-fecha{font-size:12.5px;color:var(--gr2);font-weight:600;margin-left:6px}
+.plan-emb-meta{font-size:12px;color:var(--gr2);margin-top:3px}
+.plan-emb-linea{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #f5f5f5;font-size:13.5px}
+.plan-emb-linea:last-child{border-bottom:none}
+.plan-emb-renglon{flex-shrink:0;width:34px;text-align:center;font-weight:800;color:#fff;background:var(--gn);border-radius:6px;padding:3px 0;font-size:11.5px}
+.plan-emb-info{flex:1;min-width:0;color:var(--gr)}
+.plan-emb-info b{font-family:monospace;color:var(--gn)}
+.plan-emb-sub{font-size:11.5px;color:var(--gr2);font-weight:600}
+.plan-emb-cant{flex-shrink:0;text-align:right;font-weight:700;color:var(--gr);font-size:13px}
+.plan-emb-totales{padding:9px 14px;background:#F2FAF3;font-size:12px;font-weight:700;color:#2E7D32;border-top:1px solid #f0f0f0}
 /* Modal de captura en escritorio: dos columnas lado a lado (izquierda:
    folio/tipo/OP/sugerencias, derecha: lo ya agregado) cada una con su
    propio scroll -- así agregar materiales de la OP no te obliga a bajar y
@@ -467,25 +482,35 @@ header.h-dev{background:var(--tl)}
 
 <header class="h-emb hidden" id="hdr-emb">
   <div class="hdr-top">
-    <h1>🚚 Armar Embarques</h1>
-    <button onclick="openEmbResumen()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">📋 Lista tarimas</button>
-    <button onclick="abrirModalPtManual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">⚡ Agregar manual</button>
-    <button onclick="clearEmbTarimas()" style="background:#fff;color:var(--gn);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🗑️</button>
+    <h1>🚚 Embarques</h1>
+    <span id="emb-armar-actions">
+      <button onclick="openEmbResumen()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">📋 Lista tarimas</button>
+      <button onclick="abrirModalPtManual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">⚡ Agregar manual</button>
+      <button onclick="clearEmbTarimas()" style="background:#fff;color:var(--gn);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🗑️</button>
+    </span>
   </div>
-  <div class="update-bar" id="emb-update-bar">📅 Cargando InventarioPT...</div>
-  <div class="search-box">
-    <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="search" id="search-emb" list="emb-clave-list" placeholder="Buscar o elegir código, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
-    <datalist id="emb-clave-list"></datalist>
-    <button class="clr" id="clr-emb" onclick="document.getElementById('search-emb').value='';sEmb='';renderEmb();">✕</button>
+  <div class="filters" id="fi-emb-sub">
+    <div class="chip a-emb" data-sub="armar">🚚 Armar Embarques</div>
+    <div class="chip" data-sub="plan">📋 Plan de Embarque</div>
   </div>
-  <div class="filters" id="fi-emb">
-    <div class="chip a-emb" data-f="TODOS">Todos</div>
-    <div class="chip" data-f="40PT">40 PT</div>
-    <div class="chip" data-f="PTJAL">PTJAL</div>
-    <div class="chip" data-f="PTFGUAD">PTFGUAD</div>
+  <div id="emb-armar-header">
+    <div class="update-bar" id="emb-update-bar">📅 Cargando InventarioPT...</div>
+    <div class="search-box">
+      <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="search" id="search-emb" list="emb-clave-list" placeholder="Buscar o elegir código, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
+      <datalist id="emb-clave-list"></datalist>
+      <button class="clr" id="clr-emb" onclick="document.getElementById('search-emb').value='';sEmb='';renderEmb();">✕</button>
+    </div>
+    <div class="filters" id="fi-emb">
+      <div class="chip a-emb" data-f="TODOS">Todos</div>
+      <div class="chip" data-f="40PT">40 PT</div>
+      <div class="chip" data-f="PTJAL">PTJAL</div>
+      <div class="chip" data-f="PTFGUAD">PTFGUAD</div>
+    </div>
   </div>
-
+  <div id="emb-plan-header" class="hidden">
+    <div class="update-bar" id="plan-emb-update-bar">📅 Cargando planes de embarque...</div>
+  </div>
 </header>
 
 <header class="h-car hidden" id="hdr-car">
@@ -651,12 +676,18 @@ header.h-dev{background:var(--tl)}
   <div class="kpi"><div class="kpi-lbl">Claves</div><div class="kpi-val gv" id="k-emb-claves">—</div><div class="kpi-sub">en este filtro</div></div>
   <div class="kpi"><div class="kpi-lbl">Tarimas</div><div class="kpi-val gv" id="k-emb-tarimas">0</div><div class="kpi-sub">anotadas</div></div>
 </div>
+<div class="kpis hidden" id="kpis-planemb">
+  <div class="kpi"><div class="kpi-lbl">Folios</div><div class="kpi-val gv" id="k-plan-folios">—</div><div class="kpi-sub">registrados</div></div>
+  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-plan-piezas">—</div><div class="kpi-sub">planeadas</div></div>
+  <div class="kpi"><div class="kpi-lbl">Tarimas</div><div class="kpi-val gv" id="k-plan-tarimas">—</div><div class="kpi-sub">planeadas</div></div>
+</div>
 
 <div class="bar" id="bar-inv"></div>
 <div class="bar hidden" id="bar-abc"></div>
 <div class="bar hidden" id="bar-q40"></div>
 <div class="bar hidden" id="bar-cic"></div>
 <div class="bar hidden" id="bar-emb"></div>
+<div class="bar hidden" id="bar-planemb"></div>
 <div class="list" id="list-inv"></div>
 <div class="list hidden" id="list-abc"></div>
 <div class="list hidden" id="list-q40"></div>
@@ -665,6 +696,8 @@ header.h-dev{background:var(--tl)}
 <div class="loading-msg hidden" id="cic-loading">⏳ Cargando conteos...</div>
 <div class="list hidden" id="list-cic"></div>
 <div class="list hidden" id="list-emb"></div>
+<div class="list hidden" id="list-planemb"></div>
+<div class="empty hidden" id="empty-planemb"><div class="empty-ico">📦</div><p>Todavía no hay planes de embarque registrados.</p></div>
 <div class="empty hidden" id="empty-inv"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-inv"></span>"</p></div>
 <div class="empty hidden" id="empty-abc"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-abc"></span>"</p></div>
 <div class="empty hidden" id="empty-cic"><div class="empty-ico">📊</div><p>Sin resultados para "<span id="eq-cic"></span>"</p></div>
@@ -898,7 +931,7 @@ function ubicRowHtml_(clave,lote){
 function renderActiveTab_(){
   if(tab==='inv')renderInv();
   else if(tab==='cic')renderCic();
-  else if(tab==='emb')renderEmb();
+  else if(tab==='emb'){if(embSub==='plan')renderPlanEmbarque();else renderEmb();}
   else if(tab==='car')renderCar();
   else if(tab==='dash')renderDash();
   else if(tab==='dev')renderDev();
@@ -927,10 +960,20 @@ function switchTab(t){
   if(schedTabsEl) schedTabsEl.classList.toggle('hidden',t!=='cic');
   if(confBlock) confBlock.classList.toggle('hidden',t!=='cic');
 
+  // Plan de Embarque es una sub-pestaña dentro de Embarques con sus propios
+  // bloques (kpis-planemb/bar-planemb/list-planemb/empty-planemb) que el
+  // loop genérico de arriba no toca -- si se sale de 'emb' hay que
+  // esconderlos a mano para que no se queden pegados al cambiar de pestaña.
+  if(t!=='emb'){
+    ['kpis-planemb','bar-planemb','list-planemb','empty-planemb'].forEach(function(id){
+      document.getElementById(id)?.classList.add('hidden');
+    });
+  }
+
   document.getElementById('fab').style.background=cols[t]||'var(--or)';
   if(t==='inv')renderInv();
   else if(t==='cic'){checkNombre();renderCic();}
-  else if(t==='emb')loadEmbarque();
+  else if(t==='emb')switchEmbSub(embSub);
   else if(t==='car')loadCaratulas();
   else if(t==='dash'){
     // El Dashboard solo lee datos ya cargados (Inventario + Cíclicos +
@@ -3490,6 +3533,87 @@ async function cargarEnriquecimientosInventario_(){
   if(cicLoaded)_renderCicData();
 }
 
+// ---- Sub-pestañas dentro de Embarques: "Armar Embarques" (lo de siempre)
+// y "Plan de Embarque" (bitácora de solo lectura de los planes que llegan
+// por correo cada vez que Logística manda el PDF de un embarque nuevo). ----
+let embSub='armar';
+function switchEmbSub(sub){
+  embSub=sub;
+  document.querySelectorAll('#fi-emb-sub .chip').forEach(function(c){c.classList.toggle('a-emb',c.dataset.sub===sub);});
+  const esArmar=sub==='armar';
+  document.getElementById('emb-armar-actions')?.classList.toggle('hidden',!esArmar);
+  document.getElementById('emb-armar-header')?.classList.toggle('hidden',!esArmar);
+  document.getElementById('emb-plan-header')?.classList.toggle('hidden',esArmar);
+  ['kpis-emb','bar-emb','list-emb','empty-emb'].forEach(function(id){document.getElementById(id)?.classList.toggle('hidden',!esArmar);});
+  ['kpis-planemb','bar-planemb','list-planemb','empty-planemb'].forEach(function(id){document.getElementById(id)?.classList.toggle('hidden',esArmar);});
+  if(esArmar)loadEmbarque();
+  else loadPlanEmbarque();
+}
+
+// Bitácora de Plan de Embarque -- se llena sola: una tarea automática revisa
+// el correo de "Plan de embarque" varias veces al día, lee el PDF adjunto y
+// guarda los datos aquí vía doPostPlanEmbarque (ver codigo.txt). Esta vista
+// solo lee lo que ya quedó guardado en el Sheet, no tiene captura manual.
+let PLAN_EMB_LOADED=[],planEmbLoaded=false;
+async function loadPlanEmbarque(){
+  const bar=document.getElementById('plan-emb-update-bar');
+  try{
+    const r=await fetch(APPS_URL+'?accion=plan_embarque&t='+Date.now());
+    const rows=await r.json();
+    const porFolio={};
+    (Array.isArray(rows)?rows:[]).forEach(function(row){
+      if(!porFolio[row.folio]){
+        porFolio[row.folio]={folio:row.folio,fecha:row.fecha,solicitadoPor:row.solicitadoPor,transportista:row.transportista,retorno:row.retorno,capacidad:row.capacidad,totalPiezas:row.totalPiezas,totalTarimas:row.totalTarimas,fechaRegistro:row.fechaRegistro,lineas:[]};
+      }
+      porFolio[row.folio].lineas.push({renglon:row.renglon,clave:row.clave,descripcion:row.descripcion,piezas:row.piezas,lote:row.lote,tarimas:row.tarimas,almacenOrigen:row.almacenOrigen});
+    });
+    PLAN_EMB_LOADED=Object.values(porFolio).sort(function(a,b){return (b.fechaRegistro||'').localeCompare(a.fechaRegistro||'');});
+    planEmbLoaded=true;
+    if(bar)bar.textContent='📦 '+PLAN_EMB_LOADED.length+' plan'+(PLAN_EMB_LOADED.length===1?'':'es')+' de embarque registrado'+(PLAN_EMB_LOADED.length===1?'':'s');
+  }catch(e){
+    console.error('Error cargando Plan de Embarque:',e);
+    if(!planEmbLoaded)PLAN_EMB_LOADED=[];
+    if(bar)bar.textContent='❌ Error al cargar Plan de Embarque.';
+  }
+  renderPlanEmbarque();
+}
+
+function renderPlanEmbarque(){
+  const kF=document.getElementById('k-plan-folios');if(kF)kF.textContent=PLAN_EMB_LOADED.length.toLocaleString('en-US');
+  const totalPz=PLAN_EMB_LOADED.reduce(function(s,f){return s+(f.totalPiezas||0);},0);
+  const totalTar=PLAN_EMB_LOADED.reduce(function(s,f){return s+(f.totalTarimas||0);},0);
+  const kP=document.getElementById('k-plan-piezas');if(kP)kP.textContent=fmt(totalPz);
+  const kT=document.getElementById('k-plan-tarimas');if(kT)kT.textContent=fmt(totalTar);
+  const barEl=document.getElementById('bar-planemb');if(barEl)barEl.textContent=PLAN_EMB_LOADED.length+' folio'+(PLAN_EMB_LOADED.length===1?'':'s');
+
+  const list=document.getElementById('list-planemb'),empty=document.getElementById('empty-planemb');
+  if(!list)return;
+  if(!PLAN_EMB_LOADED.length){
+    list.innerHTML='';
+    if(empty)empty.classList.remove('hidden');
+    return;
+  }
+  if(empty)empty.classList.add('hidden');
+
+  list.innerHTML=PLAN_EMB_LOADED.map(function(f){
+    const lineasHtml=f.lineas.map(function(l){
+      return '<div class="plan-emb-linea">'
+        +'<div class="plan-emb-renglon">'+escAttr(l.renglon)+'</div>'
+        +'<div class="plan-emb-info"><b>'+escAttr(l.clave)+'</b> '+escAttr(l.descripcion)+'<br><span class="plan-emb-sub">Lote '+escAttr(l.lote)+' · '+escAttr(l.almacenOrigen)+'</span></div>'
+        +'<div class="plan-emb-cant">'+fmt(l.piezas)+' pz<br><span class="plan-emb-sub">'+fmt(l.tarimas)+' tar.</span></div>'
+      +'</div>';
+    }).join('');
+    return '<div class="card plan-emb-card">'
+      +'<div class="plan-emb-head">'
+        +'<div><span class="plan-emb-folio">📦 '+escAttr(f.folio)+'</span><span class="plan-emb-fecha">'+escAttr(f.fecha)+'</span></div>'
+        +'<div class="plan-emb-meta">'+escAttr(f.transportista)+(f.retorno?' · Retorno '+escAttr(f.retorno):'')+' · Capacidad '+escAttr(f.capacidad)+(f.solicitadoPor?' · Solicitó '+escAttr(f.solicitadoPor):'')+'</div>'
+      +'</div>'
+      +'<div class="plan-emb-lineas">'+lineasHtml+'</div>'
+      +'<div class="plan-emb-totales">Total: '+fmt(f.totalPiezas)+' pz · '+fmt(f.totalTarimas)+' tarimas · '+f.lineas.length+' renglón'+(f.lineas.length===1?'':'es')+'</div>'
+    +'</div>';
+  }).join('');
+}
+
 async function loadEmbarque(){
   const bar=document.getElementById('emb-update-bar');
   try{
@@ -5016,6 +5140,7 @@ document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListene
 document.getElementById('search-emb').addEventListener('input',function(){sEmb=this.value;renderEmb();});
 if(document.getElementById('search-car')) document.getElementById('search-car').addEventListener('input',function(){sCar=this.value;renderCar();});
 document.querySelectorAll('#fi-emb .chip').forEach(function(c){c.addEventListener('click',function(){fEmb=this.dataset.f;document.querySelectorAll('#fi-emb .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
+document.querySelectorAll('#fi-emb-sub .chip').forEach(function(c){c.addEventListener('click',function(){switchEmbSub(this.dataset.sub);});});
 document.querySelectorAll('#fi-car-cat .chip').forEach(function(c){c.addEventListener('click',function(){fCarCat=this.dataset.cat;document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventListener('click',function(){fCarUbic=this.dataset.ubic;document.querySelectorAll('#fi-car-ubic .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.getElementById('search-dev').addEventListener('input',function(){sDev=this.value;renderDev();});
