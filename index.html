@@ -364,8 +364,13 @@ header.h-dev{background:var(--tl)}
 .plan-emb-folio{font-size:15px;font-weight:800;color:var(--gr);font-family:monospace}
 .plan-emb-fecha{font-size:12.5px;color:var(--gr2);font-weight:600;margin-left:6px}
 .plan-emb-meta{font-size:12px;color:var(--gr2);margin-top:3px}
-.plan-emb-linea{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #f5f5f5;font-size:13.5px}
+.plan-emb-linea{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #f5f5f5;font-size:13.5px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .12s}
 .plan-emb-linea:last-child{border-bottom:none}
+.plan-emb-linea:active{background:#f2f2f2}
+.plan-emb-linea.plan-emb-ident{background:#2E7D32}
+.plan-emb-linea.plan-emb-ident .plan-emb-renglon{background:#fff;color:#2E7D32}
+.plan-emb-linea.plan-emb-ident .plan-emb-info,.plan-emb-linea.plan-emb-ident .plan-emb-info b,.plan-emb-linea.plan-emb-ident .plan-emb-cant,.plan-emb-linea.plan-emb-ident .plan-emb-sub{color:#fff}
+.plan-emb-linea.plan-emb-ident .plan-emb-warn{color:#fff;background:rgba(0,0,0,.15);border-radius:5px;padding:3px 6px}
 .plan-emb-renglon{flex-shrink:0;min-width:34px;text-align:center;font-weight:800;color:#fff;background:var(--gn);border-radius:6px;padding:3px 6px;font-size:11.5px;white-space:nowrap;line-height:1.3}
 .plan-emb-info{flex:1;min-width:0;color:var(--gr)}
 .plan-emb-info b{font-family:monospace;color:var(--gn)}
@@ -3580,6 +3585,27 @@ async function loadPlanEmbarque(){
   renderPlanEmbarque();
 }
 
+// Marcado manual de "ya identifiqué esta tarima" -- es solo una ayuda visual
+// para el que va checando físicamente el embarque contra el plan, no se
+// manda al Sheet ni afecta ningún otro cálculo. Se guarda en localStorage
+// (por dispositivo/navegador) para que sobreviva si se recarga la página a
+// medio checar. La llave es folio+renglon+clave+lote -- única por renglón
+// real del plan.
+const PLAN_EMB_IDENT_KEY='planEmbIdentificadas';
+function planEmbIdentSet_(){
+  try{ return JSON.parse(localStorage.getItem(PLAN_EMB_IDENT_KEY)||'{}'); }
+  catch(e){ return {}; }
+}
+function planEmbIdentId_(folio,l){
+  return folio+'|'+l.renglon+'|'+l.clave+'|'+l.lote;
+}
+function toggleIdentTarima(id){
+  const set=planEmbIdentSet_();
+  if(set[id])delete set[id];else set[id]=true;
+  try{ localStorage.setItem(PLAN_EMB_IDENT_KEY,JSON.stringify(set)); }catch(e){}
+  renderPlanEmbarque();
+}
+
 function renderPlanEmbarque(){
   const kF=document.getElementById('k-plan-folios');if(kF)kF.textContent=PLAN_EMB_LOADED.length.toLocaleString('en-US');
   const totalPz=PLAN_EMB_LOADED.reduce(function(s,f){return s+(f.totalPiezas||0);},0);
@@ -3597,6 +3623,7 @@ function renderPlanEmbarque(){
   }
   if(empty)empty.classList.add('hidden');
 
+  const identSet=planEmbIdentSet_();
   list.innerHTML=PLAN_EMB_LOADED.map(function(f){
     const lineasHtml=f.lineas.map(function(l){
       // enAlmacen: true = se encontró esa clave+lote en el almacén que dice
@@ -3604,7 +3631,9 @@ function renderPlanEmbarque(){
       // (se avisa); null = almacén no reconocido, no se pudo verificar (no
       // se muestra nada, para no generar falsas alarmas).
       const warn=l.enAlmacen===false?'<div class="plan-emb-warn">⚠️ No se encontró '+escAttr(l.clave)+' lote '+escAttr(l.lote)+' en '+escAttr(l.almacenOrigen)+'</div>':'';
-      return '<div class="plan-emb-linea">'
+      const identId=planEmbIdentId_(f.folio,l);
+      const identOk=!!identSet[identId];
+      return '<div class="plan-emb-linea'+(identOk?' plan-emb-ident':'')+'" onclick="toggleIdentTarima(\''+identId.replace(/'/g,"\\'")+'\')">'
         +'<div class="plan-emb-renglon">'+escAttr(l.renglon)+'</div>'
         +'<div class="plan-emb-info"><b>'+escAttr(l.clave)+'</b> '+escAttr(l.descripcion)+'<br><span class="plan-emb-sub">Lote '+escAttr(l.lote)+' · '+escAttr(l.almacenOrigen)+'</span>'+warn+'</div>'
         +'<div class="plan-emb-cant">'+fmt(l.piezas)+' pz<br><span class="plan-emb-sub">'+fmt(l.tarimas)+' tar.</span></div>'
