@@ -717,6 +717,7 @@ header.h-dev{background:var(--tl)}
     <div class="emb-modal-body" id="emb-resumen-body"></div>
     <div class="emb-modal-foot">
       <button class="btn-emb-close" onclick="closeEmbResumen()">Cerrar</button>
+      <button class="btn-emb-print" onclick="exportarEmbTarimasExcel()" style="background:#1D6F42">📊 Excel</button>
       <button class="btn-emb-print" onclick="imprimirEmbResumen()">🖨️ Imprimir</button>
     </div>
   </div>
@@ -4192,6 +4193,34 @@ function openEmbResumen(){
 function closeEmbResumen(){
   const modal=document.getElementById('modal-emb-resumen');
   if(modal)modal.style.display='none';
+}
+
+// Descarga la misma lista de tarimas de imprimirEmbResumen() pero como CSV
+// (Excel lo abre nativo con las columnas ya separadas, sin necesitar
+// ninguna librería externa ni conexión a internet -- importante porque esto
+// se usa desde el almacén). Lleva BOM UTF-8 al inicio para que acentos y "ñ"
+// no salgan mal en Excel.
+function exportarEmbTarimasExcel(){
+  const assign=window._embAssign||[];
+  if(!assign.length){ alert('No hay tarimas anotadas todavía.'); return; }
+  const escCsv=function(v){
+    const s=String(v==null?'':v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+  const encabezado=['Tarima','Clave','Descripción','Lote','Piezas','Almacén','Origen'];
+  const filas=assign.map(function(a){
+    return [a.letter,a.clave,a.desc,a.lote,a.piezas,a.almacen,a.origen==='MANUAL'?'Agregado a mano':''].map(escCsv).join(',');
+  });
+  const csv='﻿'+encabezado.join(',')+'\r\n'+filas.join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='Tarimas_Embarque_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function imprimirEmbResumen(){
