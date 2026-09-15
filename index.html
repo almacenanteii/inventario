@@ -417,7 +417,6 @@ header.h-dev{background:var(--tl)}
     <div class="chip a-inv" data-f="TODOS">Todos</div>
     <div class="chip" data-f="EYEJAL">EYEJAL</div>
     <div class="chip" data-f="40EYE">40 EYE</div>
-    <div class="chip" data-f="REPROJAL">REPROJAL</div>
   </div>
 </header>
 
@@ -507,6 +506,7 @@ header.h-dev{background:var(--tl)}
       <div class="chip" data-f="40PT">40 PT</div>
       <div class="chip" data-f="PTJAL">PTJAL</div>
       <div class="chip" data-f="PTFGUAD">PTFGUAD</div>
+      <div class="chip" data-f="REPROJAL">REPROJAL</div>
     </div>
   </div>
   <div id="emb-plan-header" class="hidden">
@@ -673,7 +673,7 @@ header.h-dev{background:var(--tl)}
 
 </div>
 <div class="kpis hidden" id="kpis-emb">
-  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-emb-piezas">—</div><div class="kpi-sub">40PT + PTJAL + PTFGUAD</div></div>
+  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-emb-piezas">—</div><div class="kpi-sub">40PT + PTJAL + PTFGUAD + REPROJAL</div></div>
   <div class="kpi"><div class="kpi-lbl">Claves</div><div class="kpi-val gv" id="k-emb-claves">—</div><div class="kpi-sub">en este filtro</div></div>
   <div class="kpi"><div class="kpi-lbl">Tarimas</div><div class="kpi-val gv" id="k-emb-tarimas">0</div><div class="kpi-sub">anotadas</div></div>
 </div>
@@ -1009,7 +1009,7 @@ function smartMatch(text, query){
 
 function getFiltA(){
   const q=sInv.toLowerCase().trim();
-  const ALMS=['EYEJAL','40EYE','REPROJAL'];
+  const ALMS=['EYEJAL','40EYE'];
   const ALL_A=window._ALL_A||[];return ALL_A.filter(p=>{
     if(ALMS.includes(fInv)&&!p.alms.includes(fInv))return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
@@ -1288,7 +1288,7 @@ function abrirModalAgregarLote(){
   const selAlm=document.createElement('select');
   selAlm.id='al-almacen';
   selAlm.style.cssText='width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;outline:none;box-sizing:border-box;background:#fff';
-  ['EYEJAL','40EYE','REPROJAL'].forEach(function(a){
+  ['EYEJAL','40EYE'].forEach(function(a){
     const op=document.createElement('option');
     op.value=a;op.textContent=a;
     selAlm.appendChild(op);
@@ -3686,8 +3686,11 @@ function buildAllA(){
   });
 }
 
-// ===== Embarque (40PT + PTJAL + PTFGUAD) =====
-const EMB_ALMACENES=['40PT','PTJAL','PTFGUAD'];
+// ===== Embarque (40PT + PTJAL + PTFGUAD + REPROJAL) =====
+// REPROJAL se agregó aquí (antes vivía en la pestaña Inventario, mezclado
+// con materiales EYE) porque es producto/reproceso de PT que ahora se
+// sincroniza a InventarioPT, no a Inventario -- ver actualizar inventario.txt.
+const EMB_ALMACENES=['40PT','PTJAL','PTFGUAD','REPROJAL'];
 function embLetter(n){
   let x=n,s='';
   while(x>0){ x--; s=String.fromCharCode(65+(x%26))+s; x=Math.floor(x/26); }
@@ -4259,7 +4262,7 @@ async function loadCaratulas(){
   if(ubicFilterEl) ubicFilterEl.classList.toggle('hidden', carMode!=='EYE');
   if(carMode==='EYE'){
     if(tit) tit.textContent='🏷️ Carátulas EYE';
-    if(sub){ sub.style.display='block'; sub.textContent='Materiales EYEJAL, 40EYE y REPROJAL'; }
+    if(sub){ sub.style.display='block'; sub.textContent='Materiales EYEJAL y 40EYE'; }
     if(clearBtn) clearBtn.style.display='none';
     await loadCaratulasEye();
   }else{
@@ -4323,7 +4326,7 @@ async function loadCaratulasEye(){
 function getFiltCar(){
   const q=sCar.toLowerCase().trim();
   if(carMode==='EYE'){
-    const ALMS_EYE=['EYEJAL','40EYE','REPROJAL'];
+    const ALMS_EYE=['EYEJAL','40EYE'];
     return (CAR_EYE_LOADED||[]).filter(function(r){
       const alm=(r.almacen||'').toUpperCase();
       if(ALMS_EYE.indexOf(alm)===-1)return false;
@@ -4383,7 +4386,7 @@ function renderCar(){
   const carItemsCount=groups.length;
   const totalExist=groups.reduce(function(s,g){return s+g.totalExist;},0);
   const kPiezas=document.getElementById('k-car-piezas'); if(kPiezas)kPiezas.textContent=fmt(totalExist);
-  const kPiezasSub=document.getElementById('k-car-piezas-sub'); if(kPiezasSub)kPiezasSub.textContent=carMode==='EYE'?'en EYEJAL/40EYE/REPROJAL':'en PTJAL + PTFGUAD + 40PT';
+  const kPiezasSub=document.getElementById('k-car-piezas-sub'); if(kPiezasSub)kPiezasSub.textContent=carMode==='EYE'?'en EYEJAL/40EYE':'en PTJAL + PTFGUAD + 40PT';
   const kClaves=document.getElementById('k-car-claves'); if(kClaves)kClaves.textContent=carItemsCount.toLocaleString('en-US');
 
   const list=document.getElementById('list-car'),empty=document.getElementById('empty-car');
@@ -4682,7 +4685,7 @@ let devLineas=[],devTipoSel='',devOpSelData=null,devMaterialesOP=[];
 // Existencia de ACOND (piso de producción) -- de ahí es de donde SAI
 // transfiere hacia DEV/DEST cuando se hace una devolución/destrucción, así
 // que es contra ESTO que se verifica cada lote capturado, no contra el
-// Inventario general (EYEJAL/40EYE/REPROJAL), que ya no aplica una vez que
+// Inventario general (EYEJAL/40EYE), que ya no aplica una vez que
 // el material se surtió a producción.
 let ACOND_LOADED=[];
 
@@ -5024,7 +5027,7 @@ function existeAcond_(codigo,lote){
 // que se está devolviendo de este código+lote -- no solo que el lote
 // exista, sino que alcance. Es de ACOND de donde SAI realmente transfiere
 // hacia DEV/DEST al hacer una devolución/destrucción (NO del Inventario
-// general EYEJAL/40EYE/REPROJAL, que ya no aplica una vez que el material
+// general EYEJAL/40EYE, que ya no aplica una vez que el material
 // se surtió a producción). Si piden devolver más de lo que hay en ACOND
 // (o el lote ya no está ahí en absoluto), es justo el caso que hace que
 // el almacén registre mal el movimiento en SAI. Se carga en vivo en
