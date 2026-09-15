@@ -366,11 +366,12 @@ header.h-dev{background:var(--tl)}
 .plan-emb-meta{font-size:12px;color:var(--gr2);margin-top:3px}
 .plan-emb-linea{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid #f5f5f5;font-size:13.5px}
 .plan-emb-linea:last-child{border-bottom:none}
-.plan-emb-renglon{flex-shrink:0;width:34px;text-align:center;font-weight:800;color:#fff;background:var(--gn);border-radius:6px;padding:3px 0;font-size:11.5px}
+.plan-emb-renglon{flex-shrink:0;min-width:34px;text-align:center;font-weight:800;color:#fff;background:var(--gn);border-radius:6px;padding:3px 6px;font-size:11.5px;white-space:nowrap;line-height:1.3}
 .plan-emb-info{flex:1;min-width:0;color:var(--gr)}
 .plan-emb-info b{font-family:monospace;color:var(--gn)}
 .plan-emb-sub{font-size:11.5px;color:var(--gr2);font-weight:600}
 .plan-emb-cant{flex-shrink:0;text-align:right;font-weight:700;color:var(--gr);font-size:13px}
+.plan-emb-warn{margin-top:3px;font-size:11px;font-weight:700;color:#8a5a00}
 .plan-emb-totales{padding:9px 14px;background:#F2FAF3;font-size:12px;font-weight:700;color:#2E7D32;border-top:1px solid #f0f0f0}
 /* Modal de captura en escritorio: dos columnas lado a lado (izquierda:
    folio/tipo/OP/sugerencias, derecha: lo ya agregado) cada una con su
@@ -3565,7 +3566,7 @@ async function loadPlanEmbarque(){
       if(!porFolio[row.folio]){
         porFolio[row.folio]={folio:row.folio,fecha:row.fecha,solicitadoPor:row.solicitadoPor,transportista:row.transportista,retorno:row.retorno,capacidad:row.capacidad,totalPiezas:row.totalPiezas,totalTarimas:row.totalTarimas,fechaRegistro:row.fechaRegistro,lineas:[]};
       }
-      porFolio[row.folio].lineas.push({renglon:row.renglon,clave:row.clave,descripcion:row.descripcion,piezas:row.piezas,lote:row.lote,tarimas:row.tarimas,almacenOrigen:row.almacenOrigen});
+      porFolio[row.folio].lineas.push({renglon:row.renglon,clave:row.clave,descripcion:row.descripcion,piezas:row.piezas,lote:row.lote,tarimas:row.tarimas,almacenOrigen:row.almacenOrigen,enAlmacen:row.enAlmacen});
     });
     PLAN_EMB_LOADED=Object.values(porFolio).sort(function(a,b){return (b.fechaRegistro||'').localeCompare(a.fechaRegistro||'');});
     planEmbLoaded=true;
@@ -3597,9 +3598,14 @@ function renderPlanEmbarque(){
 
   list.innerHTML=PLAN_EMB_LOADED.map(function(f){
     const lineasHtml=f.lineas.map(function(l){
+      // enAlmacen: true = se encontró esa clave+lote en el almacén que dice
+      // "Almacén Origen" (InventarioPT/Inventario); false = NO se encontró
+      // (se avisa); null = almacén no reconocido, no se pudo verificar (no
+      // se muestra nada, para no generar falsas alarmas).
+      const warn=l.enAlmacen===false?'<div class="plan-emb-warn">⚠️ No se encontró '+escAttr(l.clave)+' lote '+escAttr(l.lote)+' en '+escAttr(l.almacenOrigen)+'</div>':'';
       return '<div class="plan-emb-linea">'
         +'<div class="plan-emb-renglon">'+escAttr(l.renglon)+'</div>'
-        +'<div class="plan-emb-info"><b>'+escAttr(l.clave)+'</b> '+escAttr(l.descripcion)+'<br><span class="plan-emb-sub">Lote '+escAttr(l.lote)+' · '+escAttr(l.almacenOrigen)+'</span></div>'
+        +'<div class="plan-emb-info"><b>'+escAttr(l.clave)+'</b> '+escAttr(l.descripcion)+'<br><span class="plan-emb-sub">Lote '+escAttr(l.lote)+' · '+escAttr(l.almacenOrigen)+'</span>'+warn+'</div>'
         +'<div class="plan-emb-cant">'+fmt(l.piezas)+' pz<br><span class="plan-emb-sub">'+fmt(l.tarimas)+' tar.</span></div>'
       +'</div>';
     }).join('');
