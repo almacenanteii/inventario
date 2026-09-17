@@ -241,6 +241,8 @@ header.h-car{background:var(--rd)}
 .chip.cat-active{box-shadow:0 0 0 2px rgba(255,255,255,.95);font-weight:900}
 .tag-PTJAL{background:#efebe9;color:#5d4037}
 .tag-PTFGUAD{background:#e0f2f1;color:#00695c}
+.car-print-all-wrap{padding:0 14px 10px}
+.btn-print-all-lotes{width:100%;background:#1565C0;color:#fff;border:none;border-radius:8px;padding:10px 12px;font-size:12.5px;font-weight:800;cursor:pointer}
 .emb-lots{border-top:1px solid var(--bd)}
 .emb-lote-row{display:flex;flex-direction:column;gap:6px;padding:10px 14px;border-bottom:1px solid #f5f5f5}
 .emb-lote-row:last-child{border-bottom:none}
@@ -4475,7 +4477,7 @@ function renderCar(){
               +'</div>'
             +'</div>';
           }).join('');
-          return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span style="display:flex;align-items:center;min-width:0"><span class="clave c-rd">'+g.clave+'</span>'+catBadge_(g.clave)+'</span><span class="pill p-rd">'+fmt(g.totalExist)+'</span></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
+          return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span style="display:flex;align-items:center;min-width:0"><span class="clave c-rd">'+g.clave+'</span>'+catBadge_(g.clave)+'</span><span class="pill p-rd">'+fmt(g.totalExist)+'</span></div><div class="car-print-all-wrap" data-clave-all="'+escAttr(g.clave)+'"><button type="button" class="btn-print-all-lotes" onclick="imprimirClaveCompleta(this)">🖨️ Imprimir clave completa ('+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' con ubicaciones)</button></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
         }).join('');
     }).join('');
     recalcCarEyeStatus();
@@ -4510,7 +4512,7 @@ function renderCar(){
             +'<div class="emb-tarima-sum"></div>'
           +'</div>';
         }).join('');
-        return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span class="clave c-rd">'+g.clave+'</span><span class="pill p-rd">'+fmt(g.totalExist)+'</span></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
+        return '<div class="card emb-card"><div class="card-head"><div class="card-row1"><span class="clave c-rd">'+g.clave+'</span><span class="pill p-rd">'+fmt(g.totalExist)+'</span></div><div class="car-print-all-wrap" data-clave-all="'+escAttr(g.clave)+'"><button type="button" class="btn-print-all-lotes" onclick="imprimirClaveCompleta(this)">🖨️ Imprimir clave completa ('+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' con ubicaciones)</button></div><div class="desc">'+g.desc+'</div><div class="card-meta">'+g.lotes.length+' lote'+(g.lotes.length>1?'s':'')+' '+g.alms.map(almTag).join('')+'</div></div><div class="emb-lots">'+lots+'</div></div>';
       }).join('');
   }).join('');
 
@@ -4695,6 +4697,73 @@ function imprimirCaratulaEye(btn){
   carEyePrinted[key].push({fecha:new Date().toLocaleString('es-MX')});
   try{localStorage.setItem(CAR_EYE_STORAGE_KEY,JSON.stringify(carEyePrinted));}catch(e){}
   recalcCarEyeStatus();
+}
+
+// Carátula de "clave completa": todos los lotes existentes de una clave (con
+// sus ubicaciones) en una sola tabla, en una sola hoja tamaño carta. Se usa
+// para pegar en tarimas que se suben hasta nivel 5 de racks, así que el
+// texto tiene que ser grande y legible desde lejos -- el tamaño de letra se
+// ajusta según cuántos lotes hay, para que siempre quepa en una hoja.
+function imprimirClaveCompleta(btn){
+  const wrap=btn.closest('[data-clave-all]');
+  if(!wrap)return;
+  const clave=wrap.dataset.claveAll;
+  const g=buildCarGroups().find(function(x){return x.clave===clave;});
+  if(!g||!g.lotes.length){ alert('No se encontraron lotes para esta clave.'); return; }
+
+  const n=g.lotes.length;
+  let fsClave=60,fsRow=42,fsHdr=20,padRow=14;
+  if(n>22){ fsClave=32; fsRow=13; fsHdr=10; padRow=4; }
+  else if(n>14){ fsClave=42; fsRow=18; fsHdr=12; padRow=6; }
+  else if(n>8){ fsClave=50; fsRow=25; fsHdr=14; padRow=8; }
+  else if(n>4){ fsClave=56; fsRow=33; fsHdr=16; padRow=11; }
+
+  const filas=g.lotes.map(function(l){
+    const almU=(l.almacen||'').toUpperCase();
+    const ubicTxt=ubicTexto_(g.clave,l.lote)||'—';
+    const cad=cadInfo(l.caducidad);
+    return '<tr>'+
+      '<td>'+l.lote+'</td>'+
+      '<td>'+almU+'</td>'+
+      '<td>📍 '+ubicTxt+'</td>'+
+      '<td>'+fmt(l.exist)+' '+(l.unidad||'pzas')+'</td>'+
+      '<td class="'+(cad.cls||'')+'">'+(cad.txt||l.caducidad||'—')+'</td>'+
+    '</tr>';
+  }).join('');
+
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Clave completa · '+clave+'</title>'+
+    '<style>@page{size:letter;margin:10mm}'+
+    'body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:16px}'+
+    '.clave-hdr{font-size:'+fsClave+'px;font-weight:900;line-height:1.05;margin-bottom:4px;word-break:break-word}'+
+    '.desc-hdr{font-size:'+(fsHdr+6)+'px;font-weight:700;color:#333;margin-bottom:14px}'+
+    'table{width:100%;border-collapse:collapse}'+
+    'th,td{border:3px solid #000;padding:'+padRow+'px 10px;text-align:left;font-size:'+fsRow+'px;font-weight:800;word-break:break-word}'+
+    'th{font-size:'+fsHdr+'px;background:#000;color:#fff;font-weight:900;text-transform:uppercase}'+
+    '.cad-venc{color:#C62828}.cad-warn{color:#E65100}'+
+    '</style></head><body>'+
+    '<div class="clave-hdr">'+clave+'</div>'+
+    '<div class="desc-hdr">'+(g.desc||'')+' — '+n+' lote'+(n>1?'s':'')+'</div>'+
+    '<table><thead><tr><th>Lote</th><th>Almacén</th><th>Ubicación</th><th>Existencia</th><th>Caducidad</th></tr></thead><tbody>'+
+    filas+
+    '</tbody></table>'+
+    '<script>window.onload=function(){window.print();}<\/script>'+
+    '</body></html>';
+
+  try{
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.target='_blank';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},60000);
+  }catch(e){
+    console.error('Error al generar la clave completa para imprimir:', e);
+    alert('No se pudo abrir la carátula para imprimir. Avísale a Eduardo.');
+  }
 }
 
 // Selector de modo PT / EYE
