@@ -1560,39 +1560,68 @@ function renderInv(){
 // Arma el bloque (una "página" de media carta) del formato de conteo para
 // UNA clave. Se usa tanto para imprimir una sola clave como para imprimir
 // varias juntas (ver imprimirFormatoConteo), una página por clave.
-function construirBloqueFormatoConteo_(clave){
+// Acepta una clave sola o un arreglo de claves -- todas van en UNA sola
+// tabla (una fila por lote, con la clave como primera columna), no una
+// tabla repetida por cada clave. Así se puede seleccionar 2 o más códigos
+// en Inventario y sacarlos juntos, parejos, en un solo formato.
+function imprimirFormatoConteo(claveOClaves){
+  const claves=Array.isArray(claveOClaves)?claveOClaves:[claveOClaves];
   const ALL_A=window._ALL_A||[];
-  const p=ALL_A.find(function(x){return x.clave===clave;});
-  if(!p||!p.lotes.length)return null;
+  const grupos=claves.map(function(c){return ALL_A.find(function(x){return x.clave===c;});}).filter(function(p){return p&&p.lotes.length;});
+  if(!grupos.length){ alert('No se encontraron lotes para la(s) clave(s) seleccionada(s).'); return; }
 
-  const filas=p.lotes.map(function(l){
-    const key=clave+'|'+l.lote;
-    const ubicTxt=ubicTexto_(clave,l.lote)||'—';
-    const uc=ultimoConteoMap[key];
-    const ultimoTxt=uc?((uc.fecha||'').split(',')[0]+' · '+fmt(uc.cantidad)+' pz'):'Sin conteo';
-    return '<tr>'+
-      '<td>'+l.lote+'</td>'+
-      '<td>'+ubicTxt+'</td>'+
-      '<td style="text-align:right">'+fmt(l.exist)+' '+(l.unidad||'pzas')+'</td>'+
-      '<td>'+ultimoTxt+'</td>'+
-      '<td></td>'+
-    '</tr>';
-  }).join('');
+  const filas=[];
+  grupos.forEach(function(p){
+    p.lotes.forEach(function(l){
+      const key=p.clave+'|'+l.lote;
+      const ubicTxt=ubicTexto_(p.clave,l.lote)||'—';
+      const uc=ultimoConteoMap[key];
+      const ultimoTxt=uc?((uc.fecha||'').split(',')[0]+' · '+fmt(uc.cantidad)+' pz'):'Sin conteo';
+      filas.push('<tr>'+
+        '<td><div class="celda-clave">'+p.clave+'</div><div class="celda-desc">'+(p.desc||'')+'</div></td>'+
+        '<td>'+l.lote+'</td>'+
+        '<td>'+ubicTxt+'</td>'+
+        '<td style="text-align:right">'+fmt(l.exist)+' '+(l.unidad||'pzas')+'</td>'+
+        '<td>'+ultimoTxt+'</td>'+
+        '<td></td>'+
+      '</tr>');
+    });
+  });
 
   // 3 filas en blanco al final -- por si al contar físicamente aparece un
-  // lote de esta clave que no está dado de alta en SAI, se anota a mano
-  // ahí mismo en vez de tener que hacer otro formato aparte.
+  // lote que no está dado de alta en SAI, se anota a mano ahí mismo.
   const filasBlanco=Array.from({length:3}).map(function(){
-    return '<tr class="fila-nueva"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
+    return '<tr class="fila-nueva"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
   }).join('');
 
-  return '<div class="pagina">'+
+  const esVarias=grupos.length>1;
+  const tituloDoc=esVarias?(grupos.length+' claves'):grupos[0].clave;
+  const tituloHdr=esVarias?'Formato de conteo':grupos[0].clave;
+  const subHdr=esVarias?(grupos.length+' claves: '+grupos.map(function(p){return p.clave;}).join(', ')):(grupos[0].desc||'');
+
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Formato de conteo · '+tituloDoc+'</title>'+
+    '<style>@page{size:5.5in 8.5in;margin:8mm}'+
+    'body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0;font-size:11px}'+
+    '.hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #E8671A;padding-bottom:8px;margin-bottom:10px}'+
+    '.hdr img{height:38px;width:auto;display:block}'+
+    '.clave-hdr{font-size:'+(esVarias?16:20)+'px;font-weight:900;line-height:1.1}'+
+    '.desc-hdr{font-size:10px;color:#555;margin-top:2px}'+
+    '.meta{font-size:9.5px;color:#888;margin-bottom:8px}'+
+    'table{width:100%;border-collapse:collapse}'+
+    'th,td{border:1px solid #999;padding:5px 4px;font-size:9.5px;text-align:left;vertical-align:middle}'+
+    'th{background:#4A4A4A;color:#fff;font-size:8.5px;text-transform:uppercase;letter-spacing:.3px}'+
+    '.celda-clave{font-weight:900;font-size:10.5px}'+
+    '.celda-desc{font-size:8px;color:#666;margin-top:1px}'+
+    '.foot{margin-top:22px;font-size:10.5px}'+
+    '.foot div{margin-bottom:20px;border-bottom:1px solid #999;padding-bottom:3px}'+
+    '.fila-nueva td{height:20px}'+
+    '</style></head><body>'+
     '<div class="hdr"><img src="'+LOGO_ANTEII_B64+'" alt="Anteii Laboratorios">'+
-      '<div><div class="clave-hdr">'+clave+'</div><div class="desc-hdr">'+(p.desc||'')+'</div></div>'+
+      '<div><div class="clave-hdr">'+tituloHdr+'</div><div class="desc-hdr">'+subHdr+'</div></div>'+
     '</div>'+
-    '<div class="meta">Formato de conteo · Impreso: '+new Date().toLocaleString('es-MX')+'</div>'+
-    '<table><thead><tr><th>Lote</th><th>Ubicación</th><th>Exist. SAI</th><th>Último conteo</th><th>Conteo físico</th></tr></thead><tbody>'+
-    filas+
+    '<div class="meta">Impreso: '+new Date().toLocaleString('es-MX')+'</div>'+
+    '<table><thead><tr><th>Clave</th><th>Lote</th><th>Ubicación</th><th>Exist. SAI</th><th>Último conteo</th><th>Conteo físico</th></tr></thead><tbody>'+
+    filas.join('')+
     filasBlanco+
     '</tbody></table>'+
     '<div style="font-size:9px;color:#888;margin-top:3px">Filas en blanco: para anotar un lote que no esté dado de alta en SAI.</div>'+
@@ -1600,37 +1629,6 @@ function construirBloqueFormatoConteo_(clave){
       '<div>Contado por: _______________________</div>'+
       '<div>Fecha: _______________________</div>'+
     '</div>'+
-  '</div>';
-}
-
-// Acepta una clave sola o un arreglo de claves -- con varias, imprime una
-// página de media carta por clave, todas en el mismo trabajo de impresión
-// (así se puede seleccionar 2 o más códigos en Inventario y sacarlos juntos
-// de un jalón, en vez de repetir la operación uno por uno).
-function imprimirFormatoConteo(claveOClaves){
-  const claves=Array.isArray(claveOClaves)?claveOClaves:[claveOClaves];
-  const bloques=claves.map(construirBloqueFormatoConteo_).filter(Boolean);
-  if(!bloques.length){ alert('No se encontraron lotes para la(s) clave(s) seleccionada(s).'); return; }
-
-  const tituloDoc=claves.length>1?(claves.length+' claves'):claves[0];
-  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Formato de conteo · '+tituloDoc+'</title>'+
-    '<style>@page{size:5.5in 8.5in;margin:8mm}'+
-    'body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0;font-size:11px}'+
-    '.pagina{page-break-inside:avoid;border-top:2px dashed #ccc;padding-top:10px;margin-top:10px}'+
-    '.pagina:first-child{border-top:none;padding-top:0;margin-top:0}'+
-    '.hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #E8671A;padding-bottom:8px;margin-bottom:10px}'+
-    '.hdr img{height:38px;width:auto;display:block}'+
-    '.clave-hdr{font-size:20px;font-weight:900;line-height:1.1}'+
-    '.desc-hdr{font-size:11px;color:#555;margin-top:2px}'+
-    '.meta{font-size:9.5px;color:#888;margin-bottom:8px}'+
-    'table{width:100%;border-collapse:collapse}'+
-    'th,td{border:1px solid #999;padding:6px 5px;font-size:10px;text-align:left;vertical-align:middle}'+
-    'th{background:#4A4A4A;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.3px}'+
-    '.foot{margin-top:22px;font-size:10.5px}'+
-    '.foot div{margin-bottom:20px;border-bottom:1px solid #999;padding-bottom:3px}'+
-    '.fila-nueva td{height:20px}'+
-    '</style></head><body>'+
-    bloques.join('')+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
 
