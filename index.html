@@ -172,6 +172,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .lot-cad{font-size:10px;margin-top:2px}
 .lot-conteo{font-size:10px;color:var(--gr2);margin-top:2px}
 .lot-conteo.sin{color:#b0b0b0;font-style:italic}
+.lot-dev{font-size:10px;color:var(--tl);margin-top:2px;font-weight:700}
 .cad-ok{color:var(--gr2)} .cad-warn{color:#e65100} .cad-venc{color:#c62828}
 .lot-right{text-align:right}
 .lot-qty{font-size:15px;font-weight:800;color:var(--gr)}
@@ -790,6 +791,16 @@ let ubicMap={};
 // Fecha del último conteo cíclico por clave|lote, para mostrarla en
 // Inventario (se saca del Historial, igual que Cíclicos -- ver loadInventario).
 let ultimoConteoMap={};
+// Devoluciones por clave|lote -- se llena en cargarEnriquecimientosInventario_
+// (mismo endpoint que usa la pestaña Devoluciones) para poder mostrar en
+// Inventario cuántas veces se ha devuelto un lote, sin tener que abrir esa
+// pestaña primero.
+let devPorLoteMap={};
+function ultimaDevInfo_(arr){
+  if(!arr||!arr.length)return null;
+  const sorted=arr.slice().sort(function(a,b){return parseFechaMX_(b.fecha)-parseFechaMX_(a.fecha);});
+  return{count:arr.length,ultima:sorted[0]};
+}
 let ubicPorClave={};
 let ubicCopiada=null;
 // Exclusiones manuales de "Atrasados": clave|lote -> {id,motivo,registrado,fecha}.
@@ -1423,7 +1434,10 @@ function renderInv(){
         const conteoHtml=ultimoConteo?
           `<div class="lot-conteo">🕒 Último conteo: ${(ultimoConteo.fecha||'').split(',')[0]} · ${fmt(ultimoConteo.cantidad)} pz</div>`:
           `<div class="lot-conteo sin">🕒 Sin conteo registrado</div>`;
-        return`<div class="lot"><div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${ubicBtn}</div><div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
+        const devInfo=ultimaDevInfo_(devPorLoteMap[key]);
+        const devHtml=devInfo?
+          `<div class="lot-dev">↩️ ${devInfo.count} devolucion${devInfo.count>1?'es':''} · última: ${(devInfo.ultima.fecha||'').split(',')[0]} · ${fmt(devInfo.ultima.cantidad)} pz</div>`:'';
+        return`<div class="lot"><div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${devHtml}${ubicBtn}</div><div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
       }).join('');
       const schedInfoInv=SCHED.find(function(s){return s.clave===p.clave;});
       const schedHtmlInv=schedInfoInv?
@@ -3622,10 +3636,11 @@ async function loadInventario(){
 }
 
 async function cargarEnriquecimientosInventario_(){
-  const [rUbic, rHistInv, rCicInv]=await Promise.all([
+  const [rUbic, rHistInv, rCicInv, rDevInv]=await Promise.all([
     fetch(APPS_URL+'?accion=ubicaciones&t='+Date.now()).catch(function(){return null;}),
     fetch(APPS_URL+'?accion=historial&t='+Date.now()).catch(function(){return null;}),
-    fetch(CIC_URL+'&t='+Date.now()).catch(function(){return null;})
+    fetch(CIC_URL+'&t='+Date.now()).catch(function(){return null;}),
+    fetch(APPS_URL+'?accion=devoluciones&t='+Date.now()).catch(function(){return null;})
   ]);
   // Clasificación (ABC) y semana programada por clave: se saca de
   // Ciclicos, igual que hace la pestaña Cíclicos. Se recarga aquí también
@@ -3679,6 +3694,21 @@ async function cargarEnriquecimientosInventario_(){
         }
       });
     }catch(eh){console.warn('No se pudo leer el historial para "último conteo":',eh);}
+  }
+  // Devoluciones por clave|lote: mismo endpoint que usa la pestaña
+  // Devoluciones (filas planas, una por material/lote), para poder avisar
+  // en Inventario que un código ha tenido devoluciones sin tener que abrir
+  // esa pestaña primero.
+  devPorLoteMap={};
+  if(rDevInv){
+    try{
+      const rowsDev=await rDevInv.json();
+      (Array.isArray(rowsDev)?rowsDev:[]).forEach(function(row){
+        const key=row.codigo+'|'+row.lote;
+        if(!devPorLoteMap[key])devPorLoteMap[key]=[];
+        devPorLoteMap[key].push({fecha:row.fecha,cantidad:row.cantidad,tipo:row.tipo,folio:row.folio});
+      });
+    }catch(ed){console.warn('No se pudieron leer devoluciones para Inventario:',ed);}
   }
   renderInv();
   // Si ya estabas parado en Cíclicos antes de que llegaran las ubicaciones,
