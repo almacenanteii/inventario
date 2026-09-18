@@ -129,6 +129,8 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 
 .card{background:#fff;border-radius:12px;margin-bottom:10px;border:1px solid var(--bd);overflow:hidden}
 .card-head{padding:12px 14px 10px}
+.card-head-clickable{cursor:pointer}
+.card-sel{outline:2px solid var(--or);outline-offset:-1px}
 .card-row1{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
 .clave{font-size:12px;font-weight:800;font-family:monospace;letter-spacing:.3px}
 .c-or{color:var(--or)} .c-gn{color:var(--gn)} .c-rd{color:var(--rd)} .c-bl{color:var(--bl)}
@@ -420,7 +422,16 @@ header.h-dev{background:var(--tl)}
 </nav>
 
 <header class="h-inv" id="hdr-inv">
-  <div class="hdr-top"><h1>🏭 Inventario</h1><button id="btn-bitacora-ubic" onclick="imprimirBitacoraUbicaciones()" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Bitácora ubic.</button></div>
+  <div class="hdr-top">
+    <h1>🏭 Inventario</h1>
+    <div class="print-menu-wrap hidden" id="inv-print-menu-wrap">
+      <button id="btn-inv-imprimir-toggle" onclick="toggleImprimirMenuInv(event)" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir ▾ <span id="inv-print-clave-lbl"></span></button>
+      <div id="inv-imprimir-menu" class="print-menu hidden">
+        <button class="menu-item" onclick="imprimirFormatoConteoSel();cerrarMenusImprimir()">🖨️ Formato de conteo</button>
+      </div>
+    </div>
+    <button id="btn-bitacora-ubic" onclick="imprimirBitacoraUbicaciones()" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Bitácora ubic.</button>
+  </div>
   <div class="update-bar" id="inv-update-bar">📅 Datos actualizados al: cargando...</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -819,6 +830,38 @@ ACTUAL.forEach(r=>{
 // ALL_A built dynamically in buildAllA()
 
 let tab='inv',fInv='TODOS',fAbc='TODOS',fEmb='TODOS',sInv='',sAbc='',sEmb='';
+// Clave seleccionada en Inventario -- en vez de traer un botón de imprimir
+// en cada tarjeta, primero se selecciona la clave (tap en su encabezado) y
+// arriba en el header aparece el menú de formatos disponibles para esa
+// clave. Evita llenar la lista de botones repetidos.
+let invClaveSel=null;
+function seleccionarClaveInv(el){
+  const wrap=el.closest('[data-clave-sel]');
+  if(!wrap)return;
+  const clave=wrap.dataset.claveSel;
+  invClaveSel=(invClaveSel===clave)?null:clave;
+  cerrarMenusImprimir();
+  renderInv();
+}
+function actualizarMenuImprimirInv_(){
+  const wrap=document.getElementById('inv-print-menu-wrap');
+  const lbl=document.getElementById('inv-print-clave-lbl');
+  if(!wrap)return;
+  wrap.classList.toggle('hidden',!invClaveSel);
+  if(lbl)lbl.textContent=invClaveSel||'';
+}
+function toggleImprimirMenuInv(e){
+  if(e)e.stopPropagation();
+  const m=document.getElementById('inv-imprimir-menu');
+  if(!m)return;
+  const abrir=m.classList.contains('hidden');
+  cerrarMenusImprimir();
+  if(abrir)m.classList.remove('hidden');
+}
+function imprimirFormatoConteoSel(){
+  if(!invClaveSel)return;
+  imprimirFormatoConteo(invClaveSel);
+}
 const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
 let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
 let embQty={};
@@ -1418,7 +1461,11 @@ function renderInv(){
   document.getElementById('k-claves').textContent=items.length.toLocaleString('en-US');
   document.getElementById('bar-inv').textContent=items.length+' artículos · '+lotes+' lotes';
   const list=document.getElementById('list-inv'),empty=document.getElementById('empty-inv');
-  if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-inv').textContent=sInv;return;}
+  // Si la clave seleccionada ya no aparece en la lista filtrada (se buscó
+  // otra cosa, etc.), se quita la selección para no dejar el menú de
+  // imprimir apuntando a una clave que ya no se ve.
+  if(invClaveSel&&!items.some(p=>p.clave===invClaveSel))invClaveSel=null;
+  if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-inv').textContent=sInv;actualizarMenuImprimirInv_();return;}
   empty.classList.add('hidden');
   const groups={};
   items.forEach(p=>{if(!groups[p.clase])groups[p.clase]=[];groups[p.clase].push(p);});
@@ -1443,19 +1490,18 @@ function renderInv(){
       const schedHtmlInv=schedInfoInv?
         `<div style="font-size:10.5px;color:#1F4E79;font-weight:700;margin-top:3px">📅 Semana ${schedInfoInv.semana_cal} · Clase ${schedInfoInv.abc}</div>`:
         `<div style="font-size:10.5px;color:#b0b0b0;font-style:italic;margin-top:3px">Sin clasificar</div>`;
-      return`<div class="card"><div class="card-head"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}<div class="car-print-all-wrap" data-clave-cnt="${escAttr(p.clave)}"><button type="button" class="btn-print-all-lotes" onclick="imprimirFormatoConteo(this)">🖨️ Imprimir formato de conteo</button></div></div><div class="lots">${lots}</div></div>`;
+      const sel=p.clave===invClaveSel;
+      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
     }).join('')
   ).join('');
+  actualizarMenuImprimirInv_();
 }
 
 // Formato de conteo suelto (media carta vertical) para cuando piden
 // verificar físicamente una clave concreta fuera del ciclo normal de
 // Cíclicos -- se llena a mano con pluma, así que la letra es de tamaño
 // normal (no gigante como las carátulas que se pegan en tarimas).
-function imprimirFormatoConteo(btn){
-  const wrap=btn.closest('[data-clave-cnt]');
-  if(!wrap)return;
-  const clave=wrap.dataset.claveCnt;
+function imprimirFormatoConteo(clave){
   const ALL_A=window._ALL_A||[];
   const p=ALL_A.find(function(x){return x.clave===clave;});
   if(!p||!p.lotes.length){ alert('No se encontraron lotes para esta clave.'); return; }
