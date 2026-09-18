@@ -1518,10 +1518,9 @@ function renderInv(){
   document.getElementById('k-claves').textContent=items.length.toLocaleString('en-US');
   document.getElementById('bar-inv').textContent=items.length+' artículos · '+lotes+' lotes';
   const list=document.getElementById('list-inv'),empty=document.getElementById('empty-inv');
-  // Si la clave seleccionada ya no aparece en la lista filtrada (se buscó
-  // otra cosa, etc.), se quita la selección para no dejar el menú de
-  // imprimir apuntando a una clave que ya no se ve.
-  Array.from(invClaveSel).forEach(c=>{if(!items.some(p=>p.clave===c))invClaveSel.delete(c);});
+  // La selección de claves se mantiene aunque cambies la búsqueda o el
+  // filtro -- así puedes ir buscando una por una, marcándolas, y se van
+  // acumulando hasta que tú las quites (a mano o con "Quitar selección").
   if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-inv').textContent=sInv;actualizarMenuImprimirInv_();return;}
   empty.classList.add('hidden');
   const groups={};
