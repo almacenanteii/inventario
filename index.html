@@ -4726,8 +4726,14 @@ function imprimirCaratula(btn){
   const esManual=row.dataset.origen==='MANUAL';
   const lineaManual=esManual?'<div class="linea" style="color:#E8671A;font-size:40px;border:4px solid #E8671A;border-radius:12px;padding:10px 16px;display:inline-block">⚡ AGREGADO A MANO — VERIFICAR EN SISTEMA</div>':'';
   const lineaCantidadPt=carPtImprimirCantidad?('<div class="linea">CANTIDAD: '+fmt(v)+'</div>'):'';
-  const yaContado=!!carContadoManual[clave+'|'+lote+'|'+almacen];
-  const lineaContado=yaContado?'<div class="linea" style="color:#2E7D32;font-size:36px;border:4px solid #2E7D32;border-radius:12px;padding:8px 14px;display:inline-block">✔ YA CONTADO</div>':'';
+  // El sello solo sale si el check "Ya contado" está marcado Y esa tarima
+  // de verdad tiene un conteo oficial registrado (mismo dato que "Último
+  // conteo" en Inventario) -- si está marcado pero no hay conteo oficial,
+  // mejor no imprimir nada a que salga una fecha inventada.
+  const chkContado=!!carContadoManual[clave+'|'+lote+'|'+almacen];
+  const ucContado=ultimoConteoMap[clave+'|'+lote];
+  const lineaContado=(chkContado&&ucContado)?
+    '<div class="linea" style="color:#2E7D32;font-size:36px;border:4px solid #2E7D32;border-radius:12px;padding:8px 14px;display:inline-block">✔ CONTADO<br><span style="font-size:20px">'+(ucContado.fecha||'').split(',')[0]+' · '+fmt(ucContado.cantidad)+' pz</span></div>':'';
 
   // window.open('_blank') + document.write en iOS (sobre todo instalado
   // como app en pantalla de inicio) no crea una ventana real: termina
@@ -4825,8 +4831,12 @@ function imprimirCaratulaEye(btn){
   // Sin color -- esta carátula cae sobre el papel de color que ya se cargó
   // a mano (verde/amarillo/etc. según la categoría), no lleva fondo propio.
   const lineaUbic=ubicTxt?('<div class="linea ubic">📍 '+ubicTxt+'</div>'):'';
-  const yaContado=!!carContadoManual[clave+'|'+lote+'|'+almacen];
-  const lineaContado=yaContado?'<div class="linea" style="color:#2E7D32;font-size:40px;border:4px solid #2E7D32;border-radius:12px;padding:8px 14px;display:inline-block;margin-top:10px">✔ YA CONTADO</div>':'';
+  // Mismo criterio que en la carátula PT: solo sale el sello si el check
+  // está marcado Y hay un conteo oficial real para esa tarima.
+  const chkContado=!!carContadoManual[clave+'|'+lote+'|'+almacen];
+  const ucContado=ultimoConteoMap[clave+'|'+lote];
+  const lineaContado=(chkContado&&ucContado)?
+    '<div class="linea" style="color:#2E7D32;font-size:40px;border:4px solid #2E7D32;border-radius:12px;padding:8px 14px;display:inline-block;margin-top:10px">✔ CONTADO<br><span style="font-size:22px">'+(ucContado.fecha||'').split(',')[0]+' · '+fmt(ucContado.cantidad)+' pz</span></div>':'';
 
   const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátula · '+clave+'</title>'+
     '<style>@page{size:letter landscape;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
