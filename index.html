@@ -1588,9 +1588,9 @@ function imprimirFormatoConteo(claveOClaves){
     });
   });
 
-  // 3 filas en blanco al final -- por si al contar físicamente aparece un
+  // 6 filas en blanco al final -- por si al contar físicamente aparece un
   // lote que no está dado de alta en SAI, se anota a mano ahí mismo.
-  const filasBlanco=Array.from({length:3}).map(function(){
+  const filasBlanco=Array.from({length:6}).map(function(){
     return '<tr class="fila-nueva"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
   }).join('');
 
@@ -1624,7 +1624,6 @@ function imprimirFormatoConteo(claveOClaves){
     filas.join('')+
     filasBlanco+
     '</tbody></table>'+
-    '<div style="font-size:9px;color:#888;margin-top:3px">Filas en blanco: para anotar un lote que no esté dado de alta en SAI.</div>'+
     '<div class="foot">'+
       '<div>Contado por: _______________________</div>'+
       '<div>Fecha: _______________________</div>'+
@@ -5554,6 +5553,16 @@ function onDevCodigoChange(el,idx){
 function guardarDevolucion(){
   const folio=document.getElementById('dev-folio').value.trim();
   if(!folio){alert('Falta el folio.');return;}
+  // El folio de la papeleta debería ser único -- si ya existe uno igual,
+  // cada vez que se guarda se crea un registro NUEVO con ese mismo folio
+  // (no se suma al que ya había), así que un folio repetido normalmente es
+  // una papeleta capturada dos veces por error, no un caso válido. Se avisa
+  // antes de guardar, mostrando cuándo se capturó la anterior.
+  const folioExistente=(DEV_LOADED||[]).find(function(f){return (f.folio||'').trim().toLowerCase()===folio.toLowerCase();});
+  if(folioExistente){
+    const ok=confirm('⚠️ El folio "'+folio+'" ya está registrado (capturado el '+(folioExistente.fecha||'?')+', '+folioExistente.lineas.length+' material'+(folioExistente.lineas.length>1?'es':'')+').\n\nSi guardas de nuevo se crea OTRO registro con el mismo folio (no se junta con el anterior) y se duplicaría en los totales del Dashboard.\n\n¿De todos modos quieres continuar?');
+    if(!ok)return;
+  }
   if(!devTipoSel){alert('Elige si es "No utilizado" o "Destrucción".');return;}
   if(!devOpSelData){alert('Busca y elige la OP del producto.');return;}
   const lineasValidas=devLineas.filter(function(l){return l.codigo&&l.lote&&l.cantidad>0;});
