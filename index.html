@@ -73,6 +73,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 header{padding:16px 16px 0;position:sticky;top:0;z-index:100;box-shadow:0 3px 12px rgba(0,0,0,.2)}
 header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q40{background:var(--rd)} header.h-cic{background:var(--pu)}
 .hdr-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.print-menu-wrap{position:relative}
+.print-menu{position:absolute;top:38px;right:0;background:#fff;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.28);padding:6px;min-width:180px;z-index:60;display:flex;flex-direction:column;gap:3px}
+.print-menu button.menu-item{background:#fff;border:none;text-align:left;padding:10px 12px;border-radius:7px;font-size:12.5px;font-weight:700;cursor:pointer;color:#333;width:100%}
+.print-menu button.menu-item:hover{background:#f0f0f0}
 .hdr-top h1{font-size:17px;font-weight:800;color:#fff}
 .update-bar{font-size:11px;color:rgba(255,255,255,.9);background:rgba(0,0,0,.15);border-radius:6px;padding:5px 10px;margin-bottom:12px;display:inline-block}
 
@@ -467,9 +471,14 @@ header.h-dev{background:var(--tl)}
 <header class="h-cic hidden" id="hdr-cic">
   <div class="hdr-top">
     <h1>📊 Conteos Cíclicos</h1>
-    <button id="btn-imprimir" onclick="imprimirSemanaActual()" style="background:#fff;color:#1F4E79;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir</button>
-    <button id="btn-reporte" onclick="generarReporteActual()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">📄 F-AL-018</button>
-    <button id="btn-atrasados-print" onclick="imprimirAtrasados()" class="hidden" style="background:#C62828;color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">🔴 Atrasados</button>
+    <div class="print-menu-wrap">
+      <button id="btn-imprimir-toggle" onclick="toggleImprimirMenuCic(event)" style="background:#fff;color:#1F4E79;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir ▾</button>
+      <div id="cic-imprimir-menu" class="print-menu hidden">
+        <button id="btn-imprimir" class="menu-item" onclick="imprimirSemanaActual();cerrarMenusImprimir()">🖨️ Imprimir semana</button>
+        <button id="btn-reporte" class="menu-item" onclick="generarReporteActual();cerrarMenusImprimir()">📄 Reporte F-AL-018</button>
+        <button id="btn-atrasados-print" class="menu-item hidden" style="color:#C62828" onclick="imprimirAtrasados();cerrarMenusImprimir()">🔴 Atrasados</button>
+      </div>
+    </div>
     <button id="btn-agregar-lote" onclick="abrirModalAgregarLote()" style="background:rgba(255,255,255,0.2);color:#fff;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">+ Lote</button>
   </div>
   <div class="update-bar" id="cic-update-bar">📅 Cargando datos...</div>
@@ -1451,6 +1460,13 @@ function imprimirFormatoConteo(btn){
     '</tr>';
   }).join('');
 
+  // 3 filas en blanco al final -- por si al contar físicamente aparece un
+  // lote de esta clave que no está dado de alta en SAI, se anota a mano
+  // ahí mismo en vez de tener que hacer otro formato aparte.
+  const filasBlanco=Array.from({length:3}).map(function(){
+    return '<tr class="fila-nueva"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
+  }).join('');
+
   const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Formato de conteo · '+clave+'</title>'+
     '<style>@page{size:5.5in 8.5in;margin:8mm}'+
     'body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0;font-size:11px}'+
@@ -1464,6 +1480,7 @@ function imprimirFormatoConteo(btn){
     'th{background:#4A4A4A;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.3px}'+
     '.foot{margin-top:22px;font-size:10.5px}'+
     '.foot div{margin-bottom:20px;border-bottom:1px solid #999;padding-bottom:3px}'+
+    '.fila-nueva td{height:20px}'+
     '</style></head><body>'+
     '<div class="hdr"><img src="'+LOGO_ANTEII_B64+'" alt="Anteii Laboratorios">'+
       '<div><div class="clave-hdr">'+clave+'</div><div class="desc-hdr">'+(p.desc||'')+'</div></div>'+
@@ -1471,7 +1488,9 @@ function imprimirFormatoConteo(btn){
     '<div class="meta">Formato de conteo · Impreso: '+new Date().toLocaleString('es-MX')+'</div>'+
     '<table><thead><tr><th>Lote</th><th>Ubicación</th><th>Exist. SAI</th><th>Último conteo</th><th>Conteo físico</th></tr></thead><tbody>'+
     filas+
+    filasBlanco+
     '</tbody></table>'+
+    '<div style="font-size:9px;color:#888;margin-top:3px">Filas en blanco: para anotar un lote que no esté dado de alta en SAI.</div>'+
     '<div class="foot">'+
       '<div>Contado por: _______________________</div>'+
       '<div>Fecha: _______________________</div>'+
@@ -1963,6 +1982,26 @@ function generarReporteActual(){
   generarReporte(semana);
 }
 
+
+// Menú desplegable "🖨️ Imprimir" en Cíclicos -- agrupa los botones de
+// imprimir semana / F-AL-018 / atrasados que antes iban sueltos en el
+// header, para no seguir llenando la barra de botones cada vez que se
+// agrega un formato nuevo. Los botones de adentro son los mismos de
+// siempre (mismos id, mismo onclick original) nomás reacomodados.
+function toggleImprimirMenuCic(e){
+  if(e)e.stopPropagation();
+  const m=document.getElementById('cic-imprimir-menu');
+  if(!m)return;
+  const abrir=m.classList.contains('hidden');
+  cerrarMenusImprimir();
+  if(abrir)m.classList.remove('hidden');
+}
+function cerrarMenusImprimir(){
+  document.querySelectorAll('.print-menu').forEach(function(x){x.classList.add('hidden');});
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.print-menu-wrap'))cerrarMenusImprimir();
+});
 
 function imprimirSemanaActual(){
   const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
@@ -3645,6 +3684,9 @@ async function cargarEnriquecimientosInventario_(){
   // Si ya estabas parado en Cíclicos antes de que llegaran las ubicaciones,
   // vuelve a pintar esa lista también para que aparezca la ubicación ahí.
   if(cicLoaded)_renderCicData();
+  // Mismo caso para Carátulas: si ya estabas ahí parado, vuelve a pintar
+  // para que aparezca el "Último conteo" (ver renderCar) en cuanto llegue.
+  if(carLoaded||carEyeLoaded)renderCar();
 }
 
 // ---- Sub-pestañas dentro de Embarques: "Armar Embarques" (lo de siempre)
@@ -4572,10 +4614,15 @@ function renderCar(){
             const almU=(l.almacen||'').toUpperCase();
             const cad=cadInfo(l.caducidad);
             const ubicTxt=ubicTexto_(g.clave,l.lote);
+            const ultimoConteoCar=ultimoConteoMap[g.clave+'|'+l.lote];
+            const conteoHtmlCar=ultimoConteoCar?
+              '<div class="lot-conteo">🕒 Último conteo: '+(ultimoConteoCar.fecha||'').split(',')[0]+' · '+fmt(ultimoConteoCar.cantidad)+' pz</div>':
+              '<div class="lot-conteo sin">🕒 Sin conteo registrado</div>';
             return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-unidad="'+escAttr(l.unidad||'pzas')+'">'
               +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
               +(ubicTxt?'<div style="font-size:11px;color:#E65100;font-weight:700">📍 '+ubicTxt+'</div>':'')
               +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
+              +conteoHtmlCar
               +'<div class="emb-tarima-eye-status"></div>'
               +'<div class="emb-tarima-add">'
                 +'<label class="car-contado-chk"><input type="checkbox" '+(carContadoManual[g.clave+'|'+l.lote+'|'+almU]?'checked':'')+' onchange="toggleCarContado(this)"> Ya contado</label>'
@@ -4610,6 +4657,12 @@ function renderCar(){
             +(cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena — revisar liberación de Calidad antes de mover</div>':'')
             +ubicRowHtml_(g.clave,l.lote)
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+' · U. Empaque: '+uEmp+'</div>'
+            +(function(){
+              const uc=ultimoConteoMap[g.clave+'|'+l.lote];
+              return uc?
+                '<div class="lot-conteo">🕒 Último conteo: '+(uc.fecha||'').split(',')[0]+' · '+fmt(uc.cantidad)+' pz</div>':
+                '<div class="lot-conteo sin">🕒 Sin conteo registrado</div>';
+            })()
             +'<div class="emb-tarima-chips"></div>'
             +'<div class="emb-tarima-add">'
               +'<input type="number" min="0" step="any" inputmode="decimal" class="emb-add-input" placeholder="piezas de esta tarima..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();imprimirCaratula(this.nextElementSibling);}">'
