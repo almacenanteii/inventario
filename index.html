@@ -529,6 +529,7 @@ header.h-dev{background:var(--tl)}
       <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input type="search" id="search-emb" list="emb-clave-list" placeholder="Buscar o elegir código, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
       <datalist id="emb-clave-list"></datalist>
+      <datalist id="ubic-datalist"></datalist>
       <button class="clr" id="clr-emb" onclick="document.getElementById('search-emb').value='';sEmb='';renderEmb();">✕</button>
     </div>
     <div class="filters" id="fi-emb">
@@ -1195,6 +1196,8 @@ function editarUbicacion(el){
   inp.type='text';
   inp.value=actual;
   inp.placeholder='Ej. Rack A-3, Nivel 2...';
+  inp.setAttribute('list','ubic-datalist');
+  inp.setAttribute('autocomplete','off');
   inp.style.cssText='width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none';
   box.appendChild(inp);
 
@@ -1224,9 +1227,51 @@ function editarUbicacion(el){
   inp.select();
 }
 
+// Detecta si una ubicación ya está tomada por OTRA clave (producto
+// distinto). Que la misma clave repita la ubicación en varios de sus
+// lotes es normal (tarimas del mismo material una junto a otra) y no se
+// avisa; el conflicto real es que dos productos distintos "peleen" el
+// mismo lugar físico.
+function buscarConflictoUbicacion_(clave,ubicacion){
+  const u=ubicacion.trim().toLowerCase();
+  if(!u)return null;
+  for(const key in ubicMap){
+    const arr=ubicMap[key]||[];
+    for(let i=0;i<arr.length;i++){
+      const entry=arr[i];
+      if(entry.clave!==clave&&(entry.ubicacion||'').trim().toLowerCase()===u){
+        return entry;
+      }
+    }
+  }
+  return null;
+}
+
+// Refresca el <datalist> de autocompletar con todas las ubicaciones que ya
+// existen en el Sheet -- así, al escribir una ubicación nueva, se sugieren
+// las que ya se usan (mismo formato de racks/niveles) en vez de escribir
+// todo desde cero cada vez.
+function refrescarUbicDatalist_(){
+  const dl=document.getElementById('ubic-datalist');
+  if(!dl)return;
+  const set=new Set();
+  Object.keys(ubicMap).forEach(function(key){
+    (ubicMap[key]||[]).forEach(function(u){
+      const v=(u.ubicacion||'').trim();
+      if(v)set.add(v);
+    });
+  });
+  dl.innerHTML=Array.from(set).sort().map(function(v){return '<option value="'+escAttr(v)+'">';}).join('');
+}
+
 function guardarUbicacion(clave,lote,ubicacion){
   ubicacion=(ubicacion||'').trim();
   if(!ubicacion)return;
+  const conflicto=buscarConflictoUbicacion_(clave,ubicacion);
+  if(conflicto){
+    const ok=confirm('⚠️ La ubicación "'+ubicacion+'" ya está asignada a la clave '+conflicto.clave+' (lote '+conflicto.lote+').\n\n¿De todos modos quieres asignarla también aquí, a '+clave+'?');
+    if(!ok)return;
+  }
   const key=clave+'|'+lote;
   const existentes=ubicMap[key]||[];
   // Un lote puede tener varias ubicaciones a la vez -- esto AGREGA una más,
@@ -1245,6 +1290,7 @@ function guardarUbicacion(clave,lote,ubicacion){
   if(!ubicMap[key])ubicMap[key]=[];
   ubicMap[key].push(entry);
   ubicPorClave[clave]=entry;
+  refrescarUbicDatalist_();
   renderActiveTab_();
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'ubicacion',clave:clave,lote:lote,ubicacion:ubicacion,registrado:nombre,fecha:fecha})})
     .catch(function(e){console.error('Error guardando ubicación:',e);});
@@ -1258,6 +1304,7 @@ function borrarUbicacion(el){
   Object.keys(ubicMap).forEach(function(key){
     ubicMap[key]=ubicMap[key].filter(function(u){return u.id!==id;});
   });
+  refrescarUbicDatalist_();
   renderActiveTab_();
   if(id.indexOf('tmp-')===0){
     // Todavía no tenemos el Id real del servidor (se guardó hace instantes)
@@ -1285,6 +1332,7 @@ async function recargarUbicaciones(){
         ubicPorClave[u.clave]=u;
       }
     });
+    refrescarUbicDatalist_();
     renderActiveTab_();
   }catch(e){console.warn('No se pudo refrescar ubicaciones:',e);}
 }
@@ -3724,6 +3772,7 @@ async function cargarEnriquecimientosInventario_(){
         }
       });
     }catch(eu){console.warn('No se pudieron leer ubicaciones:',eu);}
+    refrescarUbicDatalist_();
   }
   // Último conteo por clave|lote: se lee en vivo del mismo Historial que
   // usa Cíclicos, no del CSV publicado (mismo motivo que Ubicaciones: el
