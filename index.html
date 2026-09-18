@@ -428,6 +428,7 @@ header.h-dev{background:var(--tl)}
       <button id="btn-inv-imprimir-toggle" onclick="toggleImprimirMenuInv(event)" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir ▾ <span id="inv-print-clave-lbl"></span></button>
       <div id="inv-imprimir-menu" class="print-menu hidden">
         <button class="menu-item" onclick="imprimirFormatoConteoSel();cerrarMenusImprimir()">🖨️ Formato de conteo</button>
+        <button class="menu-item" style="color:#999" onclick="limpiarSeleccionInv()">✕ Quitar selección</button>
       </div>
     </div>
     <button id="btn-bitacora-ubic" onclick="imprimirBitacoraUbicaciones()" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Bitácora ubic.</button>
@@ -835,12 +836,20 @@ let tab='inv',fInv='TODOS',fAbc='TODOS',fEmb='TODOS',sInv='',sAbc='',sEmb='';
 // en cada tarjeta, primero se selecciona la clave (tap en su encabezado) y
 // arriba en el header aparece el menú de formatos disponibles para esa
 // clave. Evita llenar la lista de botones repetidos.
-let invClaveSel=null;
+// Selección MÚLTIPLE de claves en Inventario -- se puede ir tocando varias
+// tarjetas y todas quedan marcadas; el formato de conteo sale con una
+// página por cada clave seleccionada, en un solo trabajo de impresión.
+let invClaveSel=new Set();
 function seleccionarClaveInv(el){
   const wrap=el.closest('[data-clave-sel]');
   if(!wrap)return;
   const clave=wrap.dataset.claveSel;
-  invClaveSel=(invClaveSel===clave)?null:clave;
+  if(invClaveSel.has(clave))invClaveSel.delete(clave);else invClaveSel.add(clave);
+  cerrarMenusImprimir();
+  renderInv();
+}
+function limpiarSeleccionInv(){
+  invClaveSel.clear();
   cerrarMenusImprimir();
   renderInv();
 }
@@ -848,8 +857,8 @@ function actualizarMenuImprimirInv_(){
   const wrap=document.getElementById('inv-print-menu-wrap');
   const lbl=document.getElementById('inv-print-clave-lbl');
   if(!wrap)return;
-  wrap.classList.toggle('hidden',!invClaveSel);
-  if(lbl)lbl.textContent=invClaveSel||'';
+  wrap.classList.toggle('hidden',invClaveSel.size===0);
+  if(lbl)lbl.textContent=invClaveSel.size===1?Array.from(invClaveSel)[0]:(invClaveSel.size?invClaveSel.size+' seleccionadas':'');
 }
 function toggleImprimirMenuInv(e){
   if(e)e.stopPropagation();
@@ -860,8 +869,8 @@ function toggleImprimirMenuInv(e){
   if(abrir)m.classList.remove('hidden');
 }
 function imprimirFormatoConteoSel(){
-  if(!invClaveSel)return;
-  imprimirFormatoConteo(invClaveSel);
+  if(!invClaveSel.size)return;
+  imprimirFormatoConteo(Array.from(invClaveSel));
 }
 const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
 let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
@@ -1512,7 +1521,7 @@ function renderInv(){
   // Si la clave seleccionada ya no aparece en la lista filtrada (se buscó
   // otra cosa, etc.), se quita la selección para no dejar el menú de
   // imprimir apuntando a una clave que ya no se ve.
-  if(invClaveSel&&!items.some(p=>p.clave===invClaveSel))invClaveSel=null;
+  Array.from(invClaveSel).forEach(c=>{if(!items.some(p=>p.clave===c))invClaveSel.delete(c);});
   if(!items.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-inv').textContent=sInv;actualizarMenuImprimirInv_();return;}
   empty.classList.add('hidden');
   const groups={};
@@ -1538,7 +1547,7 @@ function renderInv(){
       const schedHtmlInv=schedInfoInv?
         `<div style="font-size:10.5px;color:#1F4E79;font-weight:700;margin-top:3px">📅 Semana ${schedInfoInv.semana_cal} · Clase ${schedInfoInv.abc}</div>`:
         `<div style="font-size:10.5px;color:#b0b0b0;font-style:italic;margin-top:3px">Sin clasificar</div>`;
-      const sel=p.clave===invClaveSel;
+      const sel=invClaveSel.has(p.clave);
       return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
     }).join('')
   ).join('');
@@ -1549,10 +1558,13 @@ function renderInv(){
 // verificar físicamente una clave concreta fuera del ciclo normal de
 // Cíclicos -- se llena a mano con pluma, así que la letra es de tamaño
 // normal (no gigante como las carátulas que se pegan en tarimas).
-function imprimirFormatoConteo(clave){
+// Arma el bloque (una "página" de media carta) del formato de conteo para
+// UNA clave. Se usa tanto para imprimir una sola clave como para imprimir
+// varias juntas (ver imprimirFormatoConteo), una página por clave.
+function construirBloqueFormatoConteo_(clave){
   const ALL_A=window._ALL_A||[];
   const p=ALL_A.find(function(x){return x.clave===clave;});
-  if(!p||!p.lotes.length){ alert('No se encontraron lotes para esta clave.'); return; }
+  if(!p||!p.lotes.length)return null;
 
   const filas=p.lotes.map(function(l){
     const key=clave+'|'+l.lote;
@@ -1575,21 +1587,7 @@ function imprimirFormatoConteo(clave){
     return '<tr class="fila-nueva"><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td><td>&nbsp;</td></tr>';
   }).join('');
 
-  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Formato de conteo · '+clave+'</title>'+
-    '<style>@page{size:5.5in 8.5in;margin:8mm}'+
-    'body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0;font-size:11px}'+
-    '.hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #E8671A;padding-bottom:8px;margin-bottom:10px}'+
-    '.hdr img{height:38px;width:auto;display:block}'+
-    '.clave-hdr{font-size:20px;font-weight:900;line-height:1.1}'+
-    '.desc-hdr{font-size:11px;color:#555;margin-top:2px}'+
-    '.meta{font-size:9.5px;color:#888;margin-bottom:8px}'+
-    'table{width:100%;border-collapse:collapse}'+
-    'th,td{border:1px solid #999;padding:6px 5px;font-size:10px;text-align:left;vertical-align:middle}'+
-    'th{background:#4A4A4A;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.3px}'+
-    '.foot{margin-top:22px;font-size:10.5px}'+
-    '.foot div{margin-bottom:20px;border-bottom:1px solid #999;padding-bottom:3px}'+
-    '.fila-nueva td{height:20px}'+
-    '</style></head><body>'+
+  return '<div class="pagina">'+
     '<div class="hdr"><img src="'+LOGO_ANTEII_B64+'" alt="Anteii Laboratorios">'+
       '<div><div class="clave-hdr">'+clave+'</div><div class="desc-hdr">'+(p.desc||'')+'</div></div>'+
     '</div>'+
@@ -1603,6 +1601,37 @@ function imprimirFormatoConteo(clave){
       '<div>Contado por: _______________________</div>'+
       '<div>Fecha: _______________________</div>'+
     '</div>'+
+  '</div>';
+}
+
+// Acepta una clave sola o un arreglo de claves -- con varias, imprime una
+// página de media carta por clave, todas en el mismo trabajo de impresión
+// (así se puede seleccionar 2 o más códigos en Inventario y sacarlos juntos
+// de un jalón, en vez de repetir la operación uno por uno).
+function imprimirFormatoConteo(claveOClaves){
+  const claves=Array.isArray(claveOClaves)?claveOClaves:[claveOClaves];
+  const bloques=claves.map(construirBloqueFormatoConteo_).filter(Boolean);
+  if(!bloques.length){ alert('No se encontraron lotes para la(s) clave(s) seleccionada(s).'); return; }
+
+  const tituloDoc=claves.length>1?(claves.length+' claves'):claves[0];
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Formato de conteo · '+tituloDoc+'</title>'+
+    '<style>@page{size:5.5in 8.5in;margin:8mm}'+
+    'body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0;font-size:11px}'+
+    '.pagina{page-break-after:always}'+
+    '.pagina:last-child{page-break-after:auto}'+
+    '.hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #E8671A;padding-bottom:8px;margin-bottom:10px}'+
+    '.hdr img{height:38px;width:auto;display:block}'+
+    '.clave-hdr{font-size:20px;font-weight:900;line-height:1.1}'+
+    '.desc-hdr{font-size:11px;color:#555;margin-top:2px}'+
+    '.meta{font-size:9.5px;color:#888;margin-bottom:8px}'+
+    'table{width:100%;border-collapse:collapse}'+
+    'th,td{border:1px solid #999;padding:6px 5px;font-size:10px;text-align:left;vertical-align:middle}'+
+    'th{background:#4A4A4A;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.3px}'+
+    '.foot{margin-top:22px;font-size:10.5px}'+
+    '.foot div{margin-bottom:20px;border-bottom:1px solid #999;padding-bottom:3px}'+
+    '.fila-nueva td{height:20px}'+
+    '</style></head><body>'+
+    bloques.join('')+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
 
