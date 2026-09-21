@@ -1042,7 +1042,13 @@ function ubicRowHtml_(clave,lote){
   const addCls=pasteMode?' paste-mode':'';
   const addAttr=pasteMode?'📥':'➕';
   const addTitle=pasteMode?'Pegar ubicación copiada aquí':'Agregar ubicación';
-  const addBtn='<span class="loc-add'+addCls+'" data-clave="'+escAttr(clave)+'" data-lote="'+escAttr(lote)+'" data-ubic="'+escAttr(sugerida)+'" onclick="editarUbicacion(this)" title="'+addTitle+'">'+addAttr+'</span>';
+  // OJO: "sugerida" va en data-sugerida, NO en data-ubic -- antes se metía
+  // directo en data-ubic y editarUbicacion() la precargaba YA ESCRITA en el
+  // cuadro de guardar, así que bastaba tocar "➕" y "Guardar" sin fijarse
+  // para que un lote se quedara con la ubicación de OTRO lote de la misma
+  // clave. Ahora el cuadro siempre sale vacío; la sugerencia nomás se
+  // ofrece como botón aparte que hay que tocar a propósito para usarla.
+  const addBtn='<span class="loc-add'+addCls+'" data-clave="'+escAttr(clave)+'" data-lote="'+escAttr(lote)+'" data-sugerida="'+escAttr(sugerida)+'" onclick="editarUbicacion(this)" title="'+addTitle+'">'+addAttr+'</span>';
   return '<div class="loc-row">'+chipsHtml+addBtn+'</div>';
 }
 
@@ -1201,7 +1207,12 @@ function editarUbicacion(el){
     pegarUbicacion(el);
     return;
   }
-  const clave=el.dataset.clave, lote=el.dataset.lote, actual=el.dataset.ubic||'';
+  // El cuadro para guardar SIEMPRE arranca vacío -- "sugerida" (última
+  // ubicación conocida de esta CLAVE, no de este lote) ya no se precarga
+  // sola: se ofrece como botón aparte que hay que tocar a propósito para
+  // usarla. Así nunca se guarda por accidente la ubicación de otro lote
+  // nomás por tocar "➕" y "Guardar" sin fijarse.
+  const clave=el.dataset.clave, lote=el.dataset.lote, sugerida=el.dataset.sugerida||'';
   const old=document.getElementById('ubic-modal');
   if(old)old.remove();
 
@@ -1222,21 +1233,25 @@ function editarUbicacion(el){
   info.textContent=clave+' · '+lote;
   box.appendChild(info);
 
-  if(actual){
-    const hint=document.createElement('div');
-    hint.style.cssText='font-size:11px;color:#E8671A;background:#fff8e1;border-radius:6px;padding:6px 8px;margin-bottom:10px';
-    hint.textContent='Sugerencia (última ubicación conocida de esta clave) — edítala o bórrala si no aplica aquí';
-    box.appendChild(hint);
-  }
-
   const inp=document.createElement('input');
   inp.type='text';
-  inp.value=actual;
+  inp.value='';
   inp.placeholder='Ej. Rack A-3, Nivel 2...';
   inp.setAttribute('list','ubic-datalist');
   inp.setAttribute('autocomplete','off');
   inp.style.cssText='width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none';
   box.appendChild(inp);
+
+  // La sugerencia (última ubicación conocida de esta CLAVE) sale como
+  // botón aparte, no ya escrita en el cuadro -- hay que tocarla a
+  // propósito para usarla, así nunca se guarda sola por accidente.
+  if(sugerida){
+    const sugBtn=document.createElement('div');
+    sugBtn.style.cssText='font-size:11.5px;color:#E8671A;background:#fff8e1;border:1px dashed #E8671A;border-radius:6px;padding:7px 9px;margin-top:8px;cursor:pointer;font-weight:700';
+    sugBtn.textContent='💡 Usar sugerencia: '+sugerida+' (última de esta clave)';
+    sugBtn.onclick=function(){ inp.value=sugerida; inp.focus(); };
+    box.appendChild(sugBtn);
+  }
 
   const row=document.createElement('div');
   row.style.cssText='display:flex;gap:8px;margin-top:14px';
