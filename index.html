@@ -90,6 +90,9 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .filters::-webkit-scrollbar{display:none}
 .chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:none;background:rgba(255,255,255,.25);color:rgba(255,255,255,.9);white-space:nowrap;cursor:pointer}
 .chip.a-inv{background:#fff;color:var(--or)}
+#inv-sub-nav{background:#2d2d2d;padding:10px 14px;margin:0;position:sticky;top:0;z-index:150}
+#inv-sub-nav .chip{background:rgba(255,255,255,.15);color:#fff}
+#inv-sub-nav .chip.a-inv{background:var(--or);color:#fff}
 .chip.a-cic{background:#fff;color:var(--pu)}
 .chip.active{background:rgba(255,255,255,.95);color:#333;font-weight:800} .chip.a-abc{background:#fff;color:var(--gn)} .chip.a-q40{background:#fff;color:var(--rd)} .chip.a-cic{background:#fff;color:var(--pu)}
 
@@ -417,9 +420,17 @@ header.h-dev{background:var(--tl)}
   <button class="nav-btn" id="nb-cic" onclick="switchTab('cic')"><span class="nav-ico">📊</span>Cíclicos</button>
   <button class="nav-btn" id="nb-dev" onclick="switchTab('dev')"><span class="nav-ico">↩️</span>Devoluciones</button>
   <button class="nav-btn" id="nb-emb" onclick="switchTab('emb')"><span class="nav-ico">🚚</span>Embarques</button>
-  <button class="nav-btn" id="nb-car" onclick="switchTab('car')"><span class="nav-ico">🏷️</span>Carátulas</button>
   <button class="nav-btn" id="nb-dash" onclick="switchTab('dash')"><span class="nav-ico">📈</span>Dashboard</button>
 </nav>
+
+<!-- Carátulas ya no es una pestaña aparte -- vive dentro de Inventario,
+     como un sub-modo ("Existencias" vs "Carátulas"). Se muestra en cuanto
+     estás parado en 'inv' o en 'car' (el tab interno de Carátulas sigue
+     existiendo tal cual, nomás ya no tiene botón propio en el nav). -->
+<div class="filters" id="inv-sub-nav">
+  <div class="chip a-inv" data-subt="inv">📦 Existencias</div>
+  <div class="chip" data-subt="car">🏷️ Carátulas (imprimir)</div>
+</div>
 
 <header class="h-inv" id="hdr-inv">
   <div class="hdr-top">
@@ -1047,8 +1058,22 @@ function switchTab(t){
     ['hdr-','kpis-','bar-','list-','empty-'].forEach(function(p){
       document.getElementById(p+x)?.classList.toggle('hidden',x!==t);
     });
-    document.getElementById('nb-'+x).className='nav-btn'+(x===t?' a-'+x:'');
   });
+  // 'car' ya no tiene botón propio en el nav (ver inv-sub-nav) -- solo los
+  // demás tabs tienen su nb-<tab> para marcar activo/inactivo.
+  ['inv','emb','dash','dev','cic'].forEach(function(x){
+    const btn=document.getElementById('nb-'+x);
+    if(btn)btn.className='nav-btn'+(x===t?' a-'+x:'');
+  });
+  // Sub-nav de Inventario (Existencias / Carátulas): visible mientras
+  // estés en cualquiera de los dos, marca cuál está activo.
+  const subNav=document.getElementById('inv-sub-nav');
+  if(subNav){
+    subNav.classList.toggle('hidden',t!=='inv'&&t!=='car');
+    subNav.querySelectorAll('.chip').forEach(function(c){
+      c.classList.toggle('a-inv',c.dataset.subt===t);
+    });
+  }
   // Handle cic separately (has extra elements)
   ['hdr-cic','kpis-cic','bar-cic','list-cic','empty-cic'].forEach(function(id){
     document.getElementById(id)?.classList.toggle('hidden',t!=='cic');
@@ -4703,7 +4728,7 @@ function getFiltCar(){
   }
   return (CAR_LOADED||[]).filter(function(r){
     const alm=(r.almacen||'').toUpperCase();
-    if(alm!=='PTJAL'&&alm!=='PTFGUAD'&&alm!=='40PT')return false;
+    if(alm!=='PTJAL'&&alm!=='PTFGUAD'&&alm!=='40PT'&&alm!=='REPROJAL')return false;
     if(q&&!smartMatch(r.clave,sCar)&&!smartMatch(r.desc,sCar)&&!smartMatch(r.lote,sCar)&&!(ubicMap[r.clave+'|'+r.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sCar);}))return false;
     return true;
   });
@@ -4743,7 +4768,7 @@ function renderCar(){
   const carItemsCount=groups.length;
   const totalExist=groups.reduce(function(s,g){return s+g.totalExist;},0);
   const kPiezas=document.getElementById('k-car-piezas'); if(kPiezas)kPiezas.textContent=fmt(totalExist);
-  const kPiezasSub=document.getElementById('k-car-piezas-sub'); if(kPiezasSub)kPiezasSub.textContent=carMode==='EYE'?'en EYEJAL/40EYE':'en PTJAL + PTFGUAD + 40PT';
+  const kPiezasSub=document.getElementById('k-car-piezas-sub'); if(kPiezasSub)kPiezasSub.textContent=carMode==='EYE'?'en EYEJAL/40EYE':'en PTJAL + PTFGUAD + 40PT + REPROJAL';
   const kClaves=document.getElementById('k-car-claves'); if(kClaves)kClaves.textContent=carItemsCount.toLocaleString('en-US');
 
   const list=document.getElementById('list-car'),empty=document.getElementById('empty-car');
@@ -5606,6 +5631,7 @@ document.getElementById('search-cic').addEventListener('input',function(){sCic=t
 
 // Chip filters
 document.querySelectorAll('#fi-inv .chip').forEach(function(c){c.addEventListener('click',function(){fInv=this.dataset.f;document.querySelectorAll('#fi-inv .chip').forEach(function(x){x.classList.remove('active','a-inv');});this.classList.add('active');renderInv();});});
+document.querySelectorAll('#inv-sub-nav .chip').forEach(function(c){c.addEventListener('click',function(){switchTab(this.dataset.subt);});});
 document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListener('click',function(){fCic=this.dataset.f||this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(function(x){x.classList.remove('active','a-cic');});this.classList.add('active');if(cicData.length){_renderCicData();}else{loadCic();}});});
 
 document.getElementById('search-emb').addEventListener('input',function(){sEmb=this.value;renderEmb();});
