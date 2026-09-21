@@ -90,9 +90,6 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .filters::-webkit-scrollbar{display:none}
 .chip{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;border:none;background:rgba(255,255,255,.25);color:rgba(255,255,255,.9);white-space:nowrap;cursor:pointer}
 .chip.a-inv{background:#fff;color:var(--or)}
-#inv-sub-nav{background:#2d2d2d;padding:10px 14px;margin:0;position:sticky;top:0;z-index:150}
-#inv-sub-nav .chip{background:rgba(255,255,255,.15);color:#fff}
-#inv-sub-nav .chip.a-inv{background:var(--or);color:#fff}
 .chip.a-cic{background:#fff;color:var(--pu)}
 .chip.active{background:rgba(255,255,255,.95);color:#333;font-weight:800} .chip.a-abc{background:#fff;color:var(--gn)} .chip.a-q40{background:#fff;color:var(--rd)} .chip.a-cic{background:#fff;color:var(--pu)}
 
@@ -182,6 +179,13 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .lot-right{text-align:right}
 .lot-qty{font-size:15px;font-weight:800;color:var(--gr)}
 .lot-unit{font-size:10px;color:var(--gr2)}
+/* Fusión con Carátulas: los lotes de Inventario reusan .emb-lote-row (y sus
+   funciones imprimirCaratula/imprimirCaratulaEye/toggleCarContado) para el
+   botón de imprimir + checkbox "Ya contado" de cada lote. .emb-lote-row por
+   sí sola es flex-column (diseño de Embarques/Carátulas); aquí se sobreescribe
+   para que, combinada con .lot, mantenga el layout de 2 columnas de Inventario. */
+.lot.emb-lote-row{display:grid;grid-template-columns:1fr auto;gap:4px;padding:9px 14px;align-items:start}
+.lot.emb-lote-row .emb-tarima-add{margin-top:6px}
 
 .hlot{padding:9px 14px;border-bottom:1px solid #f5f5f5;display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
 .hlot:last-child{border-bottom:none}
@@ -423,15 +427,8 @@ header.h-dev{background:var(--tl)}
   <button class="nav-btn" id="nb-dash" onclick="switchTab('dash')"><span class="nav-ico">📈</span>Dashboard</button>
 </nav>
 
-<!-- Carátulas ya no es una pestaña aparte -- vive dentro de Inventario,
-     como un sub-modo ("Existencias" vs "Carátulas"). Se muestra en cuanto
-     estás parado en 'inv' o en 'car' (el tab interno de Carátulas sigue
-     existiendo tal cual, nomás ya no tiene botón propio en el nav). -->
-<div class="filters" id="inv-sub-nav">
-  <div class="chip a-inv" data-subt="inv">📦 Existencias</div>
-  <div class="chip" data-subt="car">🏷️ Carátulas (imprimir)</div>
-</div>
-
+<!-- Carátulas ya no es pestaña ni sub-modo aparte: todo (EYE + PT) vive
+     en la misma lista de Inventario. Ver buildAllA() / getFiltA(). -->
 <header class="h-inv" id="hdr-inv">
   <div class="hdr-top">
     <h1>🏭 Inventario</h1>
@@ -439,6 +436,7 @@ header.h-dev{background:var(--tl)}
       <button id="btn-inv-imprimir-toggle" onclick="toggleImprimirMenuInv(event)" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir ▾ <span id="inv-print-clave-lbl"></span></button>
       <div id="inv-imprimir-menu" class="print-menu hidden">
         <button class="menu-item" onclick="imprimirFormatoConteoSel();cerrarMenusImprimir()">🖨️ Formato de conteo</button>
+        <button class="menu-item" onclick="imprimirClaveCompletaSel();cerrarMenusImprimir()">🖨️ Imprimir clave completa (lotes + ubicaciones)</button>
         <button class="menu-item" style="color:#999" onclick="limpiarSeleccionInv()">✕ Quitar selección</button>
       </div>
     </div>
@@ -454,6 +452,10 @@ header.h-dev{background:var(--tl)}
     <div class="chip a-inv" data-f="TODOS">Todos</div>
     <div class="chip" data-f="EYEJAL">EYEJAL</div>
     <div class="chip" data-f="40EYE">40 EYE</div>
+    <div class="chip" data-f="PTJAL">PTJAL</div>
+    <div class="chip" data-f="PTFGUAD">PTFGUAD</div>
+    <div class="chip" data-f="40PT">40 PT</div>
+    <div class="chip" data-f="REPROJAL">REPROJAL</div>
   </div>
 </header>
 
@@ -883,6 +885,13 @@ function imprimirFormatoConteoSel(){
   if(!invClaveSel.size)return;
   imprimirFormatoConteo(Array.from(invClaveSel));
 }
+// "Imprimir clave completa" (todos los lotes + ubicaciones de UNA clave, en
+// una sola hoja) solo tiene sentido para una clave a la vez -- si hay
+// varias seleccionadas, se le pide al usuario que deje nada más una.
+function imprimirClaveCompletaSel(){
+  if(invClaveSel.size!==1){ alert('Selecciona exactamente una clave (nomás una) para imprimir su ficha completa con todos sus lotes y ubicaciones.'); return; }
+  imprimirClaveCompleta(Array.from(invClaveSel)[0]);
+}
 const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
 let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
 let embQty={};
@@ -1059,21 +1068,12 @@ function switchTab(t){
       document.getElementById(p+x)?.classList.toggle('hidden',x!==t);
     });
   });
-  // 'car' ya no tiene botón propio en el nav (ver inv-sub-nav) -- solo los
-  // demás tabs tienen su nb-<tab> para marcar activo/inactivo.
+  // 'car' ya no tiene botón propio en el nav ni sub-modo: Carátulas se
+  // fusionó por completo dentro de Inventario (ver buildAllA()).
   ['inv','emb','dash','dev','cic'].forEach(function(x){
     const btn=document.getElementById('nb-'+x);
     if(btn)btn.className='nav-btn'+(x===t?' a-'+x:'');
   });
-  // Sub-nav de Inventario (Existencias / Carátulas): visible mientras
-  // estés en cualquiera de los dos, marca cuál está activo.
-  const subNav=document.getElementById('inv-sub-nav');
-  if(subNav){
-    subNav.classList.toggle('hidden',t!=='inv'&&t!=='car');
-    subNav.querySelectorAll('.chip').forEach(function(c){
-      c.classList.toggle('a-inv',c.dataset.subt===t);
-    });
-  }
   // Handle cic separately (has extra elements)
   ['hdr-cic','kpis-cic','bar-cic','list-cic','empty-cic'].forEach(function(id){
     document.getElementById(id)?.classList.toggle('hidden',t!=='cic');
@@ -1135,7 +1135,10 @@ function smartMatch(text, query){
 
 function getFiltA(){
   const q=sInv.toLowerCase().trim();
-  const ALMS=['EYEJAL','40EYE'];
+  // "Todos" ya no es nomás EYE -- incluye también los almacenes de PT
+  // (fusión de Carátulas dentro de Inventario). Cada chip individual sigue
+  // filtrando solo ese almacén.
+  const ALMS=['EYEJAL','40EYE','40PT','PTJAL','PTFGUAD','REPROJAL'];
   const ALL_A=window._ALL_A||[];return ALL_A.filter(p=>{
     if(ALMS.includes(fInv)&&!p.alms.includes(fInv))return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
@@ -1555,6 +1558,8 @@ function renderInv(){
   list.innerHTML=order.filter(c=>groups[c]).map(c=>'<div class="sec-hdr oh"><span class="sec-badge sb-or">'+c+'</span>'+groups[c].length+' artículos</div>'+
     groups[c].map(p=>{
       const lots=p.lotes.map(l=>{
+        const almU=(l.almacen||'').toUpperCase();
+        const esPT=['40PT','PTJAL','PTFGUAD','REPROJAL'].indexOf(almU)!==-1;
         const cad=cadInfo(l.caducidad);
         const key=p.clave+'|'+l.lote;
         const ubicBtn=ubicRowHtml_(p.clave,l.lote);
@@ -1565,7 +1570,42 @@ function renderInv(){
         const devInfo=ultimaDevInfo_(devPorLoteMap[key]);
         const devHtml=devInfo?
           `<div class="lot-dev">↩️ ${devInfo.count} devolucion${devInfo.count>1?'es':''} · última: ${(devInfo.ultima.fecha||'').split(',')[0]} · ${fmt(devInfo.ultima.cantidad)} pz</div>`:'';
-        return`<div class="lot"><div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${devHtml}${ubicBtn}</div><div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
+        const contadoChecked=carContadoManual[key+'|'+almU]?'checked':'';
+
+        // Fusión con Carátulas: cada lote (EYE o PT) trae su propio botón
+        // "🖨️ Imprimir carátula" + checkbox "Ya contado", igual que antes
+        // vivía en la pestaña Carátulas -- reusa las mismas funciones
+        // (imprimirCaratula/imprimirCaratulaEye/toggleCarContado), que
+        // buscan sus datos en el .emb-lote-row más cercano.
+        if(esPT){
+          const pzasInfo=PZAS_MAP[p.clave]||null;
+          const uEmp=pzasInfo&&pzasInfo.pzasXCaja?fmt(pzasInfo.pzasXCaja)+' pz/caja':'—';
+          const cuarentena=almU==='40PT';
+          const manualBadge=l.origen==='MANUAL'?
+            '<div style="font-size:11px;font-weight:700;color:#E8671A;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px;margin:2px 0">'+
+              '<span>⚡ Agregado a mano — aún no está en sistema</span>'+
+              '<span style="cursor:pointer;text-decoration:underline;white-space:nowrap" data-idmanual="'+escAttr(l.idManual||'')+'" onclick="quitarPtManual(this)">Quitar</span>'+
+            '</div>':'';
+          const cuarentenaHtml=cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena — revisar liberación de Calidad antes de mover</div>':'';
+          return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-uempaque="${pzasInfo&&pzasInfo.pzasXCaja?pzasInfo.pzasXCaja:''}" data-origen="${escAttr(l.origen||'')}">`+
+            `<div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(almU)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}`+
+            manualBadge+cuarentenaHtml+
+            `${conteoHtml}${devHtml}${ubicBtn}`+
+            `<div style="font-size:10.5px;color:#777;margin-top:2px">U. Empaque: ${uEmp}</div>`+
+            `<div class="emb-tarima-add">`+
+              `<input type="number" min="0" step="any" inputmode="decimal" class="emb-add-input" placeholder="piezas de esta tarima..." onkeydown="if(event.key==='Enter'){event.preventDefault();imprimirCaratula(this.nextElementSibling);}">`+
+              `<label class="car-contado-chk"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
+              `<button type="button" onclick="imprimirCaratula(this)">🖨️ Imprimir carátula</button>`+
+            `</div></div>`+
+            `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
+        }
+        return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-unidad="${escAttr(l.unidad||'pzas')}">`+
+          `<div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${devHtml}${ubicBtn}`+
+          `<div class="emb-tarima-add">`+
+            `<label class="car-contado-chk"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
+            `<button type="button" onclick="imprimirCaratulaEye(this)">🖨️ Imprimir carátula</button>`+
+          `</div></div>`+
+          `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
       }).join('');
       const schedInfoInv=SCHED.find(function(s){return s.clave===p.clave;});
       const schedHtmlInv=schedInfoInv?
@@ -4028,9 +4068,15 @@ async function mezclarPtManualEn_(destino){
   }
 }
 
+// Modelo único de Inventario: junta EYE (ACTUAL_LOADED, de Inventario) y PT
+// (CAR_LOADED, de InventarioPT -- antes vivía nada más en Carátulas) en un
+// solo listado agrupado por clave. Si una clave tiene lotes en ambos, salen
+// juntos en la misma tarjeta -- así "todo lo referente a un código" está en
+// un solo lugar, con sus almacenes en .alms.
 function buildAllA(){
   const am={};
-  ACTUAL_LOADED.forEach(function(r){
+  const rows=(ACTUAL_LOADED||[]).concat(CAR_LOADED||[]);
+  rows.forEach(function(r){
     if(!am[r.clave])am[r.clave]={clase:r.clase,clave:r.clave,desc:r.desc,loc:r.loc||'',lotes:[],alms:new Set()};
     am[r.clave].lotes.push(r);
     am[r.clave].alms.add((r.almacen||'').replace(/\s+/g,''));
@@ -4267,7 +4313,11 @@ function guardarPtManual(){
     mezclarPtManualEn_(EMB_LOADED).then(renderEmb);
     if(carLoaded){
       CAR_LOADED=CAR_LOADED.filter(function(r){return r.origen!=='MANUAL';});
-      mezclarPtManualEn_(CAR_LOADED).then(function(){ if(document.getElementById('list-car'))renderCar(); });
+      mezclarPtManualEn_(CAR_LOADED).then(function(){
+        if(document.getElementById('list-car'))renderCar();
+        buildAllA();
+        if(document.getElementById('list-inv'))renderInv();
+      });
     }
   },1500);
 }
@@ -4280,6 +4330,8 @@ function quitarPtManual(el){
   CAR_LOADED=CAR_LOADED.filter(quitarDe);
   if(document.getElementById('list-emb'))renderEmb();
   if(document.getElementById('list-car'))renderCar();
+  buildAllA();
+  if(document.getElementById('list-inv'))renderInv();
   if(id&&id.indexOf('tmp-')!==0){
     fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_pt_manual',id:id})})
       .catch(function(e){console.error('Error eliminando PT manual:',e);});
@@ -4408,7 +4460,11 @@ function renderEmb(){
 function recalcEmbLetters(){
   let counter=0;
   const assign=[];
-  document.querySelectorAll('.emb-lote-row').forEach(function(row){
+  // Escopado a #list-emb: Inventario ahora también usa .emb-lote-row para
+  // sus propios lotes (fusión con Carátulas) -- sin este scope, esos
+  // lotes de Inventario se colarían aquí y correrían mal las letras de
+  // tarima del Plan de Embarque.
+  document.querySelectorAll('#list-emb .emb-lote-row').forEach(function(row){
     const key=row.dataset.clave+'|'+row.dataset.lote+'|'+row.dataset.almacen;
     const arr=embQty[key]||[];
     const chipsEl=row.querySelector('.emb-tarima-chips');
@@ -4687,6 +4743,12 @@ async function loadCaratulasPT(){
   }
 
   renderCar();
+  // PT (CAR_LOADED) ahora también vive fusionado dentro de la lista de
+  // Inventario (ver buildAllA()) -- se reconstruye el modelo unificado y se
+  // vuelve a pintar Inventario en cuanto llega esta data, sin importar si
+  // esta función se disparó desde el arranque o desde algo manual.
+  buildAllA();
+  if(document.getElementById('list-inv'))renderInv();
 }
 
 async function loadCaratulasEye(){
@@ -5055,23 +5117,44 @@ function imprimirCaratulaEye(btn){
 // para pegar en tarimas que se suben hasta nivel 5 de racks, así que el
 // texto tiene que ser grande y legible desde lejos -- el tamaño de letra se
 // ajusta según cuántos lotes hay, para que siempre quepa en una hoja.
-function imprimirClaveCompleta(btn){
-  const wrap=btn.closest('[data-clave-all]');
-  if(!wrap)return;
-  const clave=wrap.dataset.claveAll;
-  const g=buildCarGroups().find(function(x){return x.clave===clave;});
+// Acepta la clave (string, usado desde el menú "🖨️ Imprimir ▾" de
+// Inventario, sobre la selección) o un botón con [data-clave-all] (uso
+// histórico, todavía vivo en el card-head de Carátulas aunque esa pantalla
+// ya no tiene entrada desde el nav). Las claves y lotes salen del modelo
+// unificado _ALL_A (EYE+PT juntos), no de buildCarGroups(), para que
+// funcione sin importar desde dónde se llame.
+function imprimirClaveCompleta(claveOBtn){
+  let clave;
+  if(typeof claveOBtn==='string'){
+    clave=claveOBtn;
+  }else{
+    const wrap=claveOBtn.closest('[data-clave-all]');
+    if(!wrap)return;
+    clave=wrap.dataset.claveAll;
+  }
+  const g=(window._ALL_A||[]).find(function(x){return x.clave===clave;});
   if(!g||!g.lotes.length){ alert('No se encontraron lotes para esta clave.'); return; }
 
-  const n=g.lotes.length;
+  const lotesOrdenados=g.lotes.slice().sort(function(a,b){
+    const da=embParseCad(a.caducidad),db=embParseCad(b.caducidad);
+    if(da===null&&db===null)return 0;
+    if(da===null)return 1;
+    if(db===null)return -1;
+    return da-db;
+  });
+
+  const n=lotesOrdenados.length;
   let fsClave=60,fsRow=42,fsHdr=20,padRow=14;
   if(n>22){ fsClave=32; fsRow=13; fsHdr=10; padRow=4; }
   else if(n>14){ fsClave=42; fsRow=18; fsHdr=12; padRow=6; }
   else if(n>8){ fsClave=50; fsRow=25; fsHdr=14; padRow=8; }
   else if(n>4){ fsClave=56; fsRow=33; fsHdr=16; padRow=11; }
 
-  const mostrarPzas=carMode==='EYE'?carEyeImprimirCantidad:carPtImprimirCantidad;
+  // Ya no depende de carMode (EYE/PT) -- una clave fusionada puede tener
+  // lotes de ambos, así que la ficha completa siempre muestra existencia.
+  const mostrarPzas=true;
 
-  const filas=g.lotes.map(function(l){
+  const filas=lotesOrdenados.map(function(l){
     const almU=(l.almacen||'').toUpperCase();
     const ubicTxt=ubicTexto_(g.clave,l.lote)||'—';
     return '<tr>'+
@@ -5631,7 +5714,6 @@ document.getElementById('search-cic').addEventListener('input',function(){sCic=t
 
 // Chip filters
 document.querySelectorAll('#fi-inv .chip').forEach(function(c){c.addEventListener('click',function(){fInv=this.dataset.f;document.querySelectorAll('#fi-inv .chip').forEach(function(x){x.classList.remove('active','a-inv');});this.classList.add('active');renderInv();});});
-document.querySelectorAll('#inv-sub-nav .chip').forEach(function(c){c.addEventListener('click',function(){switchTab(this.dataset.subt);});});
 document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListener('click',function(){fCic=this.dataset.f||this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(function(x){x.classList.remove('active','a-cic');});this.classList.add('active');if(cicData.length){_renderCicData();}else{loadCic();}});});
 
 document.getElementById('search-emb').addEventListener('input',function(){sEmb=this.value;renderEmb();});
@@ -5644,4 +5726,8 @@ document.getElementById('search-dev').addEventListener('input',function(){sDev=t
 document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListener('click',function(){fDev=this.dataset.f;document.querySelectorAll('#fi-dev .chip').forEach(function(x){x.classList.remove('active','a-dev');});this.classList.add('active');renderDev();});});
 // Init
 loadInventario();
+// PT (antes solo se cargaba al entrar a Carátulas) se carga desde el
+// arranque también, en paralelo, para que Inventario muestre EYE+PT juntos
+// sin tener que esperar a que alguien abra un sub-modo aparte.
+loadCaratulasPT();
 </script>
