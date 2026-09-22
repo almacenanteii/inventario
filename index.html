@@ -180,22 +180,18 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .lot-qty{font-size:15px;font-weight:800;color:var(--gr)}
 .lot-unit{font-size:10px;color:var(--gr2)}
 /* Fusión con Carátulas: los lotes de Inventario reusan .emb-lote-row (y sus
-   funciones imprimirCaratula/imprimirCaratulaEye/toggleCarContado) para el
-   botón de imprimir + checkbox "Ya contado" de cada lote. .emb-lote-row por
-   sí sola es flex-column (diseño de Embarques/Carátulas); aquí se sobreescribe
-   para que, combinada con .lot, mantenga el layout de 2 columnas de Inventario. */
+   funciones toggleCarContado, y las de imprimir vía datos planos) para el
+   checkbox "Ya contado" de cada lote. .emb-lote-row por sí sola es
+   flex-column (diseño de Embarques/Carátulas); aquí se sobreescribe para
+   que, combinada con .lot, mantenga el layout de 2 columnas de Inventario. */
 .lot.emb-lote-row{display:grid;grid-template-columns:1fr auto;gap:4px;padding:9px 14px;align-items:start}
-/* El cuadro de piezas se veía apachurrado (angosto) dentro de la tarjeta
-   angosta de Inventario -- flex-basis:100% lo obliga a tomar su propio
-   renglón completo. justify-content:space-between hace que, en el
-   siguiente renglón (checkbox + botón), el checkbox se quede pegado a la
-   izquierda y el botón "Imprimir carátula" se vaya hasta topar con el
-   borde derecho de la tarjeta, en vez de quedar apretado junto al
-   checkbox. Escopado a .lot.emb-lote-row para no tocar cómo se ve esto
-   mismo en Embarques/Carátulas. */
-.lot.emb-lote-row .emb-tarima-add{margin-top:6px;justify-content:space-between}
-.lot.emb-lote-row .emb-add-input{flex:1 1 100%;font-size:16px;padding:10px 12px}
-.lot.emb-lote-row .emb-tarima-add button{margin-left:auto}
+/* El código de lote es el tap-target para seleccionarlo e imprimir su
+   carátula desde el menú de arriba (ya no hay botón de imprimir por
+   fila) -- se ve como un chip tocable, y naranja sólido cuando está
+   seleccionado. */
+.lot-lote-sel{cursor:pointer;display:inline-block;padding:2px 7px;border-radius:6px;border:1.5px dashed var(--bd)}
+.lot-lote-sel:active{background:rgba(232,103,26,.12)}
+.lot-lote-sel.active{background:var(--or);border-color:var(--or);color:#fff;font-weight:800}
 
 .hlot{padding:9px 14px;border-bottom:1px solid #f5f5f5;display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
 .hlot:last-child{border-bottom:none}
@@ -442,15 +438,20 @@ header.h-dev{background:var(--tl)}
 <header class="h-inv" id="hdr-inv">
   <div class="hdr-top">
     <h1>🏭 Inventario</h1>
-    <div class="print-menu-wrap hidden" id="inv-print-menu-wrap">
+    <!-- Ya no se esconde nomás por no tener selección -- "Bitácora de
+         ubicaciones" no necesita seleccionar nada, así que este botón
+         siempre está disponible (antes vivía aparte, ahora todos los
+         botones de imprimir quedan juntos aquí). -->
+    <div class="print-menu-wrap" id="inv-print-menu-wrap">
       <button id="btn-inv-imprimir-toggle" onclick="toggleImprimirMenuInv(event)" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir ▾ <span id="inv-print-clave-lbl"></span></button>
       <div id="inv-imprimir-menu" class="print-menu hidden">
-        <button class="menu-item" onclick="imprimirFormatoConteoSel();cerrarMenusImprimir()">🖨️ Formato de conteo</button>
+        <button class="menu-item" onclick="imprimirFormatoConteoSel();cerrarMenusImprimir()">🖨️ Formato de conteo (clave seleccionada)</button>
         <button class="menu-item" onclick="imprimirClaveCompletaSel();cerrarMenusImprimir()">🖨️ Imprimir clave completa (lotes + ubicaciones)</button>
+        <button class="menu-item" onclick="imprimirCaratulasLotesSel();cerrarMenusImprimir()">🖨️ Imprimir carátula(s) de lote(s) seleccionados</button>
+        <button class="menu-item" onclick="imprimirBitacoraUbicaciones();cerrarMenusImprimir()">🖨️ Bitácora de ubicaciones</button>
         <button class="menu-item" style="color:#999" onclick="limpiarSeleccionInv()">✕ Quitar selección</button>
       </div>
     </div>
-    <button id="btn-bitacora-ubic" onclick="imprimirBitacoraUbicaciones()" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Bitácora ubic.</button>
   </div>
   <div class="update-bar" id="inv-update-bar">📅 Datos actualizados al: cargando...</div>
   <div class="search-box">
@@ -871,17 +872,38 @@ function seleccionarClaveInv(el){
   cerrarMenusImprimir();
   renderInv();
 }
-function limpiarSeleccionInv(){
-  invClaveSel.clear();
+// Selección de LOTES individuales (aparte de la selección por clave de
+// arriba) -- se toca el código del lote (el chip con el número de lote) y
+// queda marcado; sirve para imprimir carátulas de varios lotes sueltos
+// desde el mismo menú de arriba, sin tener que abrir un botón por cada
+// fila. Llave = JSON de [clave,lote] (evita líos si algún día una clave
+// trae un "|" en el texto). También persiste igual que invClaveSel: no se
+// borra al buscar o cambiar de filtro, nomás cuando tú la quitas.
+let invLoteSel=new Set();
+function seleccionarLoteInv(el){
+  const row=el.closest('.emb-lote-row');
+  if(!row)return;
+  const key=JSON.stringify([row.dataset.clave,row.dataset.lote]);
+  if(invLoteSel.has(key))invLoteSel.delete(key);else invLoteSel.add(key);
   cerrarMenusImprimir();
   renderInv();
 }
+function limpiarSeleccionInv(){
+  invClaveSel.clear();
+  invLoteSel.clear();
+  cerrarMenusImprimir();
+  renderInv();
+}
+// El botón "🖨️ Imprimir ▾" ya siempre está visible (Bitácora de
+// ubicaciones no necesita selección) -- aquí nomás se actualiza la
+// etiqueta chiquita de qué hay seleccionado, si hay algo.
 function actualizarMenuImprimirInv_(){
-  const wrap=document.getElementById('inv-print-menu-wrap');
   const lbl=document.getElementById('inv-print-clave-lbl');
-  if(!wrap)return;
-  wrap.classList.toggle('hidden',invClaveSel.size===0);
-  if(lbl)lbl.textContent=invClaveSel.size===1?Array.from(invClaveSel)[0]:(invClaveSel.size?invClaveSel.size+' seleccionadas':'');
+  if(!lbl)return;
+  const partes=[];
+  if(invClaveSel.size)partes.push(invClaveSel.size===1?Array.from(invClaveSel)[0]:invClaveSel.size+' claves');
+  if(invLoteSel.size)partes.push(invLoteSel.size+' lote'+(invLoteSel.size>1?'s':''));
+  lbl.textContent=partes.join(' · ');
 }
 function toggleImprimirMenuInv(e){
   if(e)e.stopPropagation();
@@ -901,6 +923,38 @@ function imprimirFormatoConteoSel(){
 function imprimirClaveCompletaSel(){
   if(invClaveSel.size!==1){ alert('Selecciona exactamente una clave (nomás una) para imprimir su ficha completa con todos sus lotes y ubicaciones.'); return; }
   imprimirClaveCompleta(Array.from(invClaveSel)[0]);
+}
+// Imprime la carátula de cada LOTE marcado con invLoteSel (a diferencia de
+// Formato de conteo / Clave completa, que trabajan sobre CLAVES). Cada
+// lote se busca en el modelo unificado _ALL_A para saber si es EYE o PT:
+// EYE imprime directo (no lleva cantidad); PT pregunta la cantidad de esa
+// tarima con prompt() antes de generar la carátula, ya que ese dato ya no
+// vive en un cuadro pegado al lote (se movió aquí para quitarle botones a
+// cada fila). Si cancelas el prompt de un lote, se salta nomás ese y sigue
+// con los demás seleccionados.
+function imprimirCaratulasLotesSel(){
+  if(!invLoteSel.size){ alert('Toca el código de uno o más lotes para seleccionarlos, y luego usa esta opción para imprimir sus carátulas.'); return; }
+  const ALL_A=window._ALL_A||[];
+  const PT_ALMS=['40PT','PTJAL','PTFGUAD','REPROJAL'];
+  Array.from(invLoteSel).forEach(function(key){
+    let clave,lote;
+    try{ const par=JSON.parse(key); clave=par[0]; lote=par[1]; }catch(e){ return; }
+    const p=ALL_A.find(function(x){return x.clave===clave;});
+    if(!p){ console.warn('imprimirCaratulasLotesSel: no se encontró la clave',clave); return; }
+    const l=p.lotes.find(function(x){return x.lote===lote;});
+    if(!l){ console.warn('imprimirCaratulasLotesSel: no se encontró el lote',clave,lote); return; }
+    const almU=(l.almacen||'').toUpperCase();
+    if(PT_ALMS.indexOf(almU)!==-1){
+      const cantStr=prompt('Cantidad de esta tarima -- '+clave+' · lote '+lote+':');
+      if(cantStr===null)return;
+      const cant=parseFloat(cantStr);
+      if(!cant||cant<=0){ alert('Cantidad inválida, se omite '+clave+' · '+lote+'.'); return; }
+      const pzasInfo=PZAS_MAP[clave]||null;
+      imprimirCaratula({clave:clave,desc:p.desc,lote:lote,almacen:almU,origen:l.origen||'',uEmpaque:(pzasInfo&&pzasInfo.pzasXCaja)?pzasInfo.pzasXCaja:null},cant);
+    }else{
+      imprimirCaratulaEye({clave:clave,desc:p.desc,lote:lote,almacen:almU,exist:l.exist,unidad:l.unidad});
+    }
+  });
 }
 const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
 let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
@@ -1596,12 +1650,16 @@ function renderInv(){
         const devHtml=devInfo?
           `<div class="lot-dev">↩️ ${devInfo.count} devolucion${devInfo.count>1?'es':''} · última: ${(devInfo.ultima.fecha||'').split(',')[0]} · ${fmt(devInfo.ultima.cantidad)} pz</div>`:'';
         const contadoChecked=carContadoManual[key+'|'+almU]?'checked':'';
+        const loteSelKey=JSON.stringify([p.clave,l.lote]);
+        const loteSel=invLoteSel.has(loteSelKey);
+        // El código de lote es el tap-target para seleccionarlo (se marca
+        // con fondo naranja) -- así se puede elegir uno o varios lotes
+        // sueltos y mandarlos a imprimir juntos desde el menú de arriba
+        // "🖨️ Imprimir ▾", sin que cada fila tenga su propio botón de
+        // imprimir (eso era lo que saturaba la tarjeta). El checkbox "Ya
+        // contado" sí se queda aquí -- es más rápido marcarlo al vuelo.
+        const loteLoteHtml=`<div class="lot-lote lot-lote-sel${loteSel?' active':''}" onclick="seleccionarLoteInv(this)" title="Tocar para seleccionar/quitar de la impresión">${l.lote}</div>`;
 
-        // Fusión con Carátulas: cada lote (EYE o PT) trae su propio botón
-        // "🖨️ Imprimir carátula" + checkbox "Ya contado", igual que antes
-        // vivía en la pestaña Carátulas -- reusa las mismas funciones
-        // (imprimirCaratula/imprimirCaratulaEye/toggleCarContado), que
-        // buscan sus datos en el .emb-lote-row más cercano.
         if(esPT){
           const pzasInfo=PZAS_MAP[p.clave]||null;
           const uEmp=pzasInfo&&pzasInfo.pzasXCaja?fmt(pzasInfo.pzasXCaja)+' pz/caja':'—';
@@ -1613,23 +1671,18 @@ function renderInv(){
             '</div>':'';
           const cuarentenaHtml=cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena — revisar liberación de Calidad antes de mover</div>':'';
           return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-uempaque="${pzasInfo&&pzasInfo.pzasXCaja?pzasInfo.pzasXCaja:''}" data-origen="${escAttr(l.origen||'')}">`+
-            `<div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(almU)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}`+
+            `<div>${loteLoteHtml}<div class="lot-alm">${almTag(almU)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}`+
             manualBadge+cuarentenaHtml+
             `${conteoHtml}${devHtml}${ubicBtn}`+
             `<div style="font-size:10.5px;color:#777;margin-top:2px">U. Empaque: ${uEmp}</div>`+
-            `<div class="emb-tarima-add">`+
-              `<input type="number" min="0" step="any" inputmode="decimal" class="emb-add-input" placeholder="piezas de esta tarima..." onkeydown="if(event.key==='Enter'){event.preventDefault();imprimirCaratula(this.nextElementSibling);}">`+
-              `<label class="car-contado-chk"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
-              `<button type="button" onclick="imprimirCaratula(this)">🖨️ Imprimir carátula</button>`+
-            `</div></div>`+
+            `<label class="car-contado-chk" style="margin-top:6px;display:inline-flex"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
+            `</div>`+
             `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
         }
         return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-unidad="${escAttr(l.unidad||'pzas')}">`+
-          `<div><div class="lot-lote">${l.lote}</div><div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${devHtml}${ubicBtn}`+
-          `<div class="emb-tarima-add">`+
-            `<label class="car-contado-chk"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
-            `<button type="button" onclick="imprimirCaratulaEye(this)">🖨️ Imprimir carátula</button>`+
-          `</div></div>`+
+          `<div>${loteLoteHtml}<div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${devHtml}${ubicBtn}`+
+          `<label class="car-contado-chk" style="margin-top:6px;display:inline-flex"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
+          `</div>`+
           `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
       }).join('');
       const schedInfoInv=SCHED.find(function(s){return s.clave===p.clave;});
@@ -4975,17 +5028,34 @@ function recalcCarTotals(){
   const kI=document.getElementById('k-car-impresas'); if(kI)kI.textContent=totalImpresas.toLocaleString('en-US');
 }
 
-function imprimirCaratula(btn){
-  const wrap=btn.closest('.emb-tarima-add');
-  const row=btn.closest('.emb-lote-row');
-  if(!wrap||!row)return;
-  const inp=wrap.querySelector('.emb-add-input');
-  const v=parseFloat(inp.value);
-  if(!v||v<=0){ inp.focus(); return; }
-
-  const clave=row.dataset.clave,desc=row.dataset.desc,lote=row.dataset.lote,almacen=row.dataset.almacen;
-  const uEmpaque=row.dataset.uempaque?parseFloat(row.dataset.uempaque):null;
-  const esManual=row.dataset.origen==='MANUAL';
+// Acepta DOS formas de llamada:
+//  1) Un botón DOM (uso histórico, todavía vivo en la pestaña Carátulas
+//     -- inalcanzable desde el nav pero se deja intacta por si hay que
+//     revertir): lee cantidad/clave/lote del input y fila más cercanos.
+//  2) Un objeto de datos plano {clave,desc,lote,almacen,origen,uEmpaque} +
+//     una cantidad ya resuelta (uso nuevo: selección de lotes en
+//     Inventario, donde la cantidad se pregunta con prompt() al momento
+//     de imprimir, ya no hay un input pegado al lote).
+function imprimirCaratula(btnOrData,cantidadDato){
+  let inp=null,row=null,clave,desc,lote,almacen,uEmpaque,v;
+  if(btnOrData&&btnOrData.nodeType){
+    const btn=btnOrData;
+    const wrap=btn.closest('.emb-tarima-add');
+    row=btn.closest('.emb-lote-row');
+    if(!wrap||!row)return;
+    inp=wrap.querySelector('.emb-add-input');
+    v=parseFloat(inp.value);
+    if(!v||v<=0){ inp.focus(); return; }
+    clave=row.dataset.clave;desc=row.dataset.desc;lote=row.dataset.lote;almacen=row.dataset.almacen;
+    uEmpaque=row.dataset.uempaque?parseFloat(row.dataset.uempaque):null;
+  }else{
+    const d=btnOrData||{};
+    clave=d.clave;desc=d.desc;lote=d.lote;almacen=d.almacen;
+    uEmpaque=d.uEmpaque!=null?parseFloat(d.uEmpaque):null;
+    v=parseFloat(cantidadDato);
+    if(!v||v<=0)return;
+  }
+  const esManual=(row?row.dataset.origen:(btnOrData&&btnOrData.origen))==='MANUAL';
   const lineaManual=esManual?'<div class="linea" style="color:#E8671A;font-size:40px;border:4px solid #E8671A;border-radius:12px;padding:10px 16px;display:inline-block">⚡ AGREGADO A MANO — VERIFICAR EN SISTEMA</div>':'';
   const lineaCantidadPt=carPtImprimirCantidad?('<div class="linea">CANTIDAD: '+fmt(v)+'</div>'):'';
   // El sello solo sale si el check "Ya contado" está marcado Y esa tarima
@@ -5034,9 +5104,8 @@ function imprimirCaratula(btn){
   if(!carQty[key])carQty[key]=[];
   carQty[key].push({cantidad:v,fecha:new Date().toLocaleString('es-MX')});
   try{localStorage.setItem(CAR_STORAGE_KEY,JSON.stringify(carQty));}catch(e){}
-  inp.value='';
   recalcCarTotals();
-  inp.focus();
+  if(inp){ inp.value=''; inp.focus(); }
 }
 
 function removeCarEntry(el){
@@ -5082,12 +5151,24 @@ function pluralizarUnidad_(u,cant){
   return t;
 }
 
-function imprimirCaratulaEye(btn){
-  const row=btn.closest('.emb-lote-row');
-  if(!row)return;
-  const clave=row.dataset.clave,lote=row.dataset.lote,desc=row.dataset.desc,almacen=row.dataset.almacen;
-  const exist=parseFloat(row.dataset.exist)||0;
-  const unidad=pluralizarUnidad_(row.dataset.unidad||'pzas',exist);
+// Igual que imprimirCaratula: acepta un botón DOM (uso histórico) o un
+// objeto plano {clave,lote,desc,almacen,exist,unidad} (uso nuevo, desde la
+// selección de lotes en Inventario).
+function imprimirCaratulaEye(btnOrData){
+  let clave,lote,desc,almacen,exist,unidad;
+  if(btnOrData&&btnOrData.nodeType){
+    const row=btnOrData.closest('.emb-lote-row');
+    if(!row)return;
+    clave=row.dataset.clave;lote=row.dataset.lote;desc=row.dataset.desc;almacen=row.dataset.almacen;
+    exist=parseFloat(row.dataset.exist)||0;
+    unidad=row.dataset.unidad||'pzas';
+  }else{
+    const d=btnOrData||{};
+    clave=d.clave;lote=d.lote;desc=d.desc;almacen=d.almacen;
+    exist=parseFloat(d.exist)||0;
+    unidad=d.unidad||'pzas';
+  }
+  unidad=pluralizarUnidad_(unidad,exist);
   const lineaCantidad=carEyeImprimirCantidad?('<div class="linea desc">CANTIDAD: '+fmt(exist)+' '+unidad+'</div>'):'';
   const ubicTxt=ubicTexto_(clave,lote);
   // Sin color -- esta carátula cae sobre el papel de color que ya se cargó
