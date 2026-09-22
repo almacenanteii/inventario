@@ -185,13 +185,17 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
    sí sola es flex-column (diseño de Embarques/Carátulas); aquí se sobreescribe
    para que, combinada con .lot, mantenga el layout de 2 columnas de Inventario. */
 .lot.emb-lote-row{display:grid;grid-template-columns:1fr auto;gap:4px;padding:9px 14px;align-items:start}
-.lot.emb-lote-row .emb-tarima-add{margin-top:6px}
 /* El cuadro de piezas se veía apachurrado (angosto) dentro de la tarjeta
    angosta de Inventario -- flex-basis:100% lo obliga a tomar su propio
-   renglón completo; el checkbox y el botón de imprimir caen al siguiente
-   renglón solos. Escopado a .lot.emb-lote-row para no tocar cómo se ve
-   este mismo input en Embarques/Carátulas. */
+   renglón completo. justify-content:space-between hace que, en el
+   siguiente renglón (checkbox + botón), el checkbox se quede pegado a la
+   izquierda y el botón "Imprimir carátula" se vaya hasta topar con el
+   borde derecho de la tarjeta, en vez de quedar apretado junto al
+   checkbox. Escopado a .lot.emb-lote-row para no tocar cómo se ve esto
+   mismo en Embarques/Carátulas. */
+.lot.emb-lote-row .emb-tarima-add{margin-top:6px;justify-content:space-between}
 .lot.emb-lote-row .emb-add-input{flex:1 1 100%;font-size:16px;padding:10px 12px}
+.lot.emb-lote-row .emb-tarima-add button{margin-left:auto}
 
 .hlot{padding:9px 14px;border-bottom:1px solid #f5f5f5;display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
 .hlot:last-child{border-bottom:none}
