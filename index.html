@@ -1669,7 +1669,7 @@ function renderInv(){
               '<span>⚡ Agregado a mano — aún no está en sistema</span>'+
               '<span style="cursor:pointer;text-decoration:underline;white-space:nowrap" data-idmanual="'+escAttr(l.idManual||'')+'" onclick="quitarPtManual(this)">Quitar</span>'+
             '</div>':'';
-          const cuarentenaHtml=cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena — revisar liberación de Calidad antes de mover</div>':'';
+          const cuarentenaHtml=cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena</div>':'';
           return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-uempaque="${pzasInfo&&pzasInfo.pzasXCaja?pzasInfo.pzasXCaja:''}" data-origen="${escAttr(l.origen||'')}">`+
             `<div>${loteLoteHtml}<div class="lot-alm">${almTag(almU)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}`+
             manualBadge+cuarentenaHtml+
@@ -4969,7 +4969,7 @@ function renderCar(){
           return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-uempaque="'+(pzasInfo&&pzasInfo.pzasXCaja?pzasInfo.pzasXCaja:'')+'" data-origen="'+escAttr(l.origen||'')+'">'
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
             +manualBadgeCar
-            +(cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena — revisar liberación de Calidad antes de mover</div>':'')
+            +(cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena</div>':'')
             +ubicRowHtml_(g.clave,l.lote)
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+' · U. Empaque: '+uEmp+'</div>'
             +(function(){
