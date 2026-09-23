@@ -502,6 +502,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip a-inv" data-f="TODOS">Todos</div>
     <div class="chip" data-f="EYEJAL">EYEJAL</div>
     <div class="chip" data-f="40EYE">40 EYE</div>
+    <div class="chip" data-f="PANALAB">PANALAB</div>
     <div class="chip" data-f="PTJAL">PTJAL</div>
     <div class="chip" data-f="PTFGUAD">PTFGUAD</div>
     <div class="chip" data-f="40PT">40 PT</div>
@@ -1288,7 +1289,7 @@ function getFiltA(){
   // "Todos" ya no es nomás EYE -- incluye también los almacenes de PT
   // (fusión de Carátulas dentro de Inventario). Cada chip individual sigue
   // filtrando solo ese almacén.
-  const ALMS=['EYEJAL','40EYE','40PT','PTJAL','PTFGUAD','REPROJAL'];
+  const ALMS=['EYEJAL','40EYE','PANALAB','40PT','PTJAL','PTFGUAD','REPROJAL'];
   const ALL_A=window._ALL_A||[];return ALL_A.filter(p=>{
     if(ALMS.includes(fInv)&&!p.alms.includes(fInv))return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
