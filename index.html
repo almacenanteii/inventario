@@ -334,8 +334,9 @@ header.h-dash{background:var(--bl)}
 header.h-ubi{background:#6D4C41}
 .nav-btn.a-ubi{color:#6D4C41}
 .chip.a-ubi{background:#fff;color:#6D4C41}
-.ubi-rack-title{font-size:12px;font-weight:800;color:var(--gr2);text-transform:uppercase;letter-spacing:.5px;padding:14px 4px 8px}
+.ubi-rack-title{font-size:12px;font-weight:800;color:var(--gr2);text-transform:uppercase;letter-spacing:.5px;padding:14px 4px 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ubi-rack-title:first-child{padding-top:2px}
+.ubi-rack-libres{font-size:10.5px;font-weight:700;color:#2E7D32;text-transform:none;letter-spacing:0;background:#E8F5E9;border-radius:20px;padding:2px 9px}
 .ubi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px;margin-bottom:6px}
 .ubi-cell{border-radius:8px;padding:8px 4px;text-align:center;font-size:10.5px;font-weight:800;cursor:pointer;font-family:monospace;border:1.5px solid transparent}
 .ubi-cell.libre{background:#E8F5E9;color:#2E7D32;border-color:#C8E6C9}
@@ -346,7 +347,7 @@ header.h-ubi{background:#6D4C41}
    se necesita volver a la vista plana). */
 .rack-box{border:2px solid #D7CCC8;border-radius:10px;padding:8px;margin-bottom:14px;background:#fff;overflow-x:auto}
 .rack-diagram{display:grid;gap:3px;min-width:min-content}
-.rack-cell{font-size:9.5px;text-align:center;display:flex;align-items:center;justify-content:center;min-height:26px;border-radius:4px;font-weight:700;font-family:monospace;cursor:default}
+.rack-cell{font-size:8.5px;text-align:center;display:flex;align-items:center;justify-content:center;min-height:32px;border-radius:4px;font-weight:700;font-family:monospace;cursor:default;padding:2px 1px;line-height:1.15;word-break:break-all}
 .rack-hdr{color:var(--gr2);font-size:9px;font-weight:800;cursor:default;font-family:inherit}
 .rack-lvl-lbl{font-weight:900;color:#6D4C41;background:#EFEBE9;cursor:default;font-family:inherit}
 .rack-empty{background:transparent;cursor:default}
@@ -1618,6 +1619,18 @@ function renderUbi(){
     porRack[r].push(e);
   });
   const racks=Object.keys(porRack).sort();
+  // Conteo de libres/ocupadas/bloqueadas POR RACK -- se saca de "estados"
+  // completo (no de "filtradas"), para que el número no cambie según el
+  // filtro o la búsqueda que tengas puesta; siempre es el estado real de
+  // ese rack.
+  const statsPorRack={};
+  estados.forEach(function(e){
+    const r=e.rack||'??';
+    if(!statsPorRack[r])statsPorRack[r]={libre:0,ocupada:0,bloqueada:0,total:0};
+    const campo=e.estado==='LIBRE'?'libre':(e.estado==='OCUPADA'?'ocupada':'bloqueada');
+    statsPorRack[r][campo]++;
+    statsPorRack[r].total++;
+  });
   // Orden de niveles de arriba hacia abajo dentro del dibujo -- no
   // confirmado con el usuario todavía si E es el de hasta arriba o hasta
   // abajo; se dejó así por default. Si está al revés, nomás se invierte
@@ -1638,8 +1651,9 @@ function renderUbi(){
       porNivelPos[e.nivel][parseInt(e.pos,10)]=e;
     });
 
-    html+='<div class="ubi-rack-title">Rack '+escAttr(r)+'</div>';
-    html+='<div class="rack-box"><div class="rack-diagram" style="grid-template-columns:32px repeat('+maxPos+',1fr)">';
+    const st=statsPorRack[r]||{libre:0,total:0};
+    html+='<div class="ubi-rack-title">Rack '+escAttr(r)+' <span class="ubi-rack-libres">🟢 '+st.libre+' disponibles de '+st.total+'</span></div>';
+    html+='<div class="rack-box"><div class="rack-diagram" style="grid-template-columns:36px repeat('+maxPos+',minmax(46px,1fr))">';
     html+='<div class="rack-cell rack-hdr"></div>';
     for(let p=1;p<=maxPos;p++){html+='<div class="rack-cell rack-hdr">'+(p<10?'0'+p:p)+'</div>';}
     niveles.forEach(function(niv){
@@ -1651,7 +1665,7 @@ function renderUbi(){
         let title=e.codigo;
         if(e.estado==='OCUPADA')title+=' -- '+e.ocupantes.map(function(u){return u.clave+' · '+u.lote;}).join(', ');
         if(e.estado==='BLOQUEADA')title+=' -- '+(e.bloqueada.motivo||'sin motivo');
-        html+='<div class="rack-cell rack-pos-cell '+cls+'" title="'+escAttr(title)+'" onclick="verUbicacionCelda_(\''+e.codigo+'\')">'+(p<10?'0'+p:p)+'</div>';
+        html+='<div class="rack-cell rack-pos-cell '+cls+'" title="'+escAttr(title)+'" onclick="verUbicacionCelda_(\''+e.codigo+'\')">'+escAttr(e.codigo)+'</div>';
       }
     });
     html+='</div></div>';
