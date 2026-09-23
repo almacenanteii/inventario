@@ -341,6 +341,19 @@ header.h-ubi{background:#6D4C41}
 .ubi-cell.libre{background:#E8F5E9;color:#2E7D32;border-color:#C8E6C9}
 .ubi-cell.ocupada{background:#FFF3E0;color:#E65100;border-color:#FFE0B2}
 .ubi-cell.bloqueada{background:#ECEFF1;color:#455A64;border-color:#CFD8DC}
+/* Dibujo del rack (niveles=filas, posiciones=columnas) -- reemplazó a la
+   cuadrícula plana de arriba (.ubi-grid/.ubi-cell se dejan sin usar por si
+   se necesita volver a la vista plana). */
+.rack-box{border:2px solid #D7CCC8;border-radius:10px;padding:8px;margin-bottom:14px;background:#fff;overflow-x:auto}
+.rack-diagram{display:grid;gap:3px;min-width:min-content}
+.rack-cell{font-size:9.5px;text-align:center;display:flex;align-items:center;justify-content:center;min-height:26px;border-radius:4px;font-weight:700;font-family:monospace;cursor:default}
+.rack-hdr{color:var(--gr2);font-size:9px;font-weight:800;cursor:default;font-family:inherit}
+.rack-lvl-lbl{font-weight:900;color:#6D4C41;background:#EFEBE9;cursor:default;font-family:inherit}
+.rack-empty{background:transparent;cursor:default}
+.rack-pos-cell{cursor:pointer;border:1.5px solid transparent}
+.rack-pos-cell.libre{background:#E8F5E9;color:#2E7D32;border-color:#C8E6C9}
+.rack-pos-cell.ocupada{background:#FFF3E0;color:#E65100;border-color:#FFE0B2}
+.rack-pos-cell.bloqueada{background:#ECEFF1;color:#455A64;border-color:#CFD8DC}
 
 /* ===== Devoluciones tab ===== */
 header.h-dev{background:var(--tl)}
@@ -1605,17 +1618,43 @@ function renderUbi(){
     porRack[r].push(e);
   });
   const racks=Object.keys(porRack).sort();
+  // Orden de niveles de arriba hacia abajo dentro del dibujo -- no
+  // confirmado con el usuario todavía si E es el de hasta arriba o hasta
+  // abajo; se dejó así por default. Si está al revés, nomás se invierte
+  // este arreglo (ORDEN_NIVELES.reverse() o cambiar el orden a mano) --
+  // no hace falta tocar nada más. "AA" (solo existe en el rack 8) se puso
+  // pegado junto a "A".
+  const ORDEN_NIVELES=['E','D','C','B','AA','A'];
   let html='';
   racks.forEach(function(r){
-    html+='<div class="ubi-rack-title">Rack '+escAttr(r)+'</div><div class="ubi-grid">';
-    porRack[r].forEach(function(e){
-      const cls=e.estado==='LIBRE'?'libre':(e.estado==='OCUPADA'?'ocupada':'bloqueada');
-      let title=e.codigo;
-      if(e.estado==='OCUPADA')title+=' -- '+e.ocupantes.map(function(u){return u.clave+' · '+u.lote;}).join(', ');
-      if(e.estado==='BLOQUEADA')title+=' -- '+(e.bloqueada.motivo||'sin motivo');
-      html+='<div class="ubi-cell '+cls+'" title="'+escAttr(title)+'" onclick="verUbicacionCelda_(\''+e.codigo+'\')">'+escAttr(e.codigo)+'</div>';
+    const entriesRack=porRack[r];
+    const nivelesPresentes=Array.from(new Set(entriesRack.map(function(e){return e.nivel;})));
+    const niveles=ORDEN_NIVELES.filter(function(n){return nivelesPresentes.indexOf(n)!==-1;});
+    let maxPos=0;
+    entriesRack.forEach(function(e){const p=parseInt(e.pos,10);if(p>maxPos)maxPos=p;});
+    const porNivelPos={};
+    entriesRack.forEach(function(e){
+      if(!porNivelPos[e.nivel])porNivelPos[e.nivel]={};
+      porNivelPos[e.nivel][parseInt(e.pos,10)]=e;
     });
-    html+='</div>';
+
+    html+='<div class="ubi-rack-title">Rack '+escAttr(r)+'</div>';
+    html+='<div class="rack-box"><div class="rack-diagram" style="grid-template-columns:32px repeat('+maxPos+',1fr)">';
+    html+='<div class="rack-cell rack-hdr"></div>';
+    for(let p=1;p<=maxPos;p++){html+='<div class="rack-cell rack-hdr">'+(p<10?'0'+p:p)+'</div>';}
+    niveles.forEach(function(niv){
+      html+='<div class="rack-cell rack-lvl-lbl">'+escAttr(niv)+'</div>';
+      for(let p=1;p<=maxPos;p++){
+        const e=porNivelPos[niv]&&porNivelPos[niv][p];
+        if(!e){html+='<div class="rack-cell rack-empty"></div>';continue;}
+        const cls=e.estado==='LIBRE'?'libre':(e.estado==='OCUPADA'?'ocupada':'bloqueada');
+        let title=e.codigo;
+        if(e.estado==='OCUPADA')title+=' -- '+e.ocupantes.map(function(u){return u.clave+' · '+u.lote;}).join(', ');
+        if(e.estado==='BLOQUEADA')title+=' -- '+(e.bloqueada.motivo||'sin motivo');
+        html+='<div class="rack-cell rack-pos-cell '+cls+'" title="'+escAttr(title)+'" onclick="verUbicacionCelda_(\''+e.codigo+'\')">'+(p<10?'0'+p:p)+'</div>';
+      }
+    });
+    html+='</div></div>';
   });
   list.innerHTML=html;
 }
