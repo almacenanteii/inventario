@@ -675,7 +675,10 @@ header.h-dev{background:var(--tl)}
 <header class="h-ubi hidden" id="hdr-ubi">
   <div class="hdr-top">
     <h1>📍 Ubicaciones</h1>
-    <button onclick="bloquearUbicacionPrompt_()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🔒 Bloquear</button>
+    <div style="display:flex;gap:6px">
+      <button onclick="agregarUbicacionCatalogoPrompt_()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar</button>
+      <button onclick="bloquearUbicacionPrompt_()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🔒 Bloquear</button>
+    </div>
   </div>
   <div class="update-bar" id="ubi-update-bar">📅 Cargando ubicaciones...</div>
   <div class="search-box">
@@ -1547,7 +1550,7 @@ function estadoUbicaciones_(){
     if(!cod)return;
     bloqPorCodigo[cod]=b;
   });
-  return CATALOGO_UBICACIONES.map(function(cod){
+  return catalogoUbicaciones.map(function(cod){
     const m=/^(\d{2})([A-Z]{1,2})(\d{2})$/.exec(cod);
     const ocupantes=ocupPorCodigo[cod]||[];
     const bloqueada=bloqPorCodigo[cod]||null;
@@ -1623,8 +1626,9 @@ function renderUbi(){
 function bloquearUbicacionPrompt_(codigoPrefill){
   const codigo=String(codigoPrefill||prompt('¿Qué ubicación quieres bloquear? (ej. 05C08)')||'').trim().toUpperCase();
   if(!codigo)return;
-  if(CATALOGO_UBICACIONES.indexOf(codigo)===-1){
-    if(!confirm('"'+codigo+'" no está en el catálogo de 500 ubicaciones. ¿Bloquearla de todos modos?'))return;
+  if(catalogoUbicaciones.indexOf(codigo)===-1){
+    if(!confirm('"'+codigo+'" no está en el catálogo. ¿Agregarla al catálogo Y bloquearla de una vez?'))return;
+    agregarUbicacionCatalogo_(codigo);
   }
   if(estadoUbicaciones_().some(function(e){return e.codigo===codigo&&e.estado!=='LIBRE';})){
     alert('Esa ubicación ya no está disponible (ocupada o ya bloqueada).');
@@ -1654,6 +1658,33 @@ function desbloquearUbicacionCod_(id){
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_ubicacion',id:id})})
     .catch(function(e){console.error('Error desbloqueando ubicación:',e);});
   setTimeout(function(){recargarUbicaciones();},1500);
+}
+
+// Da de alta un código nuevo en el catálogo (Sheet "CatalogoUbicaciones").
+// silencioso=true evita el alert de confirmación -- se usa cuando se
+// ofrece agregarla automático desde Inventario (ver guardarUbicacion) para
+// no interrumpir dos veces seguidas.
+function agregarUbicacionCatalogo_(codigo,silencioso){
+  codigo=String(codigo||'').trim().toUpperCase();
+  if(!codigo)return;
+  if(catalogoUbicaciones.indexOf(codigo)!==-1){
+    if(!silencioso)alert('"'+codigo+'" ya estaba en el catálogo.');
+    return;
+  }
+  const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
+  const fecha=new Date().toLocaleString('es-MX');
+  catalogoUbicaciones.push(codigo);
+  renderActiveTab_();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'agregar_ubicacion_catalogo',ubicacion:codigo,registrado:nombre,fecha:fecha})})
+    .catch(function(e){console.error('Error agregando ubicación al catálogo:',e);});
+  setTimeout(function(){cargarCatalogoUbicaciones_();},1500);
+}
+
+// Botón "+ Agregar ubicación" de la pestaña -- pide el código a mano.
+function agregarUbicacionCatalogoPrompt_(){
+  const codigo=String(prompt('Código de la ubicación nueva (ej. 11B01):')||'').trim().toUpperCase();
+  if(!codigo)return;
+  agregarUbicacionCatalogo_(codigo);
 }
 
 // Modal de detalle al tocar una celda del mapa -- disponible (con botón de
@@ -1744,6 +1775,17 @@ function guardarUbicacion(clave,lote,ubicacion){
   ubicPorClave[clave]=entry;
   refrescarUbicDatalist_();
   renderActiveTab_();
+  // Si la ubicación tiene forma de código de rack real (ej. "05C08") y
+  // todavía no está en el catálogo de la pestaña Ubicaciones, se ofrece
+  // agregarla sola -- así el catálogo crece con el uso real sin tener que
+  // ir a darla de alta a mano por separado. No se pregunta para texto
+  // libre (ej. "Rack A-3, Nivel 2") que no tiene esa forma.
+  const ubicNorm=ubicacion.toUpperCase();
+  if(/^\d{2}[A-Z]{1,2}\d{2}$/.test(ubicNorm)&&catalogoUbicaciones.indexOf(ubicNorm)===-1){
+    if(confirm('La ubicación "'+ubicNorm+'" no está en tu catálogo de la pestaña Ubicaciones. ¿La agrego para que aparezca ahí?')){
+      agregarUbicacionCatalogo_(ubicNorm,true);
+    }
+  }
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'ubicacion',clave:clave,lote:lote,ubicacion:ubicacion,registrado:nombre,fecha:fecha})})
     .catch(function(e){console.error('Error guardando ubicación:',e);});
   setTimeout(function(){recargarUbicaciones();},1500);
@@ -2226,7 +2268,24 @@ const PZASXCAJA_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0
 // mano. NO indica qué está ocupado -- eso se saca cruzando esta lista con
 // ubicMap (ocupado por tu inventario) y ubicBloqueadas (ocupado por otro
 // departamento). Ver estadoUbicaciones_().
-const CATALOGO_UBICACIONES=["01B01","01B02","01B03","01B04","01B05","01B06","01B07","01B08","01B09","01B10","01B11","01B12","01B13","01C01","01C02","01C03","01C04","01C05","01C06","01C07","01C08","01C09","01C10","01C11","01C12","01C13","01D01","01D02","01D03","01D04","01D05","01D06","01D07","01D08","01D09","01D10","01D11","01D12","01D13","01E01","01E02","01E03","01E04","01E05","01E06","01E07","01E08","01E09","01E10","01E11","01E12","01E13","02B01","02B02","02B03","02B04","02B05","02B06","02B07","02B08","02B09","02B10","02C01","02C02","02C03","02C04","02C05","02C06","02C07","02C08","02C09","02C10","02D01","02D02","02D03","02D04","02D05","02D06","02D07","02D08","02D09","02D10","02E01","02E02","02E03","02E04","02E05","02E06","02E07","02E08","02E09","02E10","03B01","03B02","03B03","03B04","03B05","03B06","03B07","03B08","03B09","03B10","03C01","03C02","03C03","03C04","03C05","03C06","03C07","03C08","03C09","03C10","03D01","03D02","03D03","03D04","03D05","03D06","03D07","03D08","03D09","03D10","03E01","03E02","03E03","03E04","03E05","03E06","03E07","03E08","03E09","03E10","04B01","04B02","04B03","04B04","04B05","04B06","04B07","04B08","04C01","04C02","04C03","04C04","04C05","04C06","04C07","04C08","04D01","04D02","04D03","04D04","04D05","04D06","04D07","04D08","04E01","04E02","04E03","04E04","04E05","04E06","04E07","04E08","05B01","05B02","05B03","05B04","05B05","05B06","05B07","05B08","05B09","05B10","05B11","05B12","05C01","05C02","05C03","05C04","05C05","05C06","05C07","05C08","05C09","05C10","05C11","05C12","05D01","05D02","05D03","05D04","05D05","05D06","05D07","05D08","05D09","05D10","05D11","05D12","05E01","05E02","05E03","05E04","05E05","05E06","05E07","05E08","05E09","05E10","05E11","05E12","06B01","06B02","06B03","06B04","06B05","06B06","06B07","06B08","06B09","06B10","06B11","06B12","06C01","06C02","06C03","06C04","06C05","06C06","06C07","06C08","06C09","06C10","06C11","06C12","06D01","06D02","06D03","06D04","06D05","06D06","06D07","06D08","06D09","06D10","06D11","06D12","06E01","06E02","06E03","06E04","06E05","06E06","06E07","06E08","06E09","06E10","06E11","06E12","07B01","07B02","07B03","07B04","07B05","07B06","07B07","07B08","07B09","07B10","07B11","07B12","07C01","07C02","07C03","07C04","07C05","07C06","07C07","07C08","07C09","07C10","07C11","07C12","07D01","07D02","07D03","07D04","07D05","07D06","07D07","07D08","07D09","07D10","07D11","07D12","07E01","07E02","07E03","07E04","07E05","07E06","07E07","07E08","07E09","07E10","07E11","07E12","08A01","08A02","08A03","08A04","08A05","08A06","08A07","08A08","08A09","08A10","08A11","08A12","08AA01","08AA02","08AA03","08AA04","08AA05","08AA06","08AA07","08AA08","08AA09","08AA10","08AA11","08AA12","08B01","08B02","08B03","08B04","08B05","08B06","08B07","08B08","08B09","08B10","08B11","08B12","08C01","08C02","08C03","08C04","08C05","08C06","08C07","08C08","08C09","08C10","08C11","08C12","08D01","08D02","08D03","08D04","08D05","08D06","08D07","08D08","08D09","08D10","08D11","08D12","08E01","08E02","08E03","08E04","08E05","08E06","08E07","08E08","08E09","08E10","08E11","08E12","09A01","09A02","09A03","09A04","09A05","09A06","09A07","09A08","09A09","09A10","09A11","09A12","09B01","09B02","09B03","09B04","09B05","09B06","09B07","09B08","09B09","09B10","09B11","09B12","09C01","09C02","09C03","09C04","09C05","09C06","09C07","09C08","09C09","09C10","09C11","09C12","09D01","09D02","09D03","09D04","09D05","09D06","09D07","09D08","09D09","09D10","09D11","09D12","09E01","09E02","09E03","09E04","09E05","09E06","09E07","09E08","09E09","09E10","09E11","09E12","10A01","10A02","10A03","10A04","10A05","10A06","10A07","10A08","10A09","10A10","10A11","10A12","10B01","10B02","10B03","10B04","10B05","10B06","10B07","10B08","10B09","10B10","10B11","10B12","10C01","10C02","10C03","10C04","10C05","10C06","10C07","10C08","10C09","10C10","10C11","10C12","10D01","10D02","10D03","10D04","10D05","10D06","10D07","10D08","10D09","10D10","10D11","10D12","10E01","10E02","10E03","10E04","10E05","10E06","10E07","10E08","10E09","10E10","10E11","10E12"];
+const CATALOGO_UBICACIONES_SEED=["01B01","01B02","01B03","01B04","01B05","01B06","01B07","01B08","01B09","01B10","01B11","01B12","01B13","01C01","01C02","01C03","01C04","01C05","01C06","01C07","01C08","01C09","01C10","01C11","01C12","01C13","01D01","01D02","01D03","01D04","01D05","01D06","01D07","01D08","01D09","01D10","01D11","01D12","01D13","01E01","01E02","01E03","01E04","01E05","01E06","01E07","01E08","01E09","01E10","01E11","01E12","01E13","02B01","02B02","02B03","02B04","02B05","02B06","02B07","02B08","02B09","02B10","02C01","02C02","02C03","02C04","02C05","02C06","02C07","02C08","02C09","02C10","02D01","02D02","02D03","02D04","02D05","02D06","02D07","02D08","02D09","02D10","02E01","02E02","02E03","02E04","02E05","02E06","02E07","02E08","02E09","02E10","03B01","03B02","03B03","03B04","03B05","03B06","03B07","03B08","03B09","03B10","03C01","03C02","03C03","03C04","03C05","03C06","03C07","03C08","03C09","03C10","03D01","03D02","03D03","03D04","03D05","03D06","03D07","03D08","03D09","03D10","03E01","03E02","03E03","03E04","03E05","03E06","03E07","03E08","03E09","03E10","04B01","04B02","04B03","04B04","04B05","04B06","04B07","04B08","04C01","04C02","04C03","04C04","04C05","04C06","04C07","04C08","04D01","04D02","04D03","04D04","04D05","04D06","04D07","04D08","04E01","04E02","04E03","04E04","04E05","04E06","04E07","04E08","05B01","05B02","05B03","05B04","05B05","05B06","05B07","05B08","05B09","05B10","05B11","05B12","05C01","05C02","05C03","05C04","05C05","05C06","05C07","05C08","05C09","05C10","05C11","05C12","05D01","05D02","05D03","05D04","05D05","05D06","05D07","05D08","05D09","05D10","05D11","05D12","05E01","05E02","05E03","05E04","05E05","05E06","05E07","05E08","05E09","05E10","05E11","05E12","06B01","06B02","06B03","06B04","06B05","06B06","06B07","06B08","06B09","06B10","06B11","06B12","06C01","06C02","06C03","06C04","06C05","06C06","06C07","06C08","06C09","06C10","06C11","06C12","06D01","06D02","06D03","06D04","06D05","06D06","06D07","06D08","06D09","06D10","06D11","06D12","06E01","06E02","06E03","06E04","06E05","06E06","06E07","06E08","06E09","06E10","06E11","06E12","07B01","07B02","07B03","07B04","07B05","07B06","07B07","07B08","07B09","07B10","07B11","07B12","07C01","07C02","07C03","07C04","07C05","07C06","07C07","07C08","07C09","07C10","07C11","07C12","07D01","07D02","07D03","07D04","07D05","07D06","07D07","07D08","07D09","07D10","07D11","07D12","07E01","07E02","07E03","07E04","07E05","07E06","07E07","07E08","07E09","07E10","07E11","07E12","08A01","08A02","08A03","08A04","08A05","08A06","08A07","08A08","08A09","08A10","08A11","08A12","08AA01","08AA02","08AA03","08AA04","08AA05","08AA06","08AA07","08AA08","08AA09","08AA10","08AA11","08AA12","08B01","08B02","08B03","08B04","08B05","08B06","08B07","08B08","08B09","08B10","08B11","08B12","08C01","08C02","08C03","08C04","08C05","08C06","08C07","08C08","08C09","08C10","08C11","08C12","08D01","08D02","08D03","08D04","08D05","08D06","08D07","08D08","08D09","08D10","08D11","08D12","08E01","08E02","08E03","08E04","08E05","08E06","08E07","08E08","08E09","08E10","08E11","08E12","09A01","09A02","09A03","09A04","09A05","09A06","09A07","09A08","09A09","09A10","09A11","09A12","09B01","09B02","09B03","09B04","09B05","09B06","09B07","09B08","09B09","09B10","09B11","09B12","09C01","09C02","09C03","09C04","09C05","09C06","09C07","09C08","09C09","09C10","09C11","09C12","09D01","09D02","09D03","09D04","09D05","09D06","09D07","09D08","09D09","09D10","09D11","09D12","09E01","09E02","09E03","09E04","09E05","09E06","09E07","09E08","09E09","09E10","09E11","09E12","10A01","10A02","10A03","10A04","10A05","10A06","10A07","10A08","10A09","10A10","10A11","10A12","10B01","10B02","10B03","10B04","10B05","10B06","10B07","10B08","10B09","10B10","10B11","10B12","10C01","10C02","10C03","10C04","10C05","10C06","10C07","10C08","10C09","10C10","10C11","10C12","10D01","10D02","10D03","10D04","10D05","10D06","10D07","10D08","10D09","10D10","10D11","10D12","10E01","10E02","10E03","10E04","10E05","10E06","10E07","10E08","10E09","10E10","10E11","10E12"];
+// Catálogo EN VIVO -- arranca con la semilla de arriba (para no mostrar
+// la pestaña vacía mientras carga) y se reemplaza en cuanto llega la
+// respuesta real de "CatalogoUbicaciones" en el Sheet (ver
+// cargarCatalogoUbicaciones_). De aquí en adelante, agregar un código
+// nuevo (a mano desde la pestaña, o automático desde Inventario) se
+// agrega aquí Y en el Sheet -- ya no hace falta tocar código.
+let catalogoUbicaciones=CATALOGO_UBICACIONES_SEED.slice();
+async function cargarCatalogoUbicaciones_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=catalogo_ubicaciones&t='+Date.now());
+    const rows=await r.json();
+    if(Array.isArray(rows)&&rows.length){
+      catalogoUbicaciones=rows.map(function(r){return String(r.ubicacion||'').trim().toUpperCase();}).filter(Boolean);
+    }
+  }catch(e){console.warn('No se pudo cargar el catálogo de ubicaciones en vivo -- se usa la semilla local:',e);}
+  if(tab==='ubi')renderUbi();
+}
 const AJUSTE_URL='https://script.google.com/macros/s/AKfycbw_1KSijqH3PSl6-jSTg4dM2mJJt1BOSU45E47nwrDsB4jM5sxzBYslSLAWxVB_XD8/exec';
 const AJUSTE_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1589452588&single=true&output=csv';
 const HIST_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=135260082&single=true&output=csv';
@@ -4253,6 +4312,7 @@ async function loadInventario(){
   // estaban bloqueando la pantalla completa cada vez que se abría la página.
   // En cuanto llegan, se vuelve a pintar la lista para que aparezcan encima.
   cargarEnriquecimientosInventario_();
+  cargarCatalogoUbicaciones_();
 }
 
 async function cargarEnriquecimientosInventario_(){
