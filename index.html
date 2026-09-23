@@ -330,6 +330,18 @@ header.h-dash{background:var(--bl)}
 .dash-gauge-sub{flex:1;font-size:11.5px;color:var(--gr2)}
 .dash-gauge-sub b{color:var(--gr);font-weight:800}
 
+/* ===== Ubicaciones tab ===== */
+header.h-ubi{background:#6D4C41}
+.nav-btn.a-ubi{color:#6D4C41}
+.chip.a-ubi{background:#fff;color:#6D4C41}
+.ubi-rack-title{font-size:12px;font-weight:800;color:var(--gr2);text-transform:uppercase;letter-spacing:.5px;padding:14px 4px 8px}
+.ubi-rack-title:first-child{padding-top:2px}
+.ubi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px;margin-bottom:6px}
+.ubi-cell{border-radius:8px;padding:8px 4px;text-align:center;font-size:10.5px;font-weight:800;cursor:pointer;font-family:monospace;border:1.5px solid transparent}
+.ubi-cell.libre{background:#E8F5E9;color:#2E7D32;border-color:#C8E6C9}
+.ubi-cell.ocupada{background:#FFF3E0;color:#E65100;border-color:#FFE0B2}
+.ubi-cell.bloqueada{background:#ECEFF1;color:#455A64;border-color:#CFD8DC}
+
 /* ===== Devoluciones tab ===== */
 header.h-dev{background:var(--tl)}
 .nav-btn.a-dev{color:var(--tl)}
@@ -381,6 +393,13 @@ header.h-dev{background:var(--tl)}
 .dev-linea-row.dev-linea-row-warn{background:#FFF8E1}
 .dev-linea-row-warn .dev-linea-lote{color:#8a5a00;font-weight:700}
 .dev-linea-warn-tag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#8a5a00;background:#FFECB3;border-radius:5px;padding:2px 6px;vertical-align:middle}
+/* Cruce contra MOVREP (número de movimiento capturado a mano vs lo que
+   SAI ya registró de verdad) -- verde cuando cuadra, listo para traspaso
+   de Devoluciones a EYEJAL; gris/neutro cuando el movimiento capturado
+   todavía no aparece en MOVREP. */
+.dev-card.dev-card-cuadra{border-left-color:var(--gn);background:#F4FBF4}
+.dev-mov-cuadra{margin-top:8px;background:#E8F5E9;border:1.5px solid #2E7D32;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:800;color:#1B5E20;line-height:1.4}
+.dev-mov-nocuadra{margin-top:8px;background:#F5F5F5;border:1.5px dashed #bbb;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:#777;line-height:1.4}
 
 /* ===== Plan de Embarque (sub-pestaña dentro de Embarques) ===== */
 .plan-emb-card{border-left:6px solid var(--gn)}
@@ -431,6 +450,7 @@ header.h-dev{background:var(--tl)}
   <button class="nav-btn" id="nb-dev" onclick="switchTab('dev')"><span class="nav-ico">↩️</span>Devoluciones</button>
   <button class="nav-btn" id="nb-emb" onclick="switchTab('emb')"><span class="nav-ico">🚚</span>Embarques</button>
   <button class="nav-btn" id="nb-dash" onclick="switchTab('dash')"><span class="nav-ico">📈</span>Dashboard</button>
+  <button class="nav-btn" id="nb-ubi" onclick="switchTab('ubi')"><span class="nav-ico">📍</span>Ubicaciones</button>
 </nav>
 
 <!-- Carátulas ya no es pestaña ni sub-modo aparte: todo (EYE + PT) vive
@@ -449,6 +469,7 @@ header.h-dev{background:var(--tl)}
         <button class="menu-item" onclick="imprimirClaveCompletaSel();cerrarMenusImprimir()">🖨️ Imprimir clave completa (lotes + ubicaciones)</button>
         <button class="menu-item" onclick="imprimirCaratulasLotesSel();cerrarMenusImprimir()">🖨️ Imprimir carátula(s) de lote(s) seleccionados</button>
         <button class="menu-item" onclick="imprimirBitacoraUbicaciones();cerrarMenusImprimir()">🖨️ Bitácora de ubicaciones</button>
+        <button class="menu-item" onclick="verUbicacionesHuerfanas();cerrarMenusImprimir()">🗑️ Ubicaciones huérfanas (limpiar)</button>
         <button class="menu-item" style="color:#999" onclick="limpiarSeleccionInv()">✕ Quitar selección</button>
       </div>
     </div>
@@ -651,6 +672,34 @@ header.h-dev{background:var(--tl)}
 <div class="list hidden" id="list-dev"></div>
 <div class="empty hidden" id="empty-dev"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-dev"></span>"</p></div>
 
+<header class="h-ubi hidden" id="hdr-ubi">
+  <div class="hdr-top">
+    <h1>📍 Ubicaciones</h1>
+    <button onclick="bloquearUbicacionPrompt_()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🔒 Bloquear</button>
+  </div>
+  <div class="update-bar" id="ubi-update-bar">📅 Cargando ubicaciones...</div>
+  <div class="search-box">
+    <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="search-ubi" placeholder="Buscar ubicación, clave o lote…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clr" id="clr-ubi" onclick="document.getElementById('search-ubi').value='';sUbi='';renderUbi();">✕</button>
+  </div>
+  <div class="filters" id="fi-ubi">
+    <div class="chip a-ubi" data-f="TODOS">Todas</div>
+    <div class="chip" data-f="LIBRE">🟢 Disponibles</div>
+    <div class="chip" data-f="OCUPADA">🟠 Ocupadas</div>
+    <div class="chip" data-f="BLOQUEADA">⬛ Bloqueadas</div>
+  </div>
+</header>
+
+<div class="kpis hidden" id="kpis-ubi">
+  <div class="kpi"><div class="kpi-lbl">Disponibles</div><div class="kpi-val" style="color:#2E7D32" id="k-ubi-libres">—</div><div class="kpi-sub" id="k-ubi-libres-sub">de 500</div></div>
+  <div class="kpi"><div class="kpi-lbl">Ocupadas</div><div class="kpi-val" style="color:#E65100" id="k-ubi-ocupadas">—</div><div class="kpi-sub">con inventario</div></div>
+  <div class="kpi"><div class="kpi-lbl">Bloqueadas</div><div class="kpi-val" style="color:#455A64" id="k-ubi-bloqueadas">—</div><div class="kpi-sub">otro depto</div></div>
+</div>
+<div class="bar hidden" id="bar-ubi"></div>
+<div class="list hidden" id="list-ubi"></div>
+<div class="empty hidden" id="empty-ubi"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-ubi"></span>"</p></div>
+
 <datalist id="dev-clave-list"></datalist>
 
 <div class="emb-modal dev-modal-wide" id="modal-dev-folio">
@@ -666,6 +715,9 @@ header.h-dev{background:var(--tl)}
       <div class="dev-col-left">
         <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Folio</label>
         <input type="text" id="dev-folio" placeholder="Folio de la papeleta" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
+
+        <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Número de movimiento (SAI)</label>
+        <input type="text" id="dev-nummov" placeholder="Opcional -- para cruzar contra MOVREP" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
 
         <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Tipo</label>
         <div class="dev-tipo-btns">
@@ -856,6 +908,11 @@ ACTUAL.forEach(r=>{
 // ALL_A built dynamically in buildAllA()
 
 let tab='inv',fInv='TODOS',fAbc='TODOS',fEmb='TODOS',sInv='',sAbc='',sEmb='';
+// Ubicaciones bloqueadas (ocupadas por otro departamento, no por tu
+// inventario) -- se cargan aparte de ubicMap, nunca se mezclan con las
+// ubicaciones reales de clave/lote para no afectar huérfanas/conflictos.
+let ubicBloqueadas=[];
+let sUbi='',fUbi='TODOS';
 // Clave seleccionada en Inventario -- en vez de traer un botón de imprimir
 // en cada tarjeta, primero se selecciona la clave (tap en su encabezado) y
 // arriba en el header aparece el menú de formatos disponibles para esa
@@ -1127,20 +1184,21 @@ function renderActiveTab_(){
   else if(tab==='car')renderCar();
   else if(tab==='dash')renderDash();
   else if(tab==='dev')renderDev();
+  else if(tab==='ubi')renderUbi();
 }
 
 function switchTab(t){
   tab=t;
-  const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)',dev:'var(--tl)'};
+  const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)',dev:'var(--tl)',ubi:'#6D4C41'};
   // Show/hide standard sections
-  ['inv','emb','car','dash','dev'].forEach(function(x){
+  ['inv','emb','car','dash','dev','ubi'].forEach(function(x){
     ['hdr-','kpis-','bar-','list-','empty-'].forEach(function(p){
       document.getElementById(p+x)?.classList.toggle('hidden',x!==t);
     });
   });
   // 'car' ya no tiene botón propio en el nav ni sub-modo: Carátulas se
   // fusionó por completo dentro de Inventario (ver buildAllA()).
-  ['inv','emb','dash','dev','cic'].forEach(function(x){
+  ['inv','emb','dash','dev','cic','ubi'].forEach(function(x){
     const btn=document.getElementById('nb-'+x);
     if(btn)btn.className='nav-btn'+(x===t?' a-'+x:'');
   });
@@ -1184,6 +1242,7 @@ function switchTab(t){
     else{renderDash();}
   }
   else if(t==='dev')loadDevoluciones();
+  else if(t==='ubi')renderUbi();
 }
 
 
@@ -1348,6 +1407,16 @@ function editarUbicacion(el){
 // lotes es normal (tarimas del mismo material una junto a otra) y no se
 // avisa; el conflicto real es que dos productos distintos "peleen" el
 // mismo lugar físico.
+// ¿Ese clave+lote sigue apareciendo en el inventario actual (_ALL_A)? Un
+// lote que ya se agotó desaparece del reporte de SAI, pero su ubicación
+// guardada NO se borra sola -- se queda huérfana en el Sheet. Sin este
+// chequeo, el checador de conflictos seguía avisando "ubicación ya
+// ocupada" por productos que ya ni existen físicamente ahí.
+function loteExisteEnInventarioActual_(clave,lote){
+  const ALL_A=window._ALL_A||[];
+  const p=ALL_A.find(function(x){return x.clave===clave;});
+  return !!(p&&p.lotes.some(function(l){return l.lote===lote;}));
+}
 function buscarConflictoUbicacion_(clave,ubicacion){
   const u=ubicacion.trim().toLowerCase();
   if(!u)return null;
@@ -1355,12 +1424,25 @@ function buscarConflictoUbicacion_(clave,ubicacion){
     const arr=ubicMap[key]||[];
     for(let i=0;i<arr.length;i++){
       const entry=arr[i];
-      if(entry.clave!==clave&&(entry.ubicacion||'').trim().toLowerCase()===u){
+      if(entry.clave!==clave&&(entry.ubicacion||'').trim().toLowerCase()===u&&loteExisteEnInventarioActual_(entry.clave,entry.lote)){
         return entry;
       }
     }
   }
   return null;
+}
+// Todas las ubicaciones guardadas cuyo lote ya no aparece en el
+// inventario actual (probablemente agotado/consumido) -- huérfanas, no se
+// borran solas, nomás quedan disponibles aquí para que tú decidas.
+function ubicacionesHuerfanas_(){
+  const out=[];
+  Object.keys(ubicMap).forEach(function(key){
+    (ubicMap[key]||[]).forEach(function(u){
+      if(!loteExisteEnInventarioActual_(u.clave,u.lote))out.push(u);
+    });
+  });
+  out.sort(function(a,b){return (a.clave||'').localeCompare(b.clave||'','es',{numeric:true});});
+  return out;
 }
 
 // Refresca el <datalist> de autocompletar con todas las ubicaciones que ya
@@ -1378,6 +1460,260 @@ function refrescarUbicDatalist_(){
     });
   });
   dl.innerHTML=Array.from(set).sort().map(function(v){return '<option value="'+escAttr(v)+'">';}).join('');
+}
+
+// Visor de ubicaciones huérfanas -- nomás MUESTRA la lista, no borra nada
+// por su cuenta. Cada fila tiene su propio botón "Borrar" con
+// confirmación, igual que borrar una ubicación desde la tarjeta de
+// siempre; si no tocas nada, no se mueve nada.
+function verUbicacionesHuerfanas(){
+  const huerfanas=ubicacionesHuerfanas_();
+  const old=document.getElementById('ubic-huerfanas-modal');
+  if(old)old.remove();
+
+  const overlay=document.createElement('div');
+  overlay.id='ubic-huerfanas-modal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:24px;width:100%;max-width:460px;max-height:80vh;overflow:auto';
+
+  const title=document.createElement('div');
+  title.style.cssText='font-size:14px;font-weight:800;color:#E8671A;margin-bottom:4px';
+  title.textContent='🗑️ Ubicaciones huérfanas';
+  box.appendChild(title);
+
+  const sub=document.createElement('div');
+  sub.style.cssText='font-size:11.5px;color:#7a7a7a;margin-bottom:12px';
+  sub.textContent='Ubicaciones guardadas de lotes que ya no aparecen en el inventario actual (probablemente agotados/consumidos). No se borra nada solo -- tú decides cuáles quitar, una por una.';
+  box.appendChild(sub);
+
+  if(!huerfanas.length){
+    const none=document.createElement('div');
+    none.style.cssText='font-size:12.5px;color:#2E7D32;font-weight:700;padding:10px 0';
+    none.textContent='✓ No hay ubicaciones huérfanas por ahora.';
+    box.appendChild(none);
+  }else{
+    huerfanas.forEach(function(u){
+      const row=document.createElement('div');
+      row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0';
+      const info=document.createElement('div');
+      info.style.cssText='font-size:12px;line-height:1.4';
+      info.innerHTML='<b>'+escAttr(u.clave)+'</b> · lote '+escAttr(u.lote)+'<br><span style="color:#E8671A;font-weight:700">📍 '+escAttr(u.ubicacion)+'</span> <span style="color:#aaa">· guardada '+escAttr((u.fecha||'').split(',')[0]||'—')+'</span>';
+      row.appendChild(info);
+      const btnDel=document.createElement('button');
+      btnDel.textContent='✕ Borrar';
+      btnDel.style.cssText='background:#FFEBEE;color:#C62828;border:none;border-radius:6px;padding:7px 11px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0';
+      btnDel.onclick=function(){
+        if(!confirm('¿Borrar la ubicación "'+u.ubicacion+'" de '+u.clave+' · lote '+u.lote+'? Esto no se puede deshacer.'))return;
+        borrarUbicacionPorId_(u.id);
+        row.remove();
+      };
+      row.appendChild(btnDel);
+      box.appendChild(row);
+    });
+  }
+
+  const btnClose=document.createElement('button');
+  btnClose.textContent='Cerrar';
+  btnClose.style.cssText='width:100%;margin-top:14px;padding:11px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#7a7a7a';
+  btnClose.onclick=function(){overlay.remove();};
+  box.appendChild(btnClose);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
+// ===== Pestaña Ubicaciones (mapa del almacén) =====
+// Cruza el catálogo fijo de 500 casillas (CATALOGO_UBICACIONES) con lo que
+// ya sabe la app: ubicMap (ocupado por tu inventario, mismo criterio que
+// ubicacionesHuerfanas_ -- solo cuenta si el lote sigue en _ALL_A) y
+// ubicBloqueadas (ocupado por otro departamento). No inventa datos nuevos,
+// nomás junta lo que ya existe.
+function estadoUbicaciones_(){
+  const ocupPorCodigo={};
+  Object.keys(ubicMap).forEach(function(key){
+    (ubicMap[key]||[]).forEach(function(u){
+      if(!loteExisteEnInventarioActual_(u.clave,u.lote))return;
+      const cod=(u.ubicacion||'').trim().toUpperCase();
+      if(!cod)return;
+      if(!ocupPorCodigo[cod])ocupPorCodigo[cod]=[];
+      ocupPorCodigo[cod].push(u);
+    });
+  });
+  const bloqPorCodigo={};
+  ubicBloqueadas.forEach(function(b){
+    const cod=(b.ubicacion||'').trim().toUpperCase();
+    if(!cod)return;
+    bloqPorCodigo[cod]=b;
+  });
+  return CATALOGO_UBICACIONES.map(function(cod){
+    const m=/^(\d{2})([A-Z]{1,2})(\d{2})$/.exec(cod);
+    const ocupantes=ocupPorCodigo[cod]||[];
+    const bloqueada=bloqPorCodigo[cod]||null;
+    let estado='LIBRE';
+    if(bloqueada)estado='BLOQUEADA';
+    else if(ocupantes.length)estado='OCUPADA';
+    return {codigo:cod,rack:m?m[1]:'??',nivel:m?m[2]:'',pos:m?m[3]:'',estado:estado,ocupantes:ocupantes,bloqueada:bloqueada};
+  });
+}
+
+function renderUbi(){
+  const estados=estadoUbicaciones_();
+  const q=(sUbi||'').toLowerCase().trim();
+  const filtradas=estados.filter(function(e){
+    if(fUbi==='LIBRE'&&e.estado!=='LIBRE')return false;
+    if(fUbi==='OCUPADA'&&e.estado!=='OCUPADA')return false;
+    if(fUbi==='BLOQUEADA'&&e.estado!=='BLOQUEADA')return false;
+    if(q){
+      const matchCod=e.codigo.toLowerCase().indexOf(q)!==-1;
+      const matchOcup=e.ocupantes.some(function(u){return (u.clave||'').toLowerCase().indexOf(q)!==-1||(u.lote||'').toLowerCase().indexOf(q)!==-1;});
+      const matchMotivo=!!(e.bloqueada&&(e.bloqueada.motivo||'').toLowerCase().indexOf(q)!==-1);
+      if(!matchCod&&!matchOcup&&!matchMotivo)return false;
+    }
+    return true;
+  });
+
+  const libres=estados.filter(function(e){return e.estado==='LIBRE';}).length;
+  const ocupadas=estados.filter(function(e){return e.estado==='OCUPADA';}).length;
+  const bloqueadas=estados.filter(function(e){return e.estado==='BLOQUEADA';}).length;
+  const kl=document.getElementById('k-ubi-libres');if(kl)kl.textContent=libres;
+  const klsub=document.getElementById('k-ubi-libres-sub');if(klsub)klsub.textContent='de '+estados.length;
+  const ko=document.getElementById('k-ubi-ocupadas');if(ko)ko.textContent=ocupadas;
+  const kb=document.getElementById('k-ubi-bloqueadas');if(kb)kb.textContent=bloqueadas;
+  const updBar=document.getElementById('ubi-update-bar');
+  if(updBar)updBar.textContent='📅 '+estados.length+' ubicaciones del catálogo · actualizado al: '+new Date().toLocaleString('es-MX');
+
+  const list=document.getElementById('list-ubi');
+  const empty=document.getElementById('empty-ubi');
+  if(!list)return;
+  if(!filtradas.length){
+    list.classList.add('hidden');
+    if(empty){empty.classList.remove('hidden');const eq=document.getElementById('eq-ubi');if(eq)eq.textContent=sUbi;}
+    return;
+  }
+  if(empty)empty.classList.add('hidden');
+  list.classList.remove('hidden');
+
+  const porRack={};
+  filtradas.forEach(function(e){
+    const r=e.rack||'??';
+    if(!porRack[r])porRack[r]=[];
+    porRack[r].push(e);
+  });
+  const racks=Object.keys(porRack).sort();
+  let html='';
+  racks.forEach(function(r){
+    html+='<div class="ubi-rack-title">Rack '+escAttr(r)+'</div><div class="ubi-grid">';
+    porRack[r].forEach(function(e){
+      const cls=e.estado==='LIBRE'?'libre':(e.estado==='OCUPADA'?'ocupada':'bloqueada');
+      let title=e.codigo;
+      if(e.estado==='OCUPADA')title+=' -- '+e.ocupantes.map(function(u){return u.clave+' · '+u.lote;}).join(', ');
+      if(e.estado==='BLOQUEADA')title+=' -- '+(e.bloqueada.motivo||'sin motivo');
+      html+='<div class="ubi-cell '+cls+'" title="'+escAttr(title)+'" onclick="verUbicacionCelda_(\''+e.codigo+'\')">'+escAttr(e.codigo)+'</div>';
+    });
+    html+='</div>';
+  });
+  list.innerHTML=html;
+}
+
+// Bloquea una ubicación del catálogo (ocupada por otro departamento, no
+// por tu inventario). codigoPrefill viene ya elegido si se llama desde el
+// modal de una celda; si no, se pregunta con prompt().
+function bloquearUbicacionPrompt_(codigoPrefill){
+  const codigo=String(codigoPrefill||prompt('¿Qué ubicación quieres bloquear? (ej. 05C08)')||'').trim().toUpperCase();
+  if(!codigo)return;
+  if(CATALOGO_UBICACIONES.indexOf(codigo)===-1){
+    if(!confirm('"'+codigo+'" no está en el catálogo de 500 ubicaciones. ¿Bloquearla de todos modos?'))return;
+  }
+  if(estadoUbicaciones_().some(function(e){return e.codigo===codigo&&e.estado!=='LIBRE';})){
+    alert('Esa ubicación ya no está disponible (ocupada o ya bloqueada).');
+    return;
+  }
+  const motivo=prompt('Motivo del bloqueo (ej. "Material de Calidad", "Uso de Mantenimiento"):');
+  if(motivo===null)return;
+  if(!motivo.trim()){alert('Escribe un motivo.');return;}
+  const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
+  const fecha=new Date().toLocaleString('es-MX');
+  const entry={id:'tmp-'+Date.now(),clave:'',lote:'',ubicacion:codigo,registrado:nombre,fecha:fecha,tipo:'Bloqueada',motivo:motivo.trim()};
+  ubicBloqueadas.push(entry);
+  const modal=document.getElementById('ubic-celda-modal');if(modal)modal.remove();
+  renderActiveTab_();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'ubicacion',clave:'',lote:'',ubicacion:codigo,registrado:nombre,fecha:fecha,tipo:'Bloqueada',motivo:motivo.trim()})})
+    .catch(function(e){console.error('Error bloqueando ubicación:',e);});
+  setTimeout(function(){recargarUbicaciones();},1500);
+}
+
+function desbloquearUbicacionCod_(id){
+  if(!id)return;
+  if(!confirm('¿Desbloquear esta ubicación? Volverá a aparecer como disponible.'))return;
+  ubicBloqueadas=ubicBloqueadas.filter(function(b){return b.id!==id;});
+  const modal=document.getElementById('ubic-celda-modal');if(modal)modal.remove();
+  renderActiveTab_();
+  if(String(id).indexOf('tmp-')===0){setTimeout(function(){recargarUbicaciones();},1500);return;}
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_ubicacion',id:id})})
+    .catch(function(e){console.error('Error desbloqueando ubicación:',e);});
+  setTimeout(function(){recargarUbicaciones();},1500);
+}
+
+// Modal de detalle al tocar una celda del mapa -- disponible (con botón de
+// bloquear), ocupada (lista de clave/lote, se edita desde Inventario) o
+// bloqueada (motivo + botón de desbloquear).
+function verUbicacionCelda_(codigo){
+  const estados=estadoUbicaciones_();
+  const e=estados.find(function(x){return x.codigo===codigo;})||{codigo:codigo,estado:'LIBRE',ocupantes:[],bloqueada:null};
+  const old=document.getElementById('ubic-celda-modal');
+  if(old)old.remove();
+
+  const overlay=document.createElement('div');
+  overlay.id='ubic-celda-modal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px';
+
+  const title=document.createElement('div');
+  title.style.cssText='font-size:15px;font-weight:800;color:#6D4C41;margin-bottom:4px;font-family:monospace';
+  title.textContent='📍 '+e.codigo;
+  box.appendChild(title);
+
+  const body=document.createElement('div');
+  body.style.cssText='font-size:12.5px;color:var(--gr);margin:10px 0;line-height:1.6';
+  if(e.estado==='LIBRE'){
+    body.innerHTML='<span style="color:#2E7D32;font-weight:700">✓ Disponible</span> -- no tiene inventario asignado ni bloqueo.';
+  }else if(e.estado==='OCUPADA'){
+    body.innerHTML='<span style="color:#E65100;font-weight:700">📦 Ocupada</span><br>'+e.ocupantes.map(function(u){return '<b>'+escAttr(u.clave)+'</b> · lote '+escAttr(u.lote);}).join('<br>')+'<br><span style="color:#aaa;font-size:11px">Para editarla, hazlo desde la tarjeta del lote en Inventario.</span>';
+  }else{
+    body.innerHTML='<span style="color:#455A64;font-weight:700">🔒 Bloqueada</span><br>Motivo: '+escAttr(e.bloqueada.motivo||'—')+'<br><span style="color:#aaa;font-size:11px">Por '+escAttr(e.bloqueada.registrado||'—')+' · '+escAttr((e.bloqueada.fecha||'').split(',')[0]||'—')+'</span>';
+  }
+  box.appendChild(body);
+
+  const row=document.createElement('div');
+  row.style.cssText='display:flex;gap:8px;margin-top:14px';
+
+  if(e.estado==='LIBRE'){
+    const btnBlock=document.createElement('button');
+    btnBlock.textContent='🔒 Bloquear';
+    btnBlock.style.cssText='flex:1;padding:11px;border:none;border-radius:8px;font-size:13px;font-weight:700;background:#6D4C41;color:#fff;cursor:pointer';
+    btnBlock.onclick=function(){overlay.remove();bloquearUbicacionPrompt_(e.codigo);};
+    row.appendChild(btnBlock);
+  }else if(e.estado==='BLOQUEADA'){
+    const btnUnblock=document.createElement('button');
+    btnUnblock.textContent='🔓 Desbloquear';
+    btnUnblock.style.cssText='flex:1;padding:11px;border:none;border-radius:8px;font-size:13px;font-weight:700;background:#455A64;color:#fff;cursor:pointer';
+    btnUnblock.onclick=function(){desbloquearUbicacionCod_(e.bloqueada.id);};
+    row.appendChild(btnUnblock);
+  }
+
+  const btnClose=document.createElement('button');
+  btnClose.textContent='Cerrar';
+  btnClose.style.cssText='flex:1;padding:11px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#7a7a7a';
+  btnClose.onclick=function(){overlay.remove();};
+  row.appendChild(btnClose);
+
+  box.appendChild(row);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 function guardarUbicacion(clave,lote,ubicacion){
@@ -1416,6 +1752,14 @@ function guardarUbicacion(clave,lote,ubicacion){
 function borrarUbicacion(el){
   const id=el.dataset.id;
   if(!id)return;
+  borrarUbicacionPorId_(id);
+}
+// Misma lógica de borrado, separada del botón de la tarjeta para poder
+// usarla también desde el visor de "Ubicaciones huérfanas". Nunca se
+// dispara sola -- siempre es en respuesta a que el usuario toque un botón
+// de borrar y confirme.
+function borrarUbicacionPorId_(id){
+  if(!id)return;
   // Optimista: la quita de inmediato de todas las listas locales.
   Object.keys(ubicMap).forEach(function(key){
     ubicMap[key]=ubicMap[key].filter(function(u){return u.id!==id;});
@@ -1439,7 +1783,12 @@ async function recargarUbicaciones(){
     const rows=await r.json();
     ubicMap={};
     ubicPorClave={};
+    ubicBloqueadas=[];
     rows.forEach(function(u){
+      // Bloqueada = casilla ocupada por otro departamento, no un lote tuyo
+      // -- vive aparte, nunca dentro de ubicMap (evitaría contaminar
+      // huérfanas/conflictos, que asumen clave+lote reales).
+      if(u.tipo==='Bloqueada'){ubicBloqueadas.push(u);return;}
       const key=u.clave+'|'+u.lote;
       if(!ubicMap[key])ubicMap[key]=[];
       ubicMap[key].push(u);
@@ -1869,6 +2218,15 @@ const PT_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4
 // PEGAR AQUI EL GID de la pestaña "PzasXCaja" una vez creada y publicada en el Sheet
 // (mismo patrón que PT_CSV_URL: Archivo > Compartir > Publicar en la web > esa pestaña).
 const PZASXCAJA_CSV_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=963418252&single=true&output=csv';
+// Catálogo maestro de las 500 ubicaciones físicas válidas del almacén
+// (racks 01-10, niveles A/AA/B/C/D/E) -- viene del Excel "Ubicaciones
+// limpia.xlsx" que compartió el usuario. No cambia casi nunca (agregar un
+// rack nuevo es raro), así que vive fijo aquí en vez de en una hoja del
+// Sheet. Si se agregan racks/niveles nuevos, se actualiza esta lista a
+// mano. NO indica qué está ocupado -- eso se saca cruzando esta lista con
+// ubicMap (ocupado por tu inventario) y ubicBloqueadas (ocupado por otro
+// departamento). Ver estadoUbicaciones_().
+const CATALOGO_UBICACIONES=["01B01","01B02","01B03","01B04","01B05","01B06","01B07","01B08","01B09","01B10","01B11","01B12","01B13","01C01","01C02","01C03","01C04","01C05","01C06","01C07","01C08","01C09","01C10","01C11","01C12","01C13","01D01","01D02","01D03","01D04","01D05","01D06","01D07","01D08","01D09","01D10","01D11","01D12","01D13","01E01","01E02","01E03","01E04","01E05","01E06","01E07","01E08","01E09","01E10","01E11","01E12","01E13","02B01","02B02","02B03","02B04","02B05","02B06","02B07","02B08","02B09","02B10","02C01","02C02","02C03","02C04","02C05","02C06","02C07","02C08","02C09","02C10","02D01","02D02","02D03","02D04","02D05","02D06","02D07","02D08","02D09","02D10","02E01","02E02","02E03","02E04","02E05","02E06","02E07","02E08","02E09","02E10","03B01","03B02","03B03","03B04","03B05","03B06","03B07","03B08","03B09","03B10","03C01","03C02","03C03","03C04","03C05","03C06","03C07","03C08","03C09","03C10","03D01","03D02","03D03","03D04","03D05","03D06","03D07","03D08","03D09","03D10","03E01","03E02","03E03","03E04","03E05","03E06","03E07","03E08","03E09","03E10","04B01","04B02","04B03","04B04","04B05","04B06","04B07","04B08","04C01","04C02","04C03","04C04","04C05","04C06","04C07","04C08","04D01","04D02","04D03","04D04","04D05","04D06","04D07","04D08","04E01","04E02","04E03","04E04","04E05","04E06","04E07","04E08","05B01","05B02","05B03","05B04","05B05","05B06","05B07","05B08","05B09","05B10","05B11","05B12","05C01","05C02","05C03","05C04","05C05","05C06","05C07","05C08","05C09","05C10","05C11","05C12","05D01","05D02","05D03","05D04","05D05","05D06","05D07","05D08","05D09","05D10","05D11","05D12","05E01","05E02","05E03","05E04","05E05","05E06","05E07","05E08","05E09","05E10","05E11","05E12","06B01","06B02","06B03","06B04","06B05","06B06","06B07","06B08","06B09","06B10","06B11","06B12","06C01","06C02","06C03","06C04","06C05","06C06","06C07","06C08","06C09","06C10","06C11","06C12","06D01","06D02","06D03","06D04","06D05","06D06","06D07","06D08","06D09","06D10","06D11","06D12","06E01","06E02","06E03","06E04","06E05","06E06","06E07","06E08","06E09","06E10","06E11","06E12","07B01","07B02","07B03","07B04","07B05","07B06","07B07","07B08","07B09","07B10","07B11","07B12","07C01","07C02","07C03","07C04","07C05","07C06","07C07","07C08","07C09","07C10","07C11","07C12","07D01","07D02","07D03","07D04","07D05","07D06","07D07","07D08","07D09","07D10","07D11","07D12","07E01","07E02","07E03","07E04","07E05","07E06","07E07","07E08","07E09","07E10","07E11","07E12","08A01","08A02","08A03","08A04","08A05","08A06","08A07","08A08","08A09","08A10","08A11","08A12","08AA01","08AA02","08AA03","08AA04","08AA05","08AA06","08AA07","08AA08","08AA09","08AA10","08AA11","08AA12","08B01","08B02","08B03","08B04","08B05","08B06","08B07","08B08","08B09","08B10","08B11","08B12","08C01","08C02","08C03","08C04","08C05","08C06","08C07","08C08","08C09","08C10","08C11","08C12","08D01","08D02","08D03","08D04","08D05","08D06","08D07","08D08","08D09","08D10","08D11","08D12","08E01","08E02","08E03","08E04","08E05","08E06","08E07","08E08","08E09","08E10","08E11","08E12","09A01","09A02","09A03","09A04","09A05","09A06","09A07","09A08","09A09","09A10","09A11","09A12","09B01","09B02","09B03","09B04","09B05","09B06","09B07","09B08","09B09","09B10","09B11","09B12","09C01","09C02","09C03","09C04","09C05","09C06","09C07","09C08","09C09","09C10","09C11","09C12","09D01","09D02","09D03","09D04","09D05","09D06","09D07","09D08","09D09","09D10","09D11","09D12","09E01","09E02","09E03","09E04","09E05","09E06","09E07","09E08","09E09","09E10","09E11","09E12","10A01","10A02","10A03","10A04","10A05","10A06","10A07","10A08","10A09","10A10","10A11","10A12","10B01","10B02","10B03","10B04","10B05","10B06","10B07","10B08","10B09","10B10","10B11","10B12","10C01","10C02","10C03","10C04","10C05","10C06","10C07","10C08","10C09","10C10","10C11","10C12","10D01","10D02","10D03","10D04","10D05","10D06","10D07","10D08","10D09","10D10","10D11","10D12","10E01","10E02","10E03","10E04","10E05","10E06","10E07","10E08","10E09","10E10","10E11","10E12"];
 const AJUSTE_URL='https://script.google.com/macros/s/AKfycbw_1KSijqH3PSl6-jSTg4dM2mJJt1BOSU45E47nwrDsB4jM5sxzBYslSLAWxVB_XD8/exec';
 const AJUSTE_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1589452588&single=true&output=csv';
 const HIST_URL='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=135260082&single=true&output=csv';
@@ -3920,10 +4278,14 @@ async function cargarEnriquecimientosInventario_(){
   // inmediato, sin depender de "Publicar en la web".
   ubicMap={};
   ubicPorClave={};
+  ubicBloqueadas=[];
   if(rUbic){
     try{
       const rowsUbic=await rUbic.json();
       rowsUbic.forEach(function(u){
+        // Bloqueada = casilla ocupada por otro departamento -- vive
+        // aparte, nunca dentro de ubicMap.
+        if(u.tipo==='Bloqueada'){ubicBloqueadas.push(u);return;}
         // Un lote puede tener varias ubicaciones a la vez (tarima
         // partida entre racks), así que cada clave+lote guarda una
         // LISTA de entradas, no una sola.
@@ -3980,6 +4342,8 @@ async function cargarEnriquecimientosInventario_(){
   // Mismo caso para Carátulas: si ya estabas ahí parado, vuelve a pintar
   // para que aparezca el "Último conteo" (ver renderCar) en cuanto llegue.
   if(carLoaded||carEyeLoaded)renderCar();
+  // Mismo caso para Ubicaciones: recién aquí llegan ubicMap/ubicBloqueadas.
+  if(tab==='ubi')renderUbi();
 }
 
 // ---- Sub-pestañas dentro de Embarques: "Armar Embarques" (lo de siempre)
@@ -5354,6 +5718,11 @@ let devLineas=[],devTipoSel='',devOpSelData=null,devMaterialesOP=[];
 // Inventario general (EYEJAL/40EYE), que ya no aplica una vez que
 // el material se surtió a producción.
 let ACOND_LOADED=[];
+// Movimientos reales que trae MOVREP para el almacén DEV (de movdev.XLS)
+// -- se cruzan contra el "Número de movimiento" que se captura a mano en
+// cada folio, para saber cuáles ya están confirmados por SAI y listos
+// para el traspaso de Devoluciones a EYEJAL.
+let MOVREP_DEV_LOADED=[];
 
 async function loadAcond_(){
   try{
@@ -5365,18 +5734,38 @@ async function loadAcond_(){
   }
 }
 
+async function loadMovRepDev_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=movrep_dev&t='+Date.now());
+    const rows=await r.json();
+    MOVREP_DEV_LOADED=Array.isArray(rows)?rows:[];
+  }catch(e){
+    console.error('Error cargando MOVREP (DEV):',e);
+  }
+}
+
+// ¿El número de movimiento capturado a mano en el folio existe de verdad
+// en MOVREP para el almacén DEV? Comparación por texto (trim), no
+// numérica -- SAI a veces trae ceros a la izquierda o espacios.
+function movimientoCuadraMovRep_(numMovimiento){
+  const n=(numMovimiento||'').trim();
+  if(!n)return null;
+  return (MOVREP_DEV_LOADED||[]).find(function(m){return (m.movimiento||'').trim()===n;})||null;
+}
+
 async function loadDevoluciones(){
   const bar=document.getElementById('dev-update-bar');
   try{
     const [r]=await Promise.all([
       fetch(APPS_URL+'?accion=devoluciones&t='+Date.now()),
-      loadAcond_()
+      loadAcond_(),
+      loadMovRepDev_()
     ]);
     const rows=await r.json();
     const porId={};
     (Array.isArray(rows)?rows:[]).forEach(function(row){
       if(!porId[row.id]){
-        porId[row.id]={id:row.id,folio:row.folio,tipo:row.tipo,op:row.op,codigoPT:row.codigoPT,productoPT:row.productoPT,lotePT:row.lotePT,fecha:row.fecha,registrado:row.registrado,lineas:[]};
+        porId[row.id]={id:row.id,folio:row.folio,tipo:row.tipo,op:row.op,codigoPT:row.codigoPT,productoPT:row.productoPT,lotePT:row.lotePT,fecha:row.fecha,registrado:row.registrado,numMovimiento:row.numMovimiento||'',lineas:[]};
       }
       porId[row.id].lineas.push({codigo:row.codigo,descripcion:row.descripcion,lote:row.lote,cantidad:row.cantidad});
     });
@@ -5435,11 +5824,24 @@ function renderDev(){
       +'</div>';
     }).join('');
     const tieneAlerta=folioTieneAlerta(f);
-    return '<div class="card dev-card t-'+f.tipo+'">'
+    // Cruce contra MOVREP: si el número de movimiento que se capturó a
+    // mano existe de verdad en MOVREP (almacén DEV), el folio se pinta de
+    // verde -- eso quiere decir que SAI ya registró ese movimiento y se
+    // puede hacer con confianza el traspaso de Devoluciones a EYEJAL. Si
+    // no capturaste número de movimiento, no se avisa nada (es opcional).
+    const movMatch=movimientoCuadraMovRep_(f.numMovimiento);
+    const cuadraMov=!!movMatch;
+    const movHtml=f.numMovimiento?
+      (cuadraMov?
+        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+') — listo para traspaso a EYEJAL</div>':
+        '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+' no aparece en MOVREP (DEV) todavía</div>'
+      ):'';
+    return '<div class="card dev-card t-'+f.tipo+(cuadraMov?' dev-card-cuadra':'')+'">'
       +'<div class="dev-card-head">'
         +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span></div>'
         +(f.op?'<div class="dev-op-info">OP <b>'+escAttr(f.op)+'</b> · '+escAttr(f.codigoPT)+' — '+escAttr(f.productoPT)+' · Lote '+escAttr(f.lotePT)+'</div>':'')
         +'<div class="dev-meta">'+f.lineas.length+' material'+(f.lineas.length>1?'es':'')+' · '+fmt(totalCant)+' pz · '+escAttr(f.fecha)+(f.registrado?' · '+escAttr(f.registrado):'')+' <span class="dev-del" onclick="borrarDevolucion(\''+f.id+'\')">🗑️ Borrar folio</span></div>'
+        +movHtml
         +(tieneAlerta?'<div class="dev-linea-warn" style="margin-top:8px">⚠️ Este folio tiene lotes que ya no están en ACOND, o hay menos cantidad de la que se está devolviendo. Verifica antes de mandar el movimiento a SAI.</div>':'')
       +'</div>'
       +'<div class="dev-lineas">'+lineasHtml+'</div>'
@@ -5459,6 +5861,7 @@ function borrarDevolucion(id){
 function abrirModalDevolucion(){
   checkNombre();
   document.getElementById('dev-folio').value='';
+  document.getElementById('dev-nummov').value='';
   document.getElementById('dev-buscar-op').value='';
   document.getElementById('dev-op-results').style.display='none';
   document.getElementById('dev-op-sel').style.display='none';
@@ -5784,6 +6187,7 @@ function guardarDevolucion(){
 
   const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
   const fecha=new Date().toLocaleDateString('es-MX');
+  const numMovimiento=(document.getElementById('dev-nummov').value||'').trim();
   const payload={
     accion:'devolucion',
     folio:folio,
@@ -5794,7 +6198,8 @@ function guardarDevolucion(){
     lotePT:devOpSelData.lote,
     fecha:fecha,
     registrado:nombre,
-    lineas:lineasValidas
+    lineas:lineasValidas,
+    numMovimiento:numMovimiento
   };
 
   const btn=document.querySelector('#modal-dev-folio .btn-emb-print');
@@ -5830,6 +6235,8 @@ document.querySelectorAll('#fi-car-cat .chip').forEach(function(c){c.addEventLis
 document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventListener('click',function(){fCarUbic=this.dataset.ubic;document.querySelectorAll('#fi-car-ubic .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.getElementById('search-dev').addEventListener('input',function(){sDev=this.value;renderDev();});
 document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListener('click',function(){fDev=this.dataset.f;document.querySelectorAll('#fi-dev .chip').forEach(function(x){x.classList.remove('active','a-dev');});this.classList.add('active');renderDev();});});
+document.getElementById('search-ubi').addEventListener('input',function(){sUbi=this.value;renderUbi();});
+document.querySelectorAll('#fi-ubi .chip').forEach(function(c){c.addEventListener('click',function(){fUbi=this.dataset.f;document.querySelectorAll('#fi-ubi .chip').forEach(function(x){x.classList.remove('active','a-ubi');});this.classList.add('active');renderUbi();});});
 // Init
 loadInventario();
 // PT (antes solo se cargaba al entrar a Carátulas) se carga desde el
