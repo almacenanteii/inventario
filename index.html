@@ -347,14 +347,18 @@ header.h-ubi{background:#6D4C41}
    se necesita volver a la vista plana). */
 .rack-box{border:2px solid #D7CCC8;border-radius:10px;padding:8px;margin-bottom:14px;background:#fff;overflow-x:auto}
 .rack-diagram{display:grid;gap:3px;min-width:min-content}
-.rack-cell{font-size:8.5px;text-align:center;display:flex;align-items:center;justify-content:center;min-height:32px;border-radius:4px;font-weight:700;font-family:monospace;cursor:default;padding:2px 1px;line-height:1.15;word-break:break-all}
-.rack-hdr{color:var(--gr2);font-size:9px;font-weight:800;cursor:default;font-family:inherit}
+.rack-cell{font-size:11.5px;text-align:center;display:flex;align-items:center;justify-content:center;min-height:46px;border-radius:6px;font-weight:800;font-family:monospace;cursor:default;padding:3px 2px;line-height:1.15;word-break:break-all}
+.rack-hdr{color:var(--gr2);font-size:10.5px;font-weight:800;cursor:default;font-family:inherit}
 .rack-lvl-lbl{font-weight:900;color:#6D4C41;background:#EFEBE9;cursor:default;font-family:inherit}
 .rack-empty{background:transparent;cursor:default}
 .rack-pos-cell{cursor:pointer;border:1.5px solid transparent}
 .rack-pos-cell.libre{background:#E8F5E9;color:#2E7D32;border-color:#C8E6C9}
 .rack-pos-cell.ocupada{background:#FFF3E0;color:#E65100;border-color:#FFE0B2}
 .rack-pos-cell.bloqueada{background:#ECEFF1;color:#455A64;border-color:#CFD8DC}
+/* Resalte temporal al saltar desde Ubicaciones a una tarjeta/lote de
+   Inventario (ver irAInventarioLote_). */
+@keyframes flashDestacado{0%{box-shadow:0 0 0 0 rgba(232,103,26,.55)}70%{box-shadow:0 0 0 12px rgba(232,103,26,0)}100%{box-shadow:0 0 0 0 rgba(232,103,26,0)}}
+.lote-destacado{animation:flashDestacado 1s ease-out 2;border-radius:10px}
 
 /* ===== Devoluciones tab ===== */
 header.h-dev{background:var(--tl)}
@@ -1653,7 +1657,7 @@ function renderUbi(){
 
     const st=statsPorRack[r]||{libre:0,total:0};
     html+='<div class="ubi-rack-title">Rack '+escAttr(r)+' <span class="ubi-rack-libres">🟢 '+st.libre+' disponibles de '+st.total+'</span></div>';
-    html+='<div class="rack-box"><div class="rack-diagram" style="grid-template-columns:36px repeat('+maxPos+',minmax(46px,1fr))">';
+    html+='<div class="rack-box"><div class="rack-diagram" style="grid-template-columns:38px repeat('+maxPos+',minmax(64px,1fr))">';
     html+='<div class="rack-cell rack-hdr"></div>';
     for(let p=1;p<=maxPos;p++){html+='<div class="rack-cell rack-hdr">'+(p<10?'0'+p:p)+'</div>';}
     niveles.forEach(function(niv){
@@ -1743,6 +1747,27 @@ function agregarUbicacionCatalogoPrompt_(){
 // Modal de detalle al tocar una celda del mapa -- disponible (con botón de
 // bloquear), ocupada (lista de clave/lote, se edita desde Inventario) o
 // bloqueada (motivo + botón de desbloquear).
+// Salta a Inventario y deja a la vista (resaltada) la tarjeta de un
+// clave+lote específico -- se usa desde el modal de una casilla ocupada en
+// la pestaña Ubicaciones, para no tener que ir a buscarlo a mano.
+function irAInventarioLote_(clave,lote){
+  switchTab('inv');
+  sInv=clave;
+  const inp=document.getElementById('search-inv');
+  if(inp)inp.value=clave;
+  renderInv();
+  const cards=document.querySelectorAll('#list-inv .card');
+  let card=null;
+  cards.forEach(function(c){if(c.dataset.claveSel===clave)card=c;});
+  if(!card)return;
+  let lotEl=null;
+  card.querySelectorAll('.lot').forEach(function(l){if(l.dataset.lote===lote)lotEl=l;});
+  const target=lotEl||card;
+  if(target.scrollIntoView)target.scrollIntoView({behavior:'smooth',block:'center'});
+  target.classList.add('lote-destacado');
+  setTimeout(function(){target.classList.remove('lote-destacado');},2500);
+}
+
 function verUbicacionCelda_(codigo){
   const estados=estadoUbicaciones_();
   const e=estados.find(function(x){return x.codigo===codigo;})||{codigo:codigo,estado:'LIBRE',ocupantes:[],bloqueada:null};
@@ -1766,11 +1791,26 @@ function verUbicacionCelda_(codigo){
   if(e.estado==='LIBRE'){
     body.innerHTML='<span style="color:#2E7D32;font-weight:700">✓ Disponible</span> -- no tiene inventario asignado ni bloqueo.';
   }else if(e.estado==='OCUPADA'){
-    body.innerHTML='<span style="color:#E65100;font-weight:700">📦 Ocupada</span><br>'+e.ocupantes.map(function(u){return '<b>'+escAttr(u.clave)+'</b> · lote '+escAttr(u.lote);}).join('<br>')+'<br><span style="color:#aaa;font-size:11px">Para editarla, hazlo desde la tarjeta del lote en Inventario.</span>';
+    body.innerHTML='<span style="color:#E65100;font-weight:700">📦 Ocupada</span><br>'+e.ocupantes.map(function(u){return '<b>'+escAttr(u.clave)+'</b> · lote '+escAttr(u.lote);}).join('<br>');
   }else{
     body.innerHTML='<span style="color:#455A64;font-weight:700">🔒 Bloqueada</span><br>Motivo: '+escAttr(e.bloqueada.motivo||'—')+'<br><span style="color:#aaa;font-size:11px">Por '+escAttr(e.bloqueada.registrado||'—')+' · '+escAttr((e.bloqueada.fecha||'').split(',')[0]||'—')+'</span>';
   }
   box.appendChild(body);
+
+  // Un atajo por ocupante para saltar directo a su tarjeta en Inventario
+  // (en vez de solo decir "edítalo allá" y dejar que lo busques a mano).
+  if(e.estado==='OCUPADA'){
+    const idsRow=document.createElement('div');
+    idsRow.style.cssText='display:flex;flex-direction:column;gap:6px;margin-bottom:2px';
+    e.ocupantes.forEach(function(u){
+      const btnGo=document.createElement('button');
+      btnGo.textContent='📦 Ver '+u.clave+' · lote '+u.lote+' en Inventario →';
+      btnGo.style.cssText='text-align:left;padding:9px 11px;border:1.5px dashed #E8671A;border-radius:8px;font-size:12px;font-weight:700;background:#fff8e1;color:#E8671A;cursor:pointer';
+      btnGo.onclick=function(){overlay.remove();irAInventarioLote_(u.clave,u.lote);};
+      idsRow.appendChild(btnGo);
+    });
+    box.appendChild(idsRow);
+  }
 
   const row=document.createElement('div');
   row.style.cssText='display:flex;gap:8px;margin-top:14px';
