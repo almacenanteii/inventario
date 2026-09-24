@@ -708,6 +708,7 @@ header.h-dev{background:var(--tl)}
     <div style="display:flex;gap:6px">
       <button onclick="agregarUbicacionCatalogoPrompt_()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar</button>
       <button onclick="bloquearUbicacionPrompt_()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🔒 Bloquear</button>
+      <button onclick="verUbicacionesHuerfanas()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🗑️ Huérfanas</button>
     </div>
   </div>
   <div class="update-bar" id="ubi-update-bar">📅 Cargando ubicaciones...</div>
@@ -747,7 +748,8 @@ header.h-dev{background:var(--tl)}
     <div class="emb-modal-body dev-modal-cols" style="padding:16px">
       <div class="dev-col-left">
         <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Folio</label>
-        <input type="text" id="dev-folio" placeholder="Folio de la papeleta" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
+        <input type="text" id="dev-folio" placeholder="Folio de la papeleta" oninput="checkFolioDuplicado_()" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:4px">
+        <div id="dev-folio-warn" style="font-size:11px;color:#d33;font-weight:700;margin:-2px 0 12px;display:none">⚠️ Este folio ya está registrado.</div>
 
         <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Número de movimiento (SAI)</label>
         <input type="text" id="dev-nummov" placeholder="Opcional -- para cruzar contra MOVREP" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
@@ -1445,15 +1447,29 @@ function editarUbicacion(el){
 // lotes es normal (tarimas del mismo material una junto a otra) y no se
 // avisa; el conflicto real es que dos productos distintos "peleen" el
 // mismo lugar físico.
-// ¿Ese clave+lote sigue apareciendo en el inventario actual (_ALL_A)? Un
-// lote que ya se agotó desaparece del reporte de SAI, pero su ubicación
-// guardada NO se borra sola -- se queda huérfana en el Sheet. Sin este
-// chequeo, el checador de conflictos seguía avisando "ubicación ya
-// ocupada" por productos que ya ni existen físicamente ahí.
+// ¿Ese clave+lote sigue apareciendo en el inventario actual (_ALL_A) CON
+// existencia mayor a 0? Un lote que ya se agotó desaparece del reporte de
+// SAI, pero su ubicación guardada NO se borra sola -- se queda huérfana en
+// el Sheet. También se trata como "ya no existe" (para efectos de
+// ubicación nomás) un lote que SAI todavía no quita del reporte pero que
+// ya está en 0 piezas -- físicamente esa tarima ya no está ahí, aunque el
+// reporte tarde unos días en reflejarlo. Sin este chequeo, el checador de
+// conflictos y el mapa de ubicaciones seguían marcando como "ocupado" un
+// lugar que ya está vacío.
 function loteExisteEnInventarioActual_(clave,lote){
   const ALL_A=window._ALL_A||[];
   const p=ALL_A.find(function(x){return x.clave===clave;});
-  return !!(p&&p.lotes.some(function(l){return l.lote===lote;}));
+  const l=p&&p.lotes.find(function(x){return x.lote===lote;});
+  return !!(l&&(l.exist||0)>0);
+}
+// Motivo por el que un lote salió como huérfano -- para que el visor de
+// "Ubicaciones huérfanas" distinga los dos casos posibles.
+function motivoUbicHuerfana_(clave,lote){
+  const ALL_A=window._ALL_A||[];
+  const p=ALL_A.find(function(x){return x.clave===clave;});
+  const l=p&&p.lotes.find(function(x){return x.lote===lote;});
+  if(l&&(l.exist||0)<=0)return 'Existencia en 0';
+  return 'Ya no aparece en el inventario';
 }
 function buscarConflictoUbicacion_(clave,ubicacion){
   const u=ubicacion.trim().toLowerCase();
@@ -1476,7 +1492,9 @@ function ubicacionesHuerfanas_(){
   const out=[];
   Object.keys(ubicMap).forEach(function(key){
     (ubicMap[key]||[]).forEach(function(u){
-      if(!loteExisteEnInventarioActual_(u.clave,u.lote))out.push(u);
+      if(!loteExisteEnInventarioActual_(u.clave,u.lote)){
+        out.push(Object.assign({},u,{motivo:motivoUbicHuerfana_(u.clave,u.lote)}));
+      }
     });
   });
   out.sort(function(a,b){return (a.clave||'').localeCompare(b.clave||'','es',{numeric:true});});
@@ -1537,7 +1555,8 @@ function verUbicacionesHuerfanas(){
       row.style.cssText='display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid #f0f0f0';
       const info=document.createElement('div');
       info.style.cssText='font-size:12px;line-height:1.4';
-      info.innerHTML='<b>'+escAttr(u.clave)+'</b> · lote '+escAttr(u.lote)+'<br><span style="color:#E8671A;font-weight:700">📍 '+escAttr(u.ubicacion)+'</span> <span style="color:#aaa">· guardada '+escAttr((u.fecha||'').split(',')[0]||'—')+'</span>';
+      const colorMotivo=u.motivo==='Existencia en 0'?'#E65100':'#7a7a7a';
+      info.innerHTML='<b>'+escAttr(u.clave)+'</b> · lote '+escAttr(u.lote)+'<br><span style="color:#E8671A;font-weight:700">📍 '+escAttr(u.ubicacion)+'</span> <span style="color:#aaa">· guardada '+escAttr((u.fecha||'').split(',')[0]||'—')+'</span><br><span style="color:'+colorMotivo+';font-weight:700;font-size:11px">'+escAttr(u.motivo||'')+'</span>';
       row.appendChild(info);
       const btnDel=document.createElement('button');
       btnDel.textContent='✕ Borrar';
@@ -6064,6 +6083,7 @@ function editarDevolucion(id){
   const btnG=document.getElementById('dev-btn-guardar'); if(btnG)btnG.textContent='✓ Guardar cambios';
 
   document.getElementById('dev-folio').value=f.folio||'';
+  checkFolioDuplicado_();
   document.getElementById('dev-nummov').value=f.numMovimiento||'';
 
   // La fecha guardada viene como "dd/mm/aaaa" -- el input type="date"
@@ -6099,6 +6119,7 @@ function abrirModalDevolucion(){
   const tit=document.getElementById('dev-modal-titulo'); if(tit)tit.textContent='↩️ Nuevo folio de devolución';
   const btnG=document.getElementById('dev-btn-guardar'); if(btnG)btnG.textContent='✓ Guardar folio';
   document.getElementById('dev-folio').value='';
+  checkFolioDuplicado_();
   document.getElementById('dev-nummov').value='';
   document.getElementById('dev-fecha').value='';
   document.getElementById('dev-buscar-op').value='';
@@ -6380,6 +6401,9 @@ function renderDevLineas_(){
     const lotesOpts=lotesDisponibles.map(function(lt){
       return '<option value="'+escAttr(lt)+'"'+(lt===l.lote?' selected':'')+'>'+escAttr(lt)+'</option>';
     }).join('');
+    const lotesOptsDL=lotesDisponibles.map(function(lt){
+      return '<option value="'+escAttr(lt)+'">';
+    }).join('');
     const alerta=(l.codigo&&l.lote&&!loteEnSistema_(l.codigo,l.lote,l.cantidad));
     const existAcondCap=alerta?existeAcond_(l.codigo,l.lote):0;
     const warnTxtCap=alerta?(existAcondCap>0?'⚠️ En ACOND solo hay '+fmt(existAcondCap)+' — se está pidiendo '+fmt(l.cantidad)+'. Avisa antes de generar el movimiento, con esto lo harán mal.':'⚠️ Este lote ya no existe en ACOND (probablemente ya se consumió/transfirió). Avisa antes de generar el movimiento — con este lote lo harán mal.'):'';
@@ -6390,9 +6414,8 @@ function renderDevLineas_(){
       +'</div>'
       +'<div class="desc">'+(l.descripcion?escAttr(l.descripcion):'Se autocompleta al elegir el código')+'</div>'
       +'<div class="row" style="margin-top:6px">'
-        +'<select onchange="devLineas['+idx+'].lote=this.value;renderDevLineas_();">'
-          +'<option value="">Lote…</option>'+lotesOpts
-        +'</select>'
+        +'<input type="text" list="dev-lote-list-'+idx+'" placeholder="Lote…" value="'+escAttr(l.lote)+'" oninput="devLineas['+idx+'].lote=this.value" onchange="renderDevLineas_()">'
+        +'<datalist id="dev-lote-list-'+idx+'">'+lotesOptsDL+'</datalist>'
         +'<input type="number" min="0" step="any" inputmode="decimal" placeholder="Cantidad" value="'+(l.cantidad||'')+'" oninput="devLineas['+idx+'].cantidad=parseFloat(this.value)||0" onchange="renderDevLineas_()">'
       +'</div>'
       +(alerta?'<div class="dev-linea-warn">'+warnTxtCap+'</div>':'')
@@ -6407,6 +6430,19 @@ function onDevCodigoChange(el,idx){
   devLineas[idx].descripcion=p?p.desc:'';
   devLineas[idx].lote='';
   renderDevLineas_();
+}
+
+// ---- Marca en rojo el recuadro de Folio si ya existe otro folio igual ----
+function checkFolioDuplicado_(){
+  const el=document.getElementById('dev-folio');
+  const warn=document.getElementById('dev-folio-warn');
+  if(!el)return false;
+  const folio=el.value.trim();
+  const dup=!!folio&&(DEV_LOADED||[]).some(function(f){return (f.folio||'').trim().toLowerCase()===folio.toLowerCase()&&f.id!==devEditandoId;});
+  el.style.borderColor=dup?'#d33':'#e2e2e2';
+  el.style.background=dup?'#fff3f3':'';
+  if(warn)warn.style.display=dup?'block':'none';
+  return dup;
 }
 
 function guardarDevolucion(){
