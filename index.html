@@ -446,6 +446,7 @@ header.h-dev{background:var(--tl)}
 .dev-mov-cuadra{margin-top:8px;background:#E8F5E9;border:1.5px solid #2E7D32;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:800;color:#1B5E20;line-height:1.4}
 .dev-mov-nocuadra{margin-top:8px;background:#F5F5F5;border:1.5px dashed #bbb;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:#777;line-height:1.4}
 .dev-mov-faltadev{margin-top:8px;background:#FFF8E1;border:1.5px solid #F9A825;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:#8D6E00;line-height:1.4}
+.dev-mov-traspasado{margin-top:8px;background:#ECEFF1;border:1.5px solid #90A4AE;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:#455A64;line-height:1.4}
 /* Línea de material individual que SÍ coincide con MOVREP (mismo código,
    lote y cantidad exactos) -- para que se distinga de un vistazo cuál está
    bien sin tener que leer el cuadro de diferencias de arriba. */
@@ -729,6 +730,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="proveedor">🟤 A Proveedor</div>
     <div class="chip" data-f="ALERTA">⚠️ Con alerta</div>
     <div class="chip" data-f="CUADRA">✔ Cuadra en cantidad</div>
+    <div class="chip" data-f="TRASPASADO">🚚 Ya traspasados</div>
   </div>
 </header>
 
@@ -6599,7 +6601,12 @@ function getFiltDev(){
     if(fDev==='ALERTA'){
       if(!f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);}))return false;
     }else if(fDev==='CUADRA'){
-      if(!folioCuadraMov_(f).cuadraMov)return false;
+      // Ya marcado como traspasado = ya no es "pendiente", así que se saca
+      // de esta lista aunque siga cuadrando en cantidad -- para eso está el
+      // filtro aparte "Ya traspasados".
+      if(!folioCuadraMov_(f).cuadraMov||f.fechaTraspaso)return false;
+    }else if(fDev==='TRASPASADO'){
+      if(!f.fechaTraspaso)return false;
     }else if(fDev!=='TODOS'&&f.tipo!==fDev)return false;
     if(!fechaDevEnMes_(f.fecha,mDev))return false;
     if(!fechaDevEnSemana_(f.fecha,semDev))return false;
@@ -6717,17 +6724,28 @@ function renderDev(){
       +'</div>';
     }).join('');
     const tieneAlerta=folioTieneAlerta(f);
-    const movHtml=f.numMovimiento?
+    // Botón para marcar/deshacer el traspaso -- solo tiene caso ofrecerlo
+    // una vez que el folio cuadra con MOVREP (antes de eso no hay nada que
+    // "ya se traspasó"). Una vez marcado, el aviso de abajo cambia a un
+    // estado neutro fijo y este botón se convierte en "deshacer".
+    const btnTraspaso=cuadraMov?
+      (f.fechaTraspaso?
+        '<span class="dev-del" style="color:#8D6E00" onclick="marcarTraspasoDevolucion(\''+f.id+'\',false)">↩️ Deshacer traspaso</span>'
+      :'<span class="dev-del" style="color:#1B5E20" onclick="marcarTraspasoDevolucion(\''+f.id+'\',true)">✔ Ya hice el traspaso</span>')
+      :'';
+    const movHtml=f.fechaTraspaso?
+      '<div class="dev-mov-traspasado">🚚 Traspasado a EYEJAL el '+escAttr(f.fechaTraspaso)+' '+btnTraspaso+'</div>'
+    :f.numMovimiento?
       (!movMatch?
         '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+notaCompartido+' no aparece en MOVREP (DEV) todavía</div>'
       :!cuadraMov?
         '<div class="dev-mov-nocuadra">⚠️ Mov. '+escAttr(f.numMovimiento)+' está en MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+' pero NO coincide con lo capturado en conjunto:<br>• '+movCmp.diffs.join('<br>• ')+'</div>'
       :listoTraspaso?
-        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+' — coincide en materiales, lotes y cantidades, y ya está completo en DEV — listo para traspaso a EYEJAL</div>'
+        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+' — coincide en materiales, lotes y cantidades, y ya está completo en DEV — listo para traspaso a EYEJAL '+btnTraspaso+'</div>'
       :
-        '<div class="dev-mov-faltadev">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+', pero todavía falta que llegue a DEV:<br>• '+devFaltantes.map(function(x){return escAttr(x.codigo)+' lote '+escAttr(x.lote)+' (faltan '+fmt(x.falta)+' pz)';}).join('<br>• ')+'</div>'
+        '<div class="dev-mov-faltadev">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+', pero todavía falta que llegue a DEV:<br>• '+devFaltantes.map(function(x){return escAttr(x.codigo)+' lote '+escAttr(x.lote)+' (faltan '+fmt(x.falta)+' pz)';}).join('<br>• ')+btnTraspaso+'</div>'
       ):'';
-    return '<div class="card dev-card t-'+f.tipo+(listoTraspaso?' dev-card-cuadra':'')+'">'
+    return '<div class="card dev-card t-'+f.tipo+(listoTraspaso&&!f.fechaTraspaso?' dev-card-cuadra':'')+'">'
       +'<div class="dev-card-head">'
         +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span></div>'
         +(f.op?'<div class="dev-op-info">OP <b>'+escAttr(f.op)+'</b> · '+escAttr(f.codigoPT)+' — '+escAttr(f.productoPT)+' · Lote '+escAttr(f.lotePT)+'</div>':'')
@@ -6738,6 +6756,21 @@ function renderDev(){
       +'<div class="dev-lineas">'+lineasHtml+'</div>'
     +'</div>';
   }).join('');
+}
+
+// Marca (o deshace) que este folio YA se traspasó físicamente a EYEJAL --
+// puramente informativo/de control para que el usuario no se confunda
+// viendo como "pendiente" algo que ya hizo. No mueve nada de inventario ni
+// afecta ningún cálculo, solo guarda la fecha en la hoja Devoluciones.
+function marcarTraspasoDevolucion(id,marcar){
+  const f=(DEV_LOADED||[]).find(function(x){return x.id===id;});
+  if(!f)return;
+  const hoy=new Date();
+  const fechaTxt=String(hoy.getDate()).padStart(2,'0')+'/'+String(hoy.getMonth()+1).padStart(2,'0')+'/'+hoy.getFullYear();
+  f.fechaTraspaso=marcar?fechaTxt:'';
+  renderDev();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'marcar_traspaso_devolucion',id:id,marcar:marcar})})
+    .catch(function(e){console.error('Error marcando traspaso:',e);});
 }
 
 function borrarDevolucion(id){
