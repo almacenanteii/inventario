@@ -708,7 +708,7 @@ header.h-dev{background:var(--tl)}
   <div class="update-bar" id="dev-update-bar">📅 Cargando folios...</div>
   <div class="search-box">
     <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-    <input type="search" id="search-dev" placeholder="Buscar folio, OP, código o lote…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <input type="search" id="search-dev" placeholder="Buscar folio, OP, código, lote o movimiento…" autocomplete="off" autocorrect="off" spellcheck="false">
     <button class="clr" id="clr-dev" onclick="document.getElementById('search-dev').value='';sDev='';renderDev();">✕</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
@@ -6563,7 +6563,7 @@ function getFiltDev(){
     if(!fechaDevEnMes_(f.fecha,mDev))return false;
     if(!fechaDevEnSemana_(f.fecha,semDev))return false;
     if(!q)return true;
-    if(smartMatch(f.folio,sDev)||smartMatch(f.op,sDev)||smartMatch(f.codigoPT,sDev)||smartMatch(f.productoPT,sDev)||smartMatch(f.lotePT,sDev))return true;
+    if(smartMatch(f.folio,sDev)||smartMatch(f.op,sDev)||smartMatch(f.codigoPT,sDev)||smartMatch(f.productoPT,sDev)||smartMatch(f.lotePT,sDev)||smartMatch(f.numMovimiento,sDev))return true;
     return f.lineas.some(function(l){return smartMatch(l.codigo,sDev)||smartMatch(l.descripcion,sDev)||smartMatch(l.lote,sDev);});
   });
 }
