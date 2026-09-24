@@ -2255,10 +2255,16 @@ function renderInv(){
         `<div style="font-size:10.5px;color:#b0b0b0;font-style:italic;margin-top:3px">Sin clasificar</div>`;
       const sel=invClaveSel.has(p.clave);
       // Dato informativo de DEV (pendiente de traspaso a EYEJAL) -- el pill
-      // naranja de arriba sigue siendo la existencia real (la dominante).
-      // El dato de DEV ya no va aquí a nivel de clave -- se muestra abajo,
-      // en el renglón del lote exacto al que corresponde (ver lots.map).
-      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
+      // naranja de arriba sigue siendo la existencia real (la dominante) y
+      // NUNCA lo incluye. Aparte, chico y sin destacar, se muestra el
+      // total de DEV de TODA la clave (sumando todos sus lotes en DEV,
+      // coincidan o no con un lote real) como referencia -- y también,
+      // dentro de cada renglón de lote, el dato de ESE lote en particular
+      // (ver devLoteHtml en lots.map). Son dos referencias distintas: una
+      // por clave completa, otra por lote exacto.
+      const devQtyClaveInv=existeEnDev_(p.clave);
+      const devLineaClaveInv=devQtyClaveInv>0?`<div class="dev-ref-linea" title="Suma de DEV en TODOS los lotes de esta clave -- pendiente de confirmar contra MOVREP y traspasar a EYEJAL. No está sumado al pill de arriba.">📦 DEV (toda la clave): ${fmt(devQtyClaveInv)} &nbsp;·&nbsp; Total con DEV: ${fmt(p.totalExist+devQtyClaveInv)}</div>`:'';
+      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div>${devLineaClaveInv}<div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
     }).join('')
   ).join('');
   actualizarMenuImprimirInv_();
