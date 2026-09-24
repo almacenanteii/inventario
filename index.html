@@ -324,6 +324,15 @@ header.h-dash{background:var(--bl)}
 .dash-top-rank{font-weight:800;color:var(--bl);width:20px;flex-shrink:0}
 .dash-top-clave{font-family:monospace;font-weight:700;color:var(--gr);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dash-top-val{font-weight:700;color:var(--gr);flex-shrink:0;margin-left:8px}
+.dash-pend-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f5f5}
+.dash-pend-row:last-child{border-bottom:none}
+.dash-pend-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.dash-pend-ubic{font-family:monospace;font-weight:800;color:#E53935;font-size:12px;cursor:pointer;width:fit-content}
+.dash-pend-ubic:hover{text-decoration:underline}
+.dash-pend-txt{font-size:12.5px;color:var(--gr);word-break:break-word}
+.dash-pend-meta{font-size:10.5px;color:#aaa}
+.dash-pend-x{flex-shrink:0;width:30px;height:30px;border-radius:50%;border:1.5px solid #2E7D32;background:#fff;color:#2E7D32;font-weight:800;font-size:14px;cursor:pointer}
+.dash-pend-x:hover{background:#2E7D32;color:#fff}
 .dash-donut-row{display:flex;align-items:center;gap:16px}
 .dash-donut-legend{flex:1;min-width:0}
 .dash-legend-item{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--gr);margin-bottom:7px}
@@ -2679,6 +2688,7 @@ async function cargarPendientesUbicaciones_(){
     if(Array.isArray(rows))pendientesUbic=rows;
   }catch(e){console.warn('No se pudo cargar los pendientes de ubicación:',e);}
   if(tab==='ubi')renderUbi();
+  if(tab==='dash')renderDash();
 }
 
 function agregarPendienteUbicacion(codigo){
@@ -2692,6 +2702,7 @@ function agregarPendienteUbicacion(codigo){
   const tempId='tmp-'+Date.now();
   pendientesUbic.push({id:tempId,ubicacion:codigo,texto:texto.trim(),registrado:nombreReg,fecha:fecha});
   renderUbi();
+  if(tab==='dash')renderDash();
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'pendiente_ubicacion',ubicacion:codigo,texto:texto.trim(),registrado:nombreReg,fecha:fecha})})
     .then(function(){cargarPendientesUbicaciones_();})
     .catch(function(e){console.error('Error guardando pendiente de ubicación:',e);});
@@ -2701,10 +2712,18 @@ function eliminarPendienteUbicacion(id,codigo){
   if(!confirm('¿Borrar este pendiente de '+codigo+'?'))return;
   pendientesUbic=pendientesUbic.filter(function(p){return p.id!==id;});
   renderUbi();
+  if(tab==='dash')renderDash();
   const modalAbierto=document.getElementById('ubic-celda-modal');
   if(modalAbierto)verUbicacionCelda_(codigo);
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_pendiente_ubicacion',id:id})})
     .catch(function(e){console.error('Error borrando pendiente de ubicación:',e);});
+}
+
+// Salta de un pendiente listado en el Dashboard directo a su ubicación en
+// la pestaña Ubicaciones, abriendo el mismo modal de celda de siempre.
+function irAUbicacionDesdeDash_(codigo){
+  switchTab('ubi');
+  verUbicacionCelda_(codigo);
 }
 
 function editarNombreRack(rack){
@@ -4052,6 +4071,26 @@ function renderDash(){
     +'<div class="dash-card"><div class="dash-card-lbl">Claves</div><div class="dash-card-val">'+fmt(s.clavesTotal)+'</div><div class="dash-card-sub">únicas</div></div>'
     +'<div class="dash-card"><div class="dash-card-lbl">Ubicaciones</div><div class="dash-card-val">'+fmt(s.ubicTotal)+'</div><div class="dash-card-sub">registradas</div></div>'
   +'</div>';
+
+  html+='<div class="dash-sec-title">📌 Pendientes por ubicación</div>';
+  html+='<div class="dash-grid">'
+    +'<div class="dash-card"><div class="dash-card-lbl">Abiertos</div><div class="dash-card-val">'+fmt(pendientesUbic.length)+'</div><div class="dash-card-sub">en '+fmt(new Set(pendientesUbic.map(function(p){return p.ubicacion;})).size)+' ubicación(es)</div></div>'
+  +'</div>';
+  if(pendientesUbic.length){
+    const pendOrdenados=pendientesUbic.slice().sort(function(a,b){return (a.ubicacion||'').localeCompare(b.ubicacion||'');});
+    html+='<div class="dash-block"><div class="dash-block-title">Lista de pendientes</div>'
+      +pendOrdenados.map(function(p){
+        return '<div class="dash-pend-row">'
+          +'<div class="dash-pend-main">'
+            +'<span class="dash-pend-ubic" onclick="irAUbicacionDesdeDash_(\''+escAttr(p.ubicacion)+'\')">📍 '+escAttr(p.ubicacion)+'</span>'
+            +'<span class="dash-pend-txt">'+escAttr(p.texto)+'</span>'
+            +'<span class="dash-pend-meta">'+escAttr(p.registrado||'—')+' · '+escAttr((p.fecha||'').split(',')[0]||'—')+'</span>'
+          +'</div>'
+          +'<button class="dash-pend-x" onclick="eliminarPendienteUbicacion(\''+escAttr(p.id)+'\',\''+escAttr(p.ubicacion)+'\')" title="Resolver">✓</button>'
+        +'</div>';
+      }).join('')
+    +'</div>';
+  }
 
   html+='<div class="dash-block"><div class="dash-block-title">Claves con ubicación</div>'
     +dashDonutBlock_([
