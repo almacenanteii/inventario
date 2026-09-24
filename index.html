@@ -136,7 +136,10 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .c-or{color:var(--or)} .c-gn{color:var(--gn)} .c-rd{color:var(--rd)} .c-bl{color:var(--bl)}
 .pill{color:#fff;border-radius:8px;padding:3px 10px;font-size:13px;font-weight:800;white-space:nowrap}
 .p-or{background:var(--or)} .p-gn{background:var(--gn)} .p-rd{background:var(--rd)} .p-bl{background:var(--bl)}
-.dev-ref-linea{font-size:10.5px;color:#90A4AE;font-weight:600;margin:-2px 0 5px}
+.dev-ref-linea{font-size:10.5px;color:#90A4AE;font-weight:600;margin:2px 0}
+.lot-solo-dev{background:#FAFBFC;border-style:dashed}
+.lot-alm-dev{font-size:11px;color:#607D8B;font-weight:700;margin-top:2px}
+.lot-qty-dev{color:#78909C}
 .desc{font-size:13px;font-weight:600;color:var(--gr);line-height:1.35;margin-bottom:6px}
 .card-meta{font-size:11px;color:var(--gr2);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .loc-badge{display:inline-flex;align-items:center;gap:4px;background:#fff3e0;color:#e65100;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;font-family:monospace;border:1px solid #ffcc80}
@@ -2179,9 +2182,24 @@ function renderInv(){
   list.innerHTML=order.filter(c=>groups[c]).map(c=>'<div class="sec-hdr oh"><span class="sec-badge sb-or">'+c+'</span>'+groups[c].length+' artículos</div>'+
     groups[c].map(p=>{
       const lots=p.lotes.map(l=>{
+        // Lote que YA NO existe en EYEJAL/PT pero sigue en DEV (Producción
+        // lo mandó de ACOND a DEV, pendiente de confirmar contra MOVREP y
+        // traspasar a EYEJAL) -- fila aparte, minimalista, con existencia
+        // 0 real para que no se sume a nada, mostrando solo lo que hay en
+        // DEV como referencia.
+        if(l.esSoloDev){
+          return `<div class="lot emb-lote-row lot-solo-dev" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(l.desc||p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="DEV" data-exist="0">`+
+            `<div><div class="lot-lote">${escAttr(l.lote)}</div><div class="lot-alm-dev" title="Ya no está en EYEJAL/PT -- solo se sabe de este lote por lo que hay en DEV, pendiente de traspaso">📦 Solo en DEV</div></div>`+
+            `<div class="lot-right"><div class="lot-qty lot-qty-dev">${fmt(l.devExist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
+        }
         const almU=(l.almacen||'').toUpperCase();
         const esPT=['40PT','PTJAL','PTFGUAD','REPROJAL'].indexOf(almU)!==-1;
         const cad=cadInfo(l.caducidad);
+        // Este mismo lote (código exacto) también tiene algo en DEV --
+        // pendiente de confirmar contra MOVREP y traspasar a EYEJAL. Solo
+        // informativo, nunca se suma a l.exist ni al total de la tarjeta.
+        const devQtyLote=existeEnDevLote_(p.clave,l.lote);
+        const devLoteHtml=devQtyLote>0?`<div class="dev-ref-linea" title="En DEV -- pendiente de confirmar contra MOVREP y traspasar a EYEJAL. No está sumado a la existencia.">📦 También en DEV: ${fmt(devQtyLote)}</div>`:'';
         const key=p.clave+'|'+l.lote;
         const ubicBtn=ubicRowHtml_(p.clave,l.lote);
         const ultimoConteo=ultimoConteoMap[key];
@@ -2215,14 +2233,14 @@ function renderInv(){
           return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-uempaque="${pzasInfo&&pzasInfo.pzasXCaja?pzasInfo.pzasXCaja:''}" data-origen="${escAttr(l.origen||'')}">`+
             `<div>${loteLoteHtml}<div class="lot-alm">${almTag(almU)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}`+
             manualBadge+cuarentenaHtml+
-            `${conteoHtml}${devHtml}${ubicBtn}`+
+            `${conteoHtml}${devHtml}${devLoteHtml}${ubicBtn}`+
             `<div style="font-size:10.5px;color:#777;margin-top:2px">U. Empaque: ${uEmp}</div>`+
             `<label class="car-contado-chk" style="margin-top:6px;display:inline-flex"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
             `</div>`+
             `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
         }
         return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-unidad="${escAttr(l.unidad||'pzas')}">`+
-          `<div>${loteLoteHtml}<div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${devHtml}${ubicBtn}`+
+          `<div>${loteLoteHtml}<div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${devHtml}${devLoteHtml}${ubicBtn}`+
           `<label class="car-contado-chk" style="margin-top:6px;display:inline-flex"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
           `</div>`+
           `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
@@ -2234,12 +2252,9 @@ function renderInv(){
       const sel=invClaveSel.has(p.clave);
       // Dato informativo de DEV (pendiente de traspaso a EYEJAL) -- el pill
       // naranja de arriba sigue siendo la existencia real (la dominante).
-      // Debajo, en chico y sin destacar, se muestra cuánto hay en DEV y el
-      // total combinado (EYEJAL+DEV) nada más como referencia -- nunca se
-      // suma al pill de arriba ni a los KPIs.
-      const devQtyInv=existeEnDev_(p.clave);
-      const devLineaInv=devQtyInv>0?`<div class="dev-ref-linea" title="En DEV -- ya salió de ACOND, pendiente de confirmar contra MOVREP y traspasar a EYEJAL">📦 DEV ${fmt(devQtyInv)} &nbsp;·&nbsp; Total con DEV: ${fmt(p.totalExist+devQtyInv)}</div>`:'';
-      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div>${devLineaInv}<div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
+      // El dato de DEV ya no va aquí a nivel de clave -- se muestra abajo,
+      // en el renglón del lote exacto al que corresponde (ver lots.map).
+      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
     }).join('')
   ).join('');
   actualizarMenuImprimirInv_();
@@ -4741,8 +4756,31 @@ function buildAllA(){
     am[r.clave].lotes.push(r);
     am[r.clave].alms.add((r.almacen||'').replace(/\s+/g,''));
   });
+  // Claves que ya NO tienen ningún lote en EYEJAL/PT pero SÍ tienen algo
+  // en DEV (ya salió de ACOND, pendiente de confirmar contra MOVREP y
+  // traspasar a EYEJAL) -- sin esto, esa clave sería invisible en
+  // Inventario aunque el material siga existiendo físicamente, nada más
+  // que en DEV.
+  (DEV_STOCK_LOADED||[]).forEach(function(d){
+    if(!d.clave||!d.lote)return;
+    if(!am[d.clave])am[d.clave]={clase:d.clase||'EYE',clave:d.clave,desc:d.desc||'',loc:'',lotes:[],alms:new Set()};
+  });
   window._ALL_A=Object.values(am).map(function(p){
-    return Object.assign({},p,{alms:[...p.alms],totalExist:p.lotes.reduce(function(s,l){return s+l.exist;},0)});
+    // totalExist se calcula SOLO de los lotes reales (EYEJAL/PT) -- lo que
+    // haya en DEV nunca se suma aquí.
+    const totalExist=p.lotes.reduce(function(s,l){return s+l.exist;},0);
+    // Lotes de DEV de esta clave que YA NO tienen su lote correspondiente
+    // en EYEJAL/PT -- se agregan como fila aparte (existencia real 0, no
+    // se suman) para que no se pierdan de vista.
+    const lotesRealesSet={};
+    p.lotes.forEach(function(l){lotesRealesSet[String(l.lote||'').trim().toUpperCase()]=true;});
+    const lotesSoloDev=(DEV_STOCK_LOADED||[]).filter(function(d){
+      return String(d.clave||'').trim().toUpperCase()===String(p.clave||'').trim().toUpperCase()
+        && !lotesRealesSet[String(d.lote||'').trim().toUpperCase()];
+    }).map(function(d){
+      return {clave:p.clave,desc:d.desc||p.desc,lote:d.lote,exist:0,unidad:d.unidad||'pz',almacen:'DEV',caducidad:'',esSoloDev:true,devExist:d.exist||0};
+    });
+    return Object.assign({},p,{alms:[...p.alms],lotes:p.lotes.concat(lotesSoloDev),totalExist:totalExist});
   });
 }
 
@@ -5984,6 +6022,15 @@ function existeEnDev_(clave){
   const c=String(clave||'').trim().toUpperCase();
   if(!c)return 0;
   return (DEV_STOCK_LOADED||[]).filter(function(r){return String(r.clave||'').trim().toUpperCase()===c;})
+    .reduce(function(s,r){return s+(r.exist||0);},0);
+}
+
+// Cuánto hay en DEV para ESE lote exacto (código+lote) -- para pegarlo en
+// el renglón del lote que le corresponde, no a nivel de toda la clave.
+function existeEnDevLote_(clave,lote){
+  const c=String(clave||'').trim().toUpperCase(),l=String(lote||'').trim().toUpperCase();
+  if(!c||!l)return 0;
+  return (DEV_STOCK_LOADED||[]).filter(function(r){return String(r.clave||'').trim().toUpperCase()===c&&String(r.lote||'').trim().toUpperCase()===l;})
     .reduce(function(s,r){return s+(r.exist||0);},0);
 }
 
