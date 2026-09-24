@@ -1614,16 +1614,24 @@ function editarUbicacion(el){
 function loteExisteEnInventarioActual_(clave,lote){
   const ALL_A=window._ALL_A||[];
   const p=ALL_A.find(function(x){return x.clave===clave;});
-  const l=p&&p.lotes.find(function(x){return x.lote===lote;});
-  return !!(l&&(l.exist||0)>0);
+  if(!p)return false;
+  // Un mismo número de lote puede aparecer MÁS DE UNA VEZ en p.lotes --
+  // una fila por cada almacén (ej. el mismo lote ME0425004 existe a la
+  // vez en PANALAB y en EYEJAL). Antes se usaba .find() y solo se
+  // revisaba la PRIMERA coincidencia: si esa fila en particular tenía
+  // existencia 0, la ubicación se marcaba como huérfana/disponible aun
+  // cuando la otra fila (otro almacén) sí tuviera piezas reales. Con
+  // .some() basta con que CUALQUIERA de las filas de ese lote tenga
+  // existencia >0 para considerarlo vigente.
+  return p.lotes.some(function(x){return x.lote===lote&&(x.exist||0)>0;});
 }
 // Motivo por el que un lote salió como huérfano -- para que el visor de
 // "Ubicaciones huérfanas" distinga los dos casos posibles.
 function motivoUbicHuerfana_(clave,lote){
   const ALL_A=window._ALL_A||[];
   const p=ALL_A.find(function(x){return x.clave===clave;});
-  const l=p&&p.lotes.find(function(x){return x.lote===lote;});
-  if(l&&(l.exist||0)<=0)return 'Existencia en 0';
+  const tieneLote=p&&p.lotes.some(function(x){return x.lote===lote;});
+  if(tieneLote)return 'Existencia en 0';
   return 'Ya no aparece en el inventario';
 }
 function buscarConflictoUbicacion_(clave,ubicacion){
