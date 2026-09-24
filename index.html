@@ -445,6 +445,12 @@ header.h-dev{background:var(--tl)}
 .dev-card.dev-card-cuadra{border-left-color:var(--gn);background:#F4FBF4}
 .dev-mov-cuadra{margin-top:8px;background:#E8F5E9;border:1.5px solid #2E7D32;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:800;color:#1B5E20;line-height:1.4}
 .dev-mov-nocuadra{margin-top:8px;background:#F5F5F5;border:1.5px dashed #bbb;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:#777;line-height:1.4}
+/* Línea de material individual que SÍ coincide con MOVREP (mismo código,
+   lote y cantidad exactos) -- para que se distinga de un vistazo cuál está
+   bien sin tener que leer el cuadro de diferencias de arriba. */
+.dev-linea-row.dev-linea-row-ok{background:#E8F5E9}
+.dev-linea-row-ok .dev-linea-lote{color:#1B5E20;font-weight:700}
+.dev-linea-ok-tag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#1B5E20;background:#C8E6C9;border-radius:5px;padding:2px 6px;vertical-align:middle}
 
 /* ===== Plan de Embarque (sub-pestaña dentro de Embarques) ===== */
 .plan-emb-card{border-left:6px solid var(--gn)}
@@ -6463,17 +6469,23 @@ function compararMovRepConLineas_(lineas,movMatch){
     real[k]=(real[k]||0)+(parseFloat(l.cantidad)||0);
   });
   const diffs=[];
+  // keysMalas: código+lote (mismo formato de llave que usan las líneas del
+  // folio al pintarse) que SÍ tuvieron alguna diferencia -- para poder
+  // marcar en verde, línea por línea, las que NO están aquí (esas sí
+  // cuadran exacto contra MOVREP) sin tener que releer el texto de diffs.
+  const keysMalas={};
   const keys=Object.keys(capt).concat(Object.keys(real)).filter(function(k,i,arr){return arr.indexOf(k)===i;});
   keys.forEach(function(k){
     const partes=k.split('|'), clave=partes[0], lote=partes[1];
     const cCapt=capt[k]||0, cReal=real[k]||0;
     if(Math.abs(cCapt-cReal)>0.01){
+      keysMalas[k]=true;
       if(!(k in capt)) diffs.push('SAI registró <b>'+escAttr(clave)+'</b> lote <b>'+escAttr(lote)+'</b> ('+fmt(cReal)+' pz) que no capturaste en el folio.');
       else if(!(k in real)) diffs.push('Capturaste <b>'+escAttr(clave)+'</b> lote <b>'+escAttr(lote)+'</b> ('+fmt(cCapt)+' pz) pero no aparece en el movimiento de SAI.');
       else diffs.push('<b>'+escAttr(clave)+'</b> lote <b>'+escAttr(lote)+'</b>: capturaste '+fmt(cCapt)+' pz, SAI registró '+fmt(cReal)+' pz.');
     }
   });
-  return {cuadra:diffs.length===0,diffs:diffs};
+  return {cuadra:diffs.length===0,diffs:diffs,keysMalas:keysMalas};
 }
 
 async function loadDevoluciones(){
@@ -6602,7 +6614,14 @@ function renderDev(){
   const kD=document.getElementById('k-dev-dest'); if(kD)kD.textContent=folios.filter(function(f){return f.tipo==='destruccion';}).length.toLocaleString('en-US');
   const kP=document.getElementById('k-dev-prov'); if(kP)kP.textContent=folios.filter(function(f){return f.tipo==='proveedor';}).length.toLocaleString('en-US');
   const kW=document.getElementById('k-dev-warn');
-  const folioTieneAlerta=function(f){return f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);});};
+  // Si el folio ya trae un número de movimiento que SAI confirmó en MOVREP,
+  // ya no tiene caso avisar que "ya no está en ACOND" -- es justo lo
+  // esperado (el material ya se movió de ahí). El aviso de existencia en
+  // ACOND es útil SOLO mientras el movimiento todavía no se ha hecho.
+  const folioTieneAlerta=function(f){
+    if(movimientoCuadraMovRep_(f.numMovimiento))return false;
+    return f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);});
+  };
   if(kW)kW.textContent=folios.filter(folioTieneAlerta).length.toLocaleString('en-US');
   const barEl=document.getElementById('bar-dev'); if(barEl)barEl.textContent=folios.length+' folio'+(folios.length===1?'':'s');
 
@@ -6619,21 +6638,15 @@ function renderDev(){
     const DEV_TIPO_TXT_={no_utilizado:'🔵 No utilizado',destruccion:'🟣 Destrucción',proveedor:'🟤 Devolución a Proveedor'};
     const tagTxt=DEV_TIPO_TXT_[f.tipo]||'🔵 No utilizado';
     const totalCant=f.lineas.reduce(function(s,l){return s+(l.cantidad||0);},0);
-    const lineasHtml=f.lineas.map(function(l){
-      const alerta=!loteEnSistema_(l.codigo,l.lote,l.cantidad);
-      const existAcond=alerta?existeAcond_(l.codigo,l.lote):0;
-      const warnTxt=alerta?(existAcond>0?'⚠️ En ACOND solo hay '+fmt(existAcond):'⚠️ No está en ACOND'):'';
-      return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+'">'
-        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+'</div>'
-        +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
-      +'</div>';
-    }).join('');
-    const tieneAlerta=folioTieneAlerta(f);
     // Cruce contra MOVREP: si el número de movimiento que se capturó a
     // mano existe de verdad en MOVREP (almacén DEV), el folio se pinta de
     // verde -- eso quiere decir que SAI ya registró ese movimiento y se
     // puede hacer con confianza el traspaso de Devoluciones a EYEJAL. Si
     // no capturaste número de movimiento, no se avisa nada (es opcional).
+    // Esto se calcula ANTES de armar las líneas porque el resultado decide
+    // dos cosas ahí: (a) si ya no tiene caso avisar de existencia en ACOND
+    // (ver loteEnSistema_ más abajo), y (b) qué líneas pintar de verde por
+    // coincidir exacto con MOVREP.
     const movMatch=movimientoCuadraMovRep_(f.numMovimiento);
     // Si varias papeletas comparten el mismo número de movimiento, el
     // cuadre se hace contra el TOTAL de materiales de todas ellas juntas
@@ -6645,6 +6658,25 @@ function renderDev(){
     const movCmp=movMatch?compararMovRepConLineas_(lineasParaComparar,movMatch):null;
     const cuadraMov=!!movMatch&&movCmp.cuadra;
     const notaCompartido=compartido?' (compartido entre '+nFoliosMov+' papeletas con este mismo movimiento)':'';
+    const lineasHtml=f.lineas.map(function(l){
+      // El aviso de "ya no está en ACOND" solo tiene caso mientras el
+      // movimiento todavía no se ha confirmado en MOVREP -- una vez que SAI
+      // ya lo registró (movMatch), es normal y esperado que ACOND ya casi
+      // no tenga nada de ese lote (ya se movió), así que el aviso se quita.
+      const alerta=!movMatch&&!loteEnSistema_(l.codigo,l.lote,l.cantidad);
+      const existAcond=alerta?existeAcond_(l.codigo,l.lote):0;
+      const warnTxt=alerta?(existAcond>0?'⚠️ En ACOND solo hay '+fmt(existAcond):'⚠️ No está en ACOND'):'';
+      // ¿Esta línea en particular (código+lote) coincide exacto con MOVREP?
+      // Se marca en verde solo si hay movimiento confirmado Y esta línea no
+      // está entre las que salieron con diferencia (movCmp.keysMalas).
+      const keyLinea=String(l.codigo||'').trim().toUpperCase()+'|'+String(l.lote||'').trim().toUpperCase();
+      const cuadraLinea=!!movMatch&&movCmp&&!movCmp.keysMalas[keyLinea];
+      return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
+        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+'</div>'
+        +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
+      +'</div>';
+    }).join('');
+    const tieneAlerta=folioTieneAlerta(f);
     const movHtml=f.numMovimiento?
       (!movMatch?
         '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+notaCompartido+' no aparece en MOVREP (DEV) todavía</div>'
