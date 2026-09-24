@@ -463,9 +463,30 @@ header.h-dev{background:var(--tl)}
   .dev-col-right{border-left:none;padding-left:0;border-top:1px solid var(--bd);padding-top:14px;margin-top:4px}
 }
 
+.lock-overlay{position:fixed;inset:0;background:#1c1c1cf2;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px}
+.lock-box{background:#fff;border-radius:16px;padding:28px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.lock-box .lock-ico{font-size:36px;margin-bottom:10px}
+.lock-box h2{font-size:17px;color:var(--gr);margin-bottom:4px}
+.lock-box p{font-size:12px;color:var(--gr2);margin-bottom:16px}
+.lock-box input{width:100%;padding:12px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:16px;outline:none;text-align:center;margin-bottom:10px}
+.lock-box button{width:100%;padding:12px;border:none;border-radius:8px;background:var(--or);color:#fff;font-size:14px;font-weight:700;cursor:pointer}
+.lock-box button:disabled{opacity:.6}
+.lock-err{font-size:12px;color:#C62828;font-weight:700;margin-top:10px;display:none}
+
 </style>
 </head>
 <body>
+
+<div id="lock-overlay" class="lock-overlay" style="display:none">
+  <div class="lock-box">
+    <div class="lock-ico">🔒</div>
+    <h2>Acceso al inventario</h2>
+    <p>Escribe la clave para entrar.</p>
+    <input type="password" id="lock-clave" placeholder="Clave" autocomplete="off" onkeydown="if(event.key==='Enter')intentarDesbloquear_()">
+    <button id="lock-btn" onclick="intentarDesbloquear_()">Entrar</button>
+    <div class="lock-err" id="lock-error">Clave incorrecta.</div>
+  </div>
+</div>
 
 <nav class="nav">
   <button class="nav-btn a-inv" id="nb-inv" onclick="switchTab('inv')"><span class="nav-ico">📦</span>Inventario</button>
@@ -5951,6 +5972,35 @@ function movimientoCuadraMovRep_(numMovimiento){
   return (MOVREP_DEV_LOADED||[]).find(function(m){return (m.movimiento||'').trim()===n;})||null;
 }
 
+// Compara lo capturado a mano en el folio (código+lote+cantidad de cada
+// línea) contra lo que SAI trae de verdad para ese movimiento en MOVREP.
+// Se agrupa por código+lote (sumando cantidades si se repite) y se compara
+// con tolerancia de 0.01 para redondeos. Devuelve las diferencias exactas
+// para poder mostrarlas -- no solo decir "no cuadra".
+function compararMovRepConFolio_(f,movMatch){
+  const capt={},real={};
+  (f.lineas||[]).forEach(function(l){
+    const k=String(l.codigo||'').trim().toUpperCase()+'|'+String(l.lote||'').trim().toUpperCase();
+    capt[k]=(capt[k]||0)+(parseFloat(l.cantidad)||0);
+  });
+  (movMatch.lineasDetalle||[]).forEach(function(l){
+    const k=String(l.clave||'').trim().toUpperCase()+'|'+String(l.lote||'').trim().toUpperCase();
+    real[k]=(real[k]||0)+(parseFloat(l.cantidad)||0);
+  });
+  const diffs=[];
+  const keys=Object.keys(capt).concat(Object.keys(real)).filter(function(k,i,arr){return arr.indexOf(k)===i;});
+  keys.forEach(function(k){
+    const partes=k.split('|'), clave=partes[0], lote=partes[1];
+    const cCapt=capt[k]||0, cReal=real[k]||0;
+    if(Math.abs(cCapt-cReal)>0.01){
+      if(!(k in capt)) diffs.push('SAI registró <b>'+escAttr(clave)+'</b> lote <b>'+escAttr(lote)+'</b> ('+fmt(cReal)+' pz) que no capturaste en el folio.');
+      else if(!(k in real)) diffs.push('Capturaste <b>'+escAttr(clave)+'</b> lote <b>'+escAttr(lote)+'</b> ('+fmt(cCapt)+' pz) pero no aparece en el movimiento de SAI.');
+      else diffs.push('<b>'+escAttr(clave)+'</b> lote <b>'+escAttr(lote)+'</b>: capturaste '+fmt(cCapt)+' pz, SAI registró '+fmt(cReal)+' pz.');
+    }
+  });
+  return {cuadra:diffs.length===0,diffs:diffs};
+}
+
 async function loadDevoluciones(){
   const bar=document.getElementById('dev-update-bar');
   try{
@@ -6041,11 +6091,15 @@ function renderDev(){
     // puede hacer con confianza el traspaso de Devoluciones a EYEJAL. Si
     // no capturaste número de movimiento, no se avisa nada (es opcional).
     const movMatch=movimientoCuadraMovRep_(f.numMovimiento);
-    const cuadraMov=!!movMatch;
+    const movCmp=movMatch?compararMovRepConFolio_(f,movMatch):null;
+    const cuadraMov=!!movMatch&&movCmp.cuadra;
     const movHtml=f.numMovimiento?
-      (cuadraMov?
-        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+') — listo para traspaso a EYEJAL</div>':
+      (!movMatch?
         '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+' no aparece en MOVREP (DEV) todavía</div>'
+      :cuadraMov?
+        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+') — coincide en materiales, lotes y cantidades — listo para traspaso a EYEJAL</div>'
+      :
+        '<div class="dev-mov-nocuadra">⚠️ Mov. '+escAttr(f.numMovimiento)+' está en MOVREP ('+escAttr(movMatch.fecha||'')+') pero NO coincide con lo capturado:<br>• '+movCmp.diffs.join('<br>• ')+'</div>'
       ):'';
     return '<div class="card dev-card t-'+f.tipo+(cuadraMov?' dev-card-cuadra':'')+'">'
       +'<div class="dev-card-head">'
@@ -6537,10 +6591,77 @@ document.getElementById('filtro-mes-dev').addEventListener('input',function(){mD
 document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListener('click',function(){fDev=this.dataset.f;document.querySelectorAll('#fi-dev .chip').forEach(function(x){x.classList.remove('active','a-dev');});this.classList.add('active');renderDev();});});
 document.getElementById('search-ubi').addEventListener('input',function(){sUbi=this.value;renderUbi();});
 document.querySelectorAll('#fi-ubi .chip').forEach(function(c){c.addEventListener('click',function(){fUbi=this.dataset.f;document.querySelectorAll('#fi-ubi .chip').forEach(function(x){x.classList.remove('active','a-ubi');});this.classList.add('active');renderUbi();});});
-// Init
-loadInventario();
-// PT (antes solo se cargaba al entrar a Carátulas) se carga desde el
-// arranque también, en paralelo, para que Inventario muestre EYE+PT juntos
-// sin tener que esperar a que alguien abra un sub-modo aparte.
-loadCaratulasPT();
+// ============================================================
+// Candado de acceso. Antes de cargar cualquier dato, se checa si este
+// navegador ya tiene guardado el hash de la clave vigente (localStorage).
+// Si coincide con lo que responde el servidor, entra directo -- si no
+// (nunca la puso, o la clave se rotó desde que la puso), se le pide.
+// La clave real nunca viaja al navegador, solo su hash SHA-256.
+// ============================================================
+function arrancarApp_(){
+  loadInventario();
+  // PT (antes solo se cargaba al entrar a Carátulas) se carga desde el
+  // arranque también, en paralelo, para que Inventario muestre EYE+PT
+  // juntos sin tener que esperar a que alguien abra un sub-modo aparte.
+  loadCaratulasPT();
+}
+
+function mostrarCandado_(){
+  const ov=document.getElementById('lock-overlay');
+  if(ov)ov.style.display='flex';
+  setTimeout(function(){const inp=document.getElementById('lock-clave');if(inp)inp.focus();},50);
+}
+
+function ocultarCandado_(){
+  const ov=document.getElementById('lock-overlay');
+  if(ov)ov.style.display='none';
+}
+
+function intentarDesbloquear_(){
+  const inp=document.getElementById('lock-clave');
+  const err=document.getElementById('lock-error');
+  const btn=document.getElementById('lock-btn');
+  const clave=(inp.value||'').trim();
+  if(!clave)return;
+  if(err)err.style.display='none';
+  if(btn){btn.disabled=true;btn.textContent='Verificando...';}
+  fetch(APPS_URL+'?accion=verificar_clave&clave='+encodeURIComponent(clave)+'&t='+Date.now())
+    .then(function(r){return r.json();})
+    .then(function(j){
+      if(btn){btn.disabled=false;btn.textContent='Entrar';}
+      if(j&&j.ok){
+        localStorage.setItem('inv_clave_hash',j.hash||'');
+        ocultarCandado_();
+        arrancarApp_();
+      }else{
+        if(err){err.textContent='Clave incorrecta.';err.style.display='block';}
+        inp.value='';inp.focus();
+      }
+    })
+    .catch(function(){
+      if(btn){btn.disabled=false;btn.textContent='Entrar';}
+      if(err){err.textContent='Error de conexión. Intenta de nuevo.';err.style.display='block';}
+    });
+}
+
+function verificarAccesoInicial_(){
+  fetch(APPS_URL+'?accion=clave_hash&t='+Date.now())
+    .then(function(r){return r.json();})
+    .then(function(j){
+      const hashActual=(j&&j.hash)||'';
+      const hashGuardado=localStorage.getItem('inv_clave_hash')||'';
+      if(hashActual&&hashGuardado&&hashActual===hashGuardado){
+        arrancarApp_();
+      }else{
+        mostrarCandado_();
+      }
+    })
+    .catch(function(){
+      // Si no se pudo verificar (sin internet al abrir, etc.) se pide la
+      // clave de todos modos -- mejor no dejar pasar por un error de red.
+      mostrarCandado_();
+    });
+}
+
+verificarAccesoInicial_();
 </script>
