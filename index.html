@@ -157,10 +157,11 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .loc-add.paste-mode{outline:2px dashed #E8671A;outline-offset:1px;background:#fff3e0;animation:pulseLoc 1.2s infinite}
 
 .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
-.tag-EYEJAL{background:#e3f2fd;color:#1565c0}
-.tag-40EYE{background:#e8f5e9;color:#2e7d32}
-.tag-REPROJAL{background:#eceff1;color:#455a64}
+.tag-EYEJAL{background:#e8f5e9;color:#2e7d32}
+.tag-40EYE{background:#fff8e1;color:#f57f17}
+.tag-REPROJAL{background:#f3e5f5;color:#6a1b9a}
 .tag-40PT{background:#fff8e1;color:#f57f17}
+.tag-PANALAB{background:#e3f2fd;color:#1565c0}
 
 .abc-a{background:#E8F5E9;color:#1B5E20;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800}
 .abc-b{background:#E3F2FD;color:#0D47A1;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800}
@@ -259,8 +260,8 @@ header.h-car{background:var(--rd)}
    pastel inline, así que la selección no puede usar background/color (el
    inline style les gana en especificidad) -- se marca con un anillo blanco. */
 .chip.cat-active{box-shadow:0 0 0 2px rgba(255,255,255,.95);font-weight:900}
-.tag-PTJAL{background:#efebe9;color:#5d4037}
-.tag-PTFGUAD{background:#e0f2f1;color:#00695c}
+.tag-PTJAL{background:#fff3e0;color:#e65100}
+.tag-PTFGUAD{background:#ffebee;color:#c62828}
 .car-print-all-wrap{padding:0 14px 10px}
 .btn-print-all-lotes{background:var(--gn);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
 .emb-lots{border-top:1px solid var(--bd)}
@@ -740,6 +741,10 @@ header.h-dev{background:var(--tl)}
 
         <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Número de movimiento (SAI)</label>
         <input type="text" id="dev-nummov" placeholder="Opcional -- para cruzar contra MOVREP" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px">
+
+        <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Fecha (solo para devoluciones atrasadas)</label>
+        <input type="date" id="dev-fecha" style="width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;outline:none;margin-bottom:4px">
+        <div style="font-size:11px;color:#aaa;margin-bottom:12px">Vacío = se captura sola con la fecha de hoy. Solo llénala si estás capturando una devolución de días anteriores.</div>
 
         <label style="font-size:11px;font-weight:700;color:var(--gr2);display:block;margin-bottom:4px">Tipo</label>
         <div class="dev-tipo-btns">
@@ -5692,6 +5697,14 @@ function imprimirCaratulaEye(btnOrData){
   // Sin color -- esta carátula cae sobre el papel de color que ya se cargó
   // a mano (verde/amarillo/etc. según la categoría), no lleva fondo propio.
   const lineaUbic=ubicTxt?('<div class="linea ubic">📍 '+ubicTxt+'</div>'):'';
+  // Etiqueta de almacén -- mismos colores que ya usa la app en Inventario
+  // (ver .tag-EYEJAL/.tag-PANALAB/etc.), pero repetidos aquí a mano porque
+  // esta carátula se abre en una ventana/pestaña aparte, sin la hoja de
+  // estilos principal. Chica, junto a la ubicación -- no compite con
+  // clave/lote/descripción que son lo grande de la carátula.
+  const ALM_COLORS_CAR_={EYEJAL:'background:#e8f5e9;color:#2e7d32','40EYE':'background:#fff8e1;color:#f57f17',PANALAB:'background:#e3f2fd;color:#1565c0',PTJAL:'background:#fff3e0;color:#e65100',PTFGUAD:'background:#ffebee;color:#c62828','40PT':'background:#fff8e1;color:#f57f17',REPROJAL:'background:#f3e5f5;color:#6a1b9a'};
+  const almStyle_=ALM_COLORS_CAR_[almacen]||'background:#eee;color:#555';
+  const lineaAlm=almacen?('<div class="linea alm" style="'+almStyle_+'">'+almacen+'</div>'):'';
   // Mismo criterio que en la carátula PT: solo sale el sello si el check
   // está marcado Y hay un conteo oficial real para esa tarima.
   const chkContado=!!carContadoManual[clave+'|'+lote+'|'+almacen];
@@ -5703,13 +5716,14 @@ function imprimirCaratulaEye(btnOrData){
     '<style>@page{size:letter landscape;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:40px}'+
     '.linea{font-size:64px;font-weight:900;margin-bottom:22px;line-height:1.15;word-break:break-word}'+
     '.linea.desc{font-size:44px;margin-top:14px}'+
-    '.linea.ubic{font-size:36px;margin-top:10px;margin-bottom:0;color:#333}</style>'+
+    '.linea.ubic{font-size:36px;margin-top:10px;margin-bottom:0;color:#333;display:inline-block}'+
+    '.linea.alm{font-size:38px;font-weight:900;padding:6px 20px;border-radius:10px;margin-top:10px;margin-bottom:0;margin-right:18px;display:inline-block}</style>'+
     '</head><body>'+
     '<div class="linea">'+clave+'</div>'+
     '<div class="linea">'+lote+'</div>'+
     '<div class="linea desc">'+desc+'</div>'+
     lineaCantidad+
-    lineaUbic+
+    '<div>'+lineaAlm+lineaUbic+'</div>'+
     lineaContado+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
@@ -6016,6 +6030,7 @@ function abrirModalDevolucion(){
   checkNombre();
   document.getElementById('dev-folio').value='';
   document.getElementById('dev-nummov').value='';
+  document.getElementById('dev-fecha').value='';
   document.getElementById('dev-buscar-op').value='';
   document.getElementById('dev-op-results').style.display='none';
   document.getElementById('dev-op-sel').style.display='none';
@@ -6340,7 +6355,17 @@ function guardarDevolucion(){
   if(!lineasValidas.length){alert('Agrega al menos un material con código, lote y cantidad.');return;}
 
   const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
-  const fecha=new Date().toLocaleDateString('es-MX');
+  // Si se llenó el campo "Fecha" (para capturar devoluciones atrasadas), se
+  // usa esa. Si se dejó vacío -- el caso normal, del día a día -- se sigue
+  // capturando sola con la fecha de hoy, igual que siempre.
+  const fechaManual=(document.getElementById('dev-fecha').value||'').trim(); // yyyy-mm-dd si se llenó
+  let fecha;
+  if(fechaManual){
+    const p=fechaManual.split('-');
+    fecha=p[2]+'/'+p[1]+'/'+p[0];
+  }else{
+    fecha=new Date().toLocaleDateString('es-MX');
+  }
   const numMovimiento=(document.getElementById('dev-nummov').value||'').trim();
   const payload={
     accion:'devolucion',
