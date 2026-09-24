@@ -342,6 +342,9 @@ header.h-ubi{background:#6D4C41}
 .ubi-rack-title{font-size:12px;font-weight:800;color:var(--gr2);text-transform:uppercase;letter-spacing:.5px;padding:14px 4px 8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .ubi-rack-title:first-child{padding-top:2px}
 .ubi-rack-libres{font-size:10.5px;font-weight:700;color:#2E7D32;text-transform:none;letter-spacing:0;background:#E8F5E9;border-radius:20px;padding:2px 9px}
+.ubi-rack-nombre{color:var(--or);text-transform:none;letter-spacing:0;font-weight:800}
+.ubi-rack-editar{cursor:pointer;font-size:12px;opacity:.55;margin-left:auto}
+.ubi-rack-editar:hover{opacity:1}
 .ubi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px;margin-bottom:6px}
 .ubi-cell{border-radius:8px;padding:8px 4px;text-align:center;font-size:10.5px;font-weight:800;cursor:pointer;font-family:monospace;border:1.5px solid transparent}
 .ubi-cell.libre{background:#E8F5E9;color:#2E7D32;border-color:#C8E6C9}
@@ -1020,12 +1023,30 @@ function limpiarSeleccionInv(){
 // El botón "🖨️ Imprimir ▾" ya siempre está visible (Bitácora de
 // ubicaciones no necesita selección) -- aquí nomás se actualiza la
 // etiqueta chiquita de qué hay seleccionado, si hay algo.
+// Suma la existencia real (l.exist) de todos los lotes marcados con
+// invLoteSel -- para mostrar cuánto suman entre todos los seleccionados,
+// sin tener que sumarlos a mano.
+function sumaExistenciaLotesSel_(){
+  const ALL_A=window._ALL_A||[];
+  let total=0;
+  invLoteSel.forEach(function(key){
+    let clave,lote;
+    try{ const par=JSON.parse(key); clave=par[0]; lote=par[1]; }catch(e){ return; }
+    const p=ALL_A.find(function(x){return x.clave===clave;});
+    if(!p)return;
+    const l=p.lotes.find(function(x){return x.lote===lote;});
+    if(!l)return;
+    total+=l.exist||0;
+  });
+  return total;
+}
+
 function actualizarMenuImprimirInv_(){
   const lbl=document.getElementById('inv-print-clave-lbl');
   if(!lbl)return;
   const partes=[];
   if(invClaveSel.size)partes.push(invClaveSel.size===1?Array.from(invClaveSel)[0]:invClaveSel.size+' claves');
-  if(invLoteSel.size)partes.push(invLoteSel.size+' lote'+(invLoteSel.size>1?'s':''));
+  if(invLoteSel.size)partes.push(invLoteSel.size+' lote'+(invLoteSel.size>1?'s':'')+' · '+fmt(sumaExistenciaLotesSel_())+' pz');
   lbl.textContent=partes.join(' · ');
 }
 function toggleImprimirMenuInv(e){
@@ -1806,7 +1827,9 @@ function renderUbi(){
     });
 
     const st=statsPorRack[r]||{libre:0,total:0};
-    html+='<div class="ubi-rack-title">Rack '+escAttr(r)+' <span class="ubi-rack-libres">🟢 '+st.libre+' disponibles de '+st.total+'</span></div>';
+    const nombreRack=nombresRacks[r]||'';
+    const nombreRackHtml=nombreRack?' <span class="ubi-rack-nombre">· '+escAttr(nombreRack)+'</span>':'';
+    html+='<div class="ubi-rack-title">Rack '+escAttr(r)+nombreRackHtml+' <span class="ubi-rack-libres">🟢 '+st.libre+' disponibles de '+st.total+'</span> <span class="ubi-rack-editar" onclick="editarNombreRack(\''+escAttr(r)+'\')" title="'+(nombreRack?'Editar o quitar el nombre':'Ponerle nombre a este rack')+'">✏️</span></div>';
     html+='<div class="rack-box"><div class="rack-diagram" style="grid-template-columns:38px repeat('+maxPos+',minmax(64px,1fr))">';
     html+='<div class="rack-cell rack-hdr"></div>';
     for(let p=1;p<=maxPos;p++){html+='<div class="rack-cell rack-hdr">'+(p<10?'0'+p:p)+'</div>';}
@@ -2270,7 +2293,20 @@ function renderInv(){
   const order=orderBaseInv.concat(Object.keys(groups).filter(c=>orderBaseInv.indexOf(c)===-1).sort());
   list.innerHTML=order.filter(c=>groups[c]).map(c=>'<div class="sec-hdr oh"><span class="sec-badge sb-or">'+c+'</span>'+groups[c].length+' artículos</div>'+
     groups[c].map(p=>{
-      const lots=p.lotes.map(l=>{
+      // Si lo que se está buscando solo coincide por UBICACIÓN (no por
+      // clave, descripción ni código de lote), se muestran nomás los
+      // lotes que están en esa ubicación -- antes, buscar una ubicación
+      // enseñaba TODOS los lotes de la clave completa, la mayoría sin
+      // nada que ver con lo que se buscaba. Si la búsqueda sí coincide
+      // por clave/desc/lote (aunque también coincida de casualidad con
+      // alguna ubicación), se sigue mostrando la clave completa como
+      // siempre.
+      const qInv=sInv.trim();
+      const esBusquedaSoloUbic=!!qInv&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!p.lotes.some(function(l){return smartMatch(l.lote,sInv);});
+      const lotesAMostrar=esBusquedaSoloUbic?
+        p.lotes.filter(function(l){return (ubicMap[p.clave+'|'+l.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sInv);});}):
+        p.lotes;
+      const lots=lotesAMostrar.map(l=>{
         // Lote que YA NO existe en EYEJAL/PT pero sigue en DEV (Producción
         // lo mandó de ACOND a DEV, pendiente de confirmar contra MOVREP y
         // traspasar a EYEJAL) -- fila aparte, minimalista, con existencia
@@ -2349,7 +2385,10 @@ function renderInv(){
       // por clave completa, otra por lote exacto.
       const devQtyClaveInv=existeEnDev_(p.clave);
       const devLineaClaveInv=devQtyClaveInv>0?`<div class="dev-ref-linea" title="Suma de DEV en TODOS los lotes de esta clave -- pendiente de confirmar contra MOVREP y traspasar a EYEJAL. No está sumado al pill de arriba.">📦 DEV (toda la clave): ${fmt(devQtyClaveInv)} &nbsp;·&nbsp; Total con DEV: ${fmt(p.totalExist+devQtyClaveInv)}</div>`:'';
-      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div>${devLineaClaveInv}<div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
+      const metaLotesTxt=esBusquedaSoloUbic?
+        `${lotesAMostrar.length} lote${lotesAMostrar.length>1?'s':''} en esta ubicación (de ${p.lotes.length} en total)`:
+        `${p.lotes.length} lote${p.lotes.length>1?'s':''}`;
+      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div>${devLineaClaveInv}<div class="desc">${p.desc}</div><div class="card-meta">${metaLotesTxt}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
     }).join('')
   ).join('');
   actualizarMenuImprimirInv_();
@@ -2553,6 +2592,37 @@ async function cargarCatalogoUbicaciones_(){
     }
   }catch(e){console.warn('No se pudo cargar el catálogo de ubicaciones en vivo -- se usa la semilla local:',e);}
   if(tab==='ubi')renderUbi();
+}
+
+// Nombre opcional de cada rack (ej. "05" -> "Corrugados") -- se guarda en
+// el Sheet (hoja NombresRacks) para que se vea igual en todos los
+// teléfonos, no solo en el que lo puso.
+let nombresRacks={};
+async function cargarNombresRacks_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=nombres_racks&t='+Date.now());
+    const rows=await r.json();
+    if(Array.isArray(rows)){
+      nombresRacks={};
+      rows.forEach(function(row){if(row.rack)nombresRacks[String(row.rack).trim()]=row.nombre||'';});
+    }
+  }catch(e){console.warn('No se pudo cargar los nombres de rack:',e);}
+  if(tab==='ubi')renderUbi();
+}
+
+// Pide (o quita, si se deja vacío) el nombre de un rack -- se actualiza
+// local al toque para que se sienta instantáneo, y se manda al Sheet para
+// que quede igual en todos los teléfonos.
+function editarNombreRack(rack){
+  const actual=nombresRacks[rack]||'';
+  const nombre=prompt('Nombre para el Rack '+rack+' (déjalo vacío para quitarlo):',actual);
+  if(nombre===null)return; // canceló
+  const limpio=nombre.trim();
+  if(limpio)nombresRacks[rack]=limpio;else delete nombresRacks[rack];
+  renderUbi();
+  const nombreReg=localStorage.getItem('cic_nombre')||'Sin nombre';
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'nombre_rack',rack:rack,nombre:limpio,registrado:nombreReg})})
+    .catch(function(e){console.error('Error guardando nombre de rack:',e);});
 }
 const AJUSTE_URL='https://script.google.com/macros/s/AKfycbw_1KSijqH3PSl6-jSTg4dM2mJJt1BOSU45E47nwrDsB4jM5sxzBYslSLAWxVB_XD8/exec';
 const AJUSTE_CSV='https://docs.google.com/spreadsheets/d/e/2PACX-1vSRVxK0x8kXSP4QmReaMT52vBR71mHfpsmH8aShvklRSa13FU5evETPDJ7Pi4VtFHAxFLN6Ip_rBCEJ/pub?gid=1589452588&single=true&output=csv';
@@ -6817,6 +6887,8 @@ function arrancarApp_(){
   // Igual el dato informativo de DEV -- se pinta como badge en las
   // tarjetas de Inventario en cuanto llega, sin bloquear el resto.
   loadDevStock_();
+  // Nombres de rack (Ubicaciones) -- también en paralelo, sin bloquear.
+  cargarNombresRacks_();
 }
 
 function mostrarCandado_(){
