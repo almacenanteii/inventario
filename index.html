@@ -5972,14 +5972,40 @@ function movimientoCuadraMovRep_(numMovimiento){
   return (MOVREP_DEV_LOADED||[]).find(function(m){return (m.movimiento||'').trim()===n;})||null;
 }
 
-// Compara lo capturado a mano en el folio (código+lote+cantidad de cada
-// línea) contra lo que SAI trae de verdad para ese movimiento en MOVREP.
-// Se agrupa por código+lote (sumando cantidades si se repite) y se compara
+// Un mismo número de movimiento puede venir repartido en VARIAS papeletas
+// (por ejemplo, si se hizo un solo movimiento en SAI para varios folios de
+// devolución). Para cuadrar de verdad hay que juntar los materiales de
+// TODAS las papeletas que compartan ese número antes de compararlos contra
+// MOVREP -- comparar una papeleta sola contra el movimiento completo
+// siempre marcaría diferencias por lo que trajeron las otras.
+function lineasDeMovimientoEnFolios_(numMovimiento){
+  const n=(numMovimiento||'').trim();
+  if(!n)return [];
+  const combinadas=[];
+  (DEV_LOADED||[]).forEach(function(f){
+    if((f.numMovimiento||'').trim()===n) combinadas.push.apply(combinadas,f.lineas||[]);
+  });
+  return combinadas;
+}
+
+// ¿Cuántas papeletas distintas comparten este número de movimiento? Sirve
+// para avisar en la tarjeta que el cuadre se está haciendo en conjunto, no
+// solo con esta papeleta.
+function foliosConMismoMovimiento_(numMovimiento){
+  const n=(numMovimiento||'').trim();
+  if(!n)return 0;
+  return (DEV_LOADED||[]).filter(function(f){return (f.numMovimiento||'').trim()===n;}).length;
+}
+
+// Compara lo capturado a mano (código+lote+cantidad de cada línea, ya
+// combinado entre todas las papeletas del mismo movimiento si aplica)
+// contra lo que SAI trae de verdad para ese movimiento en MOVREP. Se
+// agrupa por código+lote (sumando cantidades si se repite) y se compara
 // con tolerancia de 0.01 para redondeos. Devuelve las diferencias exactas
 // para poder mostrarlas -- no solo decir "no cuadra".
-function compararMovRepConFolio_(f,movMatch){
+function compararMovRepConLineas_(lineas,movMatch){
   const capt={},real={};
-  (f.lineas||[]).forEach(function(l){
+  (lineas||[]).forEach(function(l){
     const k=String(l.codigo||'').trim().toUpperCase()+'|'+String(l.lote||'').trim().toUpperCase();
     capt[k]=(capt[k]||0)+(parseFloat(l.cantidad)||0);
   });
@@ -6091,15 +6117,23 @@ function renderDev(){
     // puede hacer con confianza el traspaso de Devoluciones a EYEJAL. Si
     // no capturaste número de movimiento, no se avisa nada (es opcional).
     const movMatch=movimientoCuadraMovRep_(f.numMovimiento);
-    const movCmp=movMatch?compararMovRepConFolio_(f,movMatch):null;
+    // Si varias papeletas comparten el mismo número de movimiento, el
+    // cuadre se hace contra el TOTAL de materiales de todas ellas juntas
+    // -- no solo contra esta papeleta -- porque así es como SAI lo
+    // registró (un movimiento, aunque haya salido de varios folios).
+    const nFoliosMov=movMatch?foliosConMismoMovimiento_(f.numMovimiento):1;
+    const compartido=nFoliosMov>1;
+    const lineasParaComparar=compartido?lineasDeMovimientoEnFolios_(f.numMovimiento):f.lineas;
+    const movCmp=movMatch?compararMovRepConLineas_(lineasParaComparar,movMatch):null;
     const cuadraMov=!!movMatch&&movCmp.cuadra;
+    const notaCompartido=compartido?' (compartido entre '+nFoliosMov+' papeletas con este mismo movimiento)':'';
     const movHtml=f.numMovimiento?
       (!movMatch?
-        '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+' no aparece en MOVREP (DEV) todavía</div>'
+        '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+notaCompartido+' no aparece en MOVREP (DEV) todavía</div>'
       :cuadraMov?
-        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+') — coincide en materiales, lotes y cantidades — listo para traspaso a EYEJAL</div>'
+        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+' — coincide en materiales, lotes y cantidades — listo para traspaso a EYEJAL</div>'
       :
-        '<div class="dev-mov-nocuadra">⚠️ Mov. '+escAttr(f.numMovimiento)+' está en MOVREP ('+escAttr(movMatch.fecha||'')+') pero NO coincide con lo capturado:<br>• '+movCmp.diffs.join('<br>• ')+'</div>'
+        '<div class="dev-mov-nocuadra">⚠️ Mov. '+escAttr(f.numMovimiento)+' está en MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+' pero NO coincide con lo capturado en conjunto:<br>• '+movCmp.diffs.join('<br>• ')+'</div>'
       ):'';
     return '<div class="card dev-card t-'+f.tipo+(cuadraMov?' dev-card-cuadra':'')+'">'
       +'<div class="dev-card-head">'
