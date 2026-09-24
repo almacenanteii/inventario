@@ -1029,7 +1029,13 @@ let invLoteSel=new Set();
 function seleccionarLoteInv(el){
   const row=el.closest('.emb-lote-row');
   if(!row)return;
-  const key=JSON.stringify([row.dataset.clave,row.dataset.lote]);
+  // La llave incluye el ALMACÉN además de clave+lote -- un mismo número de
+  // lote puede existir a la vez en dos almacenes distintos (ej. PANALAB y
+  // EYEJAL), y sin el almacén ambas filas comparten la misma llave: se
+  // seleccionaban/deseleccionaban juntas aunque el usuario tocara solo una,
+  // y al imprimir/sumar solo se tomaba la primera que encontraba el motor
+  // (a veces la fila equivocada).
+  const key=JSON.stringify([row.dataset.clave,row.dataset.lote,row.dataset.almacen||'']);
   if(invLoteSel.has(key))invLoteSel.delete(key);else invLoteSel.add(key);
   cerrarMenusImprimir();
   renderInv();
@@ -1050,11 +1056,14 @@ function sumaExistenciaLotesSel_(){
   const ALL_A=window._ALL_A||[];
   let total=0;
   invLoteSel.forEach(function(key){
-    let clave,lote;
-    try{ const par=JSON.parse(key); clave=par[0]; lote=par[1]; }catch(e){ return; }
+    let clave,lote,almacen;
+    try{ const par=JSON.parse(key); clave=par[0]; lote=par[1]; almacen=par[2]||''; }catch(e){ return; }
     const p=ALL_A.find(function(x){return x.clave===clave;});
     if(!p)return;
-    const l=p.lotes.find(function(x){return x.lote===lote;});
+    // Match por lote Y almacén -- un mismo lote puede repetirse en más de
+    // un almacén (ver seleccionarLoteInv), así que hace falta el almacén
+    // para no sumar/perder la fila equivocada.
+    const l=p.lotes.find(function(x){return x.lote===lote&&(x.almacen||'').toUpperCase()===almacen;});
     if(!l)return;
     total+=l.exist||0;
   });
@@ -1104,7 +1113,7 @@ function imprimirClaveCompletaSel(){
 function contenidoCaratulaEye_(clave,lote,desc,almacen,exist,unidad){
   unidad=pluralizarUnidad_(unidad,exist);
   const lineaCantidad=carEyeImprimirCantidad?('<div style="font-size:44px;font-weight:900;margin-top:14px;margin-bottom:22px">CANTIDAD: '+fmt(exist)+' '+unidad+'</div>'):'';
-  const ubicTxt=ubicTexto_(clave,lote);
+  const ubicTxt=ubicTexto_(clave,lote,almacen);
   const lineaUbic=ubicTxt?('<div style="font-size:36px;margin-top:10px;color:#333;display:inline-block">📍 '+ubicTxt+'</div>'):'';
   const ALM_COLORS_CAR_={EYEJAL:'background:#e8f5e9;color:#2e7d32','40EYE':'background:#fff8e1;color:#f57f17',PANALAB:'background:#e3f2fd;color:#1565c0',PTJAL:'background:#fff3e0;color:#e65100',PTFGUAD:'background:#ffebee;color:#c62828','40PT':'background:#fff8e1;color:#f57f17',REPROJAL:'background:#f3e5f5;color:#6a1b9a'};
   const almStyle_=ALM_COLORS_CAR_[almacen]||'background:#eee;color:#555';
@@ -1158,12 +1167,16 @@ function imprimirCaratulasLotesSel(){
   const PT_ALMS=['40PT','PTJAL','PTFGUAD','REPROJAL'];
   const paginas=[];
   Array.from(invLoteSel).forEach(function(key){
-    let clave,lote;
-    try{ const par=JSON.parse(key); clave=par[0]; lote=par[1]; }catch(e){ return; }
+    let clave,lote,almacenSel;
+    try{ const par=JSON.parse(key); clave=par[0]; lote=par[1]; almacenSel=par[2]||''; }catch(e){ return; }
     const p=ALL_A.find(function(x){return x.clave===clave;});
     if(!p){ console.warn('imprimirCaratulasLotesSel: no se encontró la clave',clave); return; }
-    const l=p.lotes.find(function(x){return x.lote===lote;});
-    if(!l){ console.warn('imprimirCaratulasLotesSel: no se encontró el lote',clave,lote); return; }
+    // Match por lote Y almacén -- un mismo lote puede repetirse en más de
+    // un almacén a la vez (ej. PANALAB y EYEJAL); sin filtrar por almacén
+    // aquí se imprimía la carátula de la fila equivocada (existencia y
+    // almacén incorrectos) cuando eso pasaba.
+    const l=p.lotes.find(function(x){return x.lote===lote&&(x.almacen||'').toUpperCase()===almacenSel;});
+    if(!l){ console.warn('imprimirCaratulasLotesSel: no se encontró el lote',clave,lote,almacenSel); return; }
     const almU=(l.almacen||'').toUpperCase();
     if(PT_ALMS.indexOf(almU)!==-1){
       const cantStr=prompt('Cantidad de esta tarima -- '+clave+' · lote '+lote+':');
@@ -1301,11 +1314,24 @@ function almTag(a){
   const cls='tag-'+a;
   return`<span class="tag ${cls}">${a}</span>`;
 }
-function ubicTexto_(clave,lote){
+// Filtra las ubicaciones guardadas de un lote a las que aplican a un
+// almacén en particular -- un mismo lote puede existir a la vez en dos
+// almacenes (ej. PANALAB y EYEJAL) y cada uno puede estar en un lugar
+// físico distinto. Una entrada SIN almacén marcado (guardada antes de este
+// cambio) se sigue mostrando en cualquier almacén de ese lote, para no
+// perder de vista ubicaciones ya capturadas mientras no se vuelvan a
+// guardar con el almacén específico.
+function ubicEntradasAlmacen_(clave,lote,almacen){
+  const arr=ubicMap[clave+'|'+lote]||[];
+  const almU=(almacen||'').toUpperCase();
+  if(!almU)return arr;
+  return arr.filter(function(u){return !u.almacen||(u.almacen||'').toUpperCase()===almU;});
+}
+function ubicTexto_(clave,lote,almacen){
   // Texto simple (solo lectura) de la ubicación de un lote, para mostrar en
   // Cíclicos -- reusa el mismo ubicMap que llena Inventarios. Si un lote
   // tiene varias ubicaciones (tarima partida), se muestran separadas por coma.
-  const arr=ubicMap[clave+'|'+lote]||[];
+  const arr=ubicEntradasAlmacen_(clave,lote,almacen);
   return arr.map(function(u){return u.ubicacion;}).filter(Boolean).join(', ');
 }
 
@@ -1333,9 +1359,8 @@ function ubicMatchQuery_(ubicacion,rawQuery){
 // Reutilizable en cualquier pestaña (Inventario, Embarques, Carátulas PT)
 // ya que el sistema de ubicaciones es genérico por clave+lote, sin importar
 // de qué hoja/almacén venga el producto.
-function ubicRowHtml_(clave,lote){
-  const key=clave+'|'+lote;
-  const entradas=ubicMap[key]||[];
+function ubicRowHtml_(clave,lote,almacen){
+  const entradas=ubicEntradasAlmacen_(clave,lote,almacen);
   let chipsHtml=entradas.map(function(u){
     return '<span class="loc-chip">'+
       '<span class="loc-badge">📍 '+u.ubicacion+'</span>'+
@@ -1361,7 +1386,7 @@ function ubicRowHtml_(clave,lote){
   // para que un lote se quedara con la ubicación de OTRO lote de la misma
   // clave. Ahora el cuadro siempre sale vacío; la sugerencia nomás se
   // ofrece como botón aparte que hay que tocar a propósito para usarla.
-  const addBtn='<span class="loc-add'+addCls+'" data-clave="'+escAttr(clave)+'" data-lote="'+escAttr(lote)+'" data-sugerida="'+escAttr(sugerida)+'" onclick="editarUbicacion(this)" title="'+addTitle+'">'+addAttr+'</span>';
+  const addBtn='<span class="loc-add'+addCls+'" data-clave="'+escAttr(clave)+'" data-lote="'+escAttr(lote)+'" data-almacen="'+escAttr(almacen||'')+'" data-sugerida="'+escAttr(sugerida)+'" onclick="editarUbicacion(this)" title="'+addTitle+'">'+addAttr+'</span>';
   return '<div class="loc-row">'+chipsHtml+addBtn+'</div>';
 }
 
@@ -1492,11 +1517,11 @@ function copiarUbicacion(el){
 }
 
 function pegarUbicacion(el){
-  const clave=el.dataset.clave, lote=el.dataset.lote;
+  const clave=el.dataset.clave, lote=el.dataset.lote, almacen=el.dataset.almacen||'';
   const valor=ubicCopiada;
   ubicCopiada=null;
   ocultarBannerCopiaUbicacion();
-  guardarUbicacion(clave,lote,valor);
+  guardarUbicacion(clave,lote,valor,almacen);
 }
 
 function mostrarBannerCopiaUbicacion(){
@@ -1530,7 +1555,7 @@ function editarUbicacion(el){
   // sola: se ofrece como botón aparte que hay que tocar a propósito para
   // usarla. Así nunca se guarda por accidente la ubicación de otro lote
   // nomás por tocar "➕" y "Guardar" sin fijarse.
-  const clave=el.dataset.clave, lote=el.dataset.lote, sugerida=el.dataset.sugerida||'';
+  const clave=el.dataset.clave, lote=el.dataset.lote, almacen=el.dataset.almacen||'', sugerida=el.dataset.sugerida||'';
   const old=document.getElementById('ubic-modal');
   if(old)old.remove();
 
@@ -1586,7 +1611,7 @@ function editarUbicacion(el){
   btnOk.onclick=function(){
     const nueva=inp.value.trim();
     overlay.remove();
-    guardarUbicacion(clave,lote,nueva);
+    guardarUbicacion(clave,lote,nueva,almacen);
   };
   row.appendChild(btnOk);
 
@@ -1962,6 +1987,28 @@ function agregarUbicacionCatalogoPrompt_(){
   agregarUbicacionCatalogo_(codigo);
 }
 
+// Quita un código del catálogo -- solo se ofrece/permite si la casilla
+// está LIBRE (sin inventario asignado NI bloqueo). Si está ocupada o
+// bloqueada, no se deja borrar: primero hay que quitar el inventario de
+// ahí (o desbloquearla) para no perder de vista una ubicación que
+// todavía se está usando.
+function eliminarUbicacionCatalogo_(codigo){
+  codigo=String(codigo||'').trim().toUpperCase();
+  if(!codigo)return;
+  const estados=estadoUbicaciones_();
+  const e=estados.find(function(x){return x.codigo===codigo;});
+  if(e&&e.estado!=='LIBRE'){
+    alert('"'+codigo+'" está '+(e.estado==='OCUPADA'?'ocupada':'bloqueada')+', no se puede quitar del catálogo. Primero '+(e.estado==='OCUPADA'?'quita el inventario que tiene asignado':'desbloquéala')+'.');
+    return;
+  }
+  if(!confirm('¿Quitar "'+codigo+'" del catálogo de ubicaciones? Esto no se puede deshacer.'))return;
+  catalogoUbicaciones=catalogoUbicaciones.filter(function(c){return c!==codigo;});
+  renderActiveTab_();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_ubicacion_catalogo',ubicacion:codigo})})
+    .catch(function(e){console.error('Error quitando ubicación del catálogo:',e);});
+  setTimeout(function(){cargarCatalogoUbicaciones_();},1500);
+}
+
 // Modal de detalle al tocar una celda del mapa -- disponible (con botón de
 // bloquear), ocupada (lista de clave/lote, se edita desde Inventario) o
 // bloqueada (motivo + botón de desbloquear).
@@ -2009,7 +2056,7 @@ function verUbicacionCelda_(codigo){
   if(e.estado==='LIBRE'){
     body.innerHTML='<span style="color:#2E7D32;font-weight:700">✓ Disponible</span> -- no tiene inventario asignado ni bloqueo.';
   }else if(e.estado==='OCUPADA'){
-    body.innerHTML='<span style="color:#E65100;font-weight:700">📦 Ocupada</span><br>'+e.ocupantes.map(function(u){return '<b>'+escAttr(u.clave)+'</b> · lote '+escAttr(u.lote);}).join('<br>');
+    body.innerHTML='<span style="color:#E65100;font-weight:700">📦 Ocupada</span><br>'+e.ocupantes.map(function(u){return '<b>'+escAttr(u.clave)+'</b> · lote '+escAttr(u.lote)+(u.almacen?' · '+escAttr(u.almacen):'');}).join('<br>');
   }else{
     body.innerHTML='<span style="color:#455A64;font-weight:700">🔒 Bloqueada</span><br>Motivo: '+escAttr(e.bloqueada.motivo||'—')+'<br><span style="color:#aaa;font-size:11px">Por '+escAttr(e.bloqueada.registrado||'—')+' · '+escAttr((e.bloqueada.fecha||'').split(',')[0]||'—')+'</span>';
   }
@@ -2022,7 +2069,7 @@ function verUbicacionCelda_(codigo){
     idsRow.style.cssText='display:flex;flex-direction:column;gap:6px;margin-bottom:2px';
     e.ocupantes.forEach(function(u){
       const btnGo=document.createElement('button');
-      btnGo.textContent='📦 Ver '+u.clave+' · lote '+u.lote+' en Inventario →';
+      btnGo.textContent='📦 Ver '+u.clave+' · lote '+u.lote+(u.almacen?' ('+u.almacen+')':'')+' en Inventario →';
       btnGo.style.cssText='text-align:left;padding:9px 11px;border:1.5px dashed #E8671A;border-radius:8px;font-size:12px;font-weight:700;background:#fff8e1;color:#E8671A;cursor:pointer';
       btnGo.onclick=function(){overlay.remove();irAInventarioLote_(u.clave,u.lote);};
       idsRow.appendChild(btnGo);
@@ -2052,6 +2099,18 @@ function verUbicacionCelda_(codigo){
   btnAddPend.onclick=function(){agregarPendienteUbicacion(e.codigo);overlay.remove();};
   box.appendChild(btnAddPend);
 
+  // Quitar del catálogo -- solo se ofrece si la casilla está LIBRE (ver
+  // eliminarUbicacionCatalogo_, que igual revalida por si acaso). Mientras
+  // esté ocupada o bloqueada no se muestra este botón, para que no se
+  // pueda borrar por accidente una ubicación que sigue en uso.
+  if(e.estado==='LIBRE'){
+    const btnDelCat=document.createElement('button');
+    btnDelCat.textContent='🗑️ Quitar del catálogo';
+    btnDelCat.style.cssText='width:100%;padding:9px 11px;border:1.5px dashed #C62828;border-radius:8px;font-size:12px;font-weight:700;background:#FFEBEE;color:#C62828;cursor:pointer;margin-top:8px';
+    btnDelCat.onclick=function(){overlay.remove();eliminarUbicacionCatalogo_(e.codigo);};
+    box.appendChild(btnDelCat);
+  }
+
   const row=document.createElement('div');
   row.style.cssText='display:flex;gap:8px;margin-top:14px';
 
@@ -2080,8 +2139,9 @@ function verUbicacionCelda_(codigo){
   document.body.appendChild(overlay);
 }
 
-function guardarUbicacion(clave,lote,ubicacion){
+function guardarUbicacion(clave,lote,ubicacion,almacen){
   ubicacion=(ubicacion||'').trim();
+  almacen=(almacen||'').toUpperCase();
   if(!ubicacion)return;
   const conflicto=buscarConflictoUbicacion_(clave,ubicacion);
   if(conflicto){
@@ -2091,8 +2151,10 @@ function guardarUbicacion(clave,lote,ubicacion){
   const key=clave+'|'+lote;
   const existentes=ubicMap[key]||[];
   // Un lote puede tener varias ubicaciones a la vez -- esto AGREGA una más,
-  // no reemplaza. Evita duplicar si ya tiene exactamente ese mismo texto.
-  if(existentes.some(function(u){return (u.ubicacion||'').trim().toLowerCase()===ubicacion.toLowerCase();})){
+  // no reemplaza. Evita duplicar si ya tiene exactamente ese mismo texto EN
+  // EL MISMO ALMACÉN (dos almacenes distintos sí pueden compartir el mismo
+  // texto de ubicación, cada uno con su propia entrada independiente).
+  if(existentes.some(function(u){return (u.ubicacion||'').trim().toLowerCase()===ubicacion.toLowerCase()&&(u.almacen||'').toUpperCase()===almacen;})){
     return;
   }
   const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
@@ -2102,7 +2164,7 @@ function guardarUbicacion(clave,lote,ubicacion){
   // que no podemos leer el Id real que generó el servidor -- por eso a los
   // ~1.5s se refresca en vivo (recargarUbicaciones) y se reemplaza este Id
   // temporal por el real, para que borrar funcione correctamente.
-  const entry={id:'tmp-'+Date.now(),clave:clave,lote:lote,ubicacion:ubicacion,registrado:nombre,fecha:fecha};
+  const entry={id:'tmp-'+Date.now(),clave:clave,lote:lote,almacen:almacen,ubicacion:ubicacion,registrado:nombre,fecha:fecha};
   if(!ubicMap[key])ubicMap[key]=[];
   ubicMap[key].push(entry);
   ubicPorClave[clave]=entry;
@@ -2119,7 +2181,7 @@ function guardarUbicacion(clave,lote,ubicacion){
       agregarUbicacionCatalogo_(ubicNorm,true);
     }
   }
-  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'ubicacion',clave:clave,lote:lote,ubicacion:ubicacion,registrado:nombre,fecha:fecha})})
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'ubicacion',clave:clave,lote:lote,almacen:almacen,ubicacion:ubicacion,registrado:nombre,fecha:fecha})})
     .catch(function(e){console.error('Error guardando ubicación:',e);});
   setTimeout(function(){recargarUbicaciones();},1500);
 }
@@ -2393,7 +2455,7 @@ function renderInv(){
         const devQtyLote=existeEnDevLote_(p.clave,l.lote);
         const devLoteHtml=devQtyLote>0?`<div class="dev-ref-linea" title="En DEV -- pendiente de confirmar contra MOVREP y traspasar a EYEJAL. No está sumado a la existencia.">📦 También en DEV: ${fmt(devQtyLote)} &nbsp;·&nbsp; Total con DEV: ${fmt(l.exist+devQtyLote)}</div>`:'';
         const key=p.clave+'|'+l.lote;
-        const ubicBtn=ubicRowHtml_(p.clave,l.lote);
+        const ubicBtn=ubicRowHtml_(p.clave,l.lote,almU);
         const ultimoConteo=ultimoConteoMap[key];
         const conteoHtml=ultimoConteo?
           `<div class="lot-conteo">🕒 Último conteo: ${(ultimoConteo.fecha||'').split(',')[0]} · ${fmt(ultimoConteo.cantidad)} pz</div>`:
@@ -2402,7 +2464,7 @@ function renderInv(){
         const devHtml=devInfo?
           `<div class="lot-dev">↩️ ${devInfo.count} devolucion${devInfo.count>1?'es':''} · última: ${(devInfo.ultima.fecha||'').split(',')[0]} · ${fmt(devInfo.ultima.cantidad)} pz</div>`:'';
         const contadoChecked=carContadoManual[key+'|'+almU]?'checked':'';
-        const loteSelKey=JSON.stringify([p.clave,l.lote]);
+        const loteSelKey=JSON.stringify([p.clave,l.lote,almU]);
         const loteSel=invLoteSel.has(loteSelKey);
         // El código de lote es el tap-target para seleccionarlo (se marca
         // con fondo naranja) -- así se puede elegir uno o varios lotes
@@ -2482,7 +2544,7 @@ function imprimirFormatoConteo(claveOClaves){
   grupos.forEach(function(p){
     p.lotes.forEach(function(l){
       const key=p.clave+'|'+l.lote;
-      const ubicTxt=ubicTexto_(p.clave,l.lote)||'—';
+      const ubicTxt=ubicTexto_(p.clave,l.lote,l.almacen)||'—';
       const uc=ultimoConteoMap[key];
       const ultimoTxt=uc?((uc.fecha||'').split(',')[0]+' · '+fmt(uc.cantidad)+' pz'):'Sin conteo';
       filas.push('<tr>'+
@@ -3185,7 +3247,7 @@ function imprimirSemana(semana){
     const k=p.clave+'|'+p.lote;
     const hist=histMap[k]||[];
     const ultimo=hist.length>0?hist[0]:null;
-    const ubicTxt=ubicTexto_(p.clave,p.lote);
+    const ubicTxt=ubicTexto_(p.clave,p.lote,p.almacen);
     // El "ya contado" no puede depender solo del color del texto -- en la
     // impresora casi siempre sale en blanco y negro y esa diferencia
     // desaparece en el papel. Por eso aquí se marca con un sello de texto
@@ -3342,7 +3404,7 @@ function imprimirAtrasados(){
     const si=SCHED.find(function(s){return s.clave===p.clave;});
     const fin=parseFechaSimple(si.fecha_fin);
     const dias=Math.round((hoy-fin)/864e5);
-    return {p:p,abc:si.abc,semana:si.semana_cal,dias:dias,ubic:ubicTexto_(p.clave,p.lote)};
+    return {p:p,abc:si.abc,semana:si.semana_cal,dias:dias,ubic:ubicTexto_(p.clave,p.lote,p.almacen)};
   });
 
   if(!atrasados.length){alert('No hay códigos atrasados en este momento (o todos están excluidos).');return;}
@@ -4462,7 +4524,7 @@ function _renderCicData(){
       }
 
       const agotado=p.estatus==='Agotado';
-      const ubicTxt=ubicTexto_(p.clave,p.lote);
+      const ubicTxt=ubicTexto_(p.clave,p.lote,p.almacen);
       // Un lote Agotado ya no bloquea la captura: si lo encuentran físico
       // (aunque SAI diga que ya no existe), se puede contar igual que
       // cualquier otro -- "revivirlo". Usa el mismo registrarConteo() de
@@ -5443,7 +5505,7 @@ function renderEmb(){
           return '<div class="emb-lote-row" data-clave="'+escAttr(g.clave)+'" data-desc="'+escAttr(g.desc)+'" data-lote="'+escAttr(l.lote)+'" data-almacen="'+escAttr(almU)+'" data-exist="'+l.exist+'" data-origen="'+escAttr(l.origen||'')+'">'
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
             +manualBadge
-            +ubicRowHtml_(g.clave,l.lote)
+            +ubicRowHtml_(g.clave,l.lote,almU)
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+'</div>'
             +'<div class="emb-tarima-chips"></div>'
             +'<div class="emb-tarima-add">'
@@ -5784,7 +5846,7 @@ function getFiltCar(){
         else if(cat!==fCarCat)return false;
       }
       if(fCarUbic!=='TODOS'){
-        const tieneUbic=!!ubicTexto_(r.clave,r.lote);
+        const tieneUbic=!!ubicTexto_(r.clave,r.lote,alm);
         if(fCarUbic==='CON'&&!tieneUbic)return false;
         if(fCarUbic==='SIN'&&tieneUbic)return false;
       }
@@ -5854,7 +5916,7 @@ function renderCar(){
           const lots=g.lotes.map(function(l){
             const almU=(l.almacen||'').toUpperCase();
             const cad=cadInfo(l.caducidad);
-            const ubicTxt=ubicTexto_(g.clave,l.lote);
+            const ubicTxt=ubicTexto_(g.clave,l.lote,almU);
             const ultimoConteoCar=ultimoConteoMap[g.clave+'|'+l.lote];
             const conteoHtmlCar=ultimoConteoCar?
               '<div class="lot-conteo">🕒 Último conteo: '+(ultimoConteoCar.fecha||'').split(',')[0]+' · '+fmt(ultimoConteoCar.cantidad)+' pz</div>':
@@ -5896,7 +5958,7 @@ function renderCar(){
             +'<div class="emb-lote-top"><span class="lot-lote">'+l.lote+'</span> '+almTag(almU)+(cad.txt?' <span class="lot-cad '+cad.cls+'">'+cad.txt+'</span>':'')+'</div>'
             +manualBadgeCar
             +(cuarentena?'<div style="font-size:11px;font-weight:700;color:#E65100;background:#FFF3E0;border-radius:6px;padding:4px 8px;display:inline-block">⚠️ En cuarentena</div>':'')
-            +ubicRowHtml_(g.clave,l.lote)
+            +ubicRowHtml_(g.clave,l.lote,almU)
             +'<div class="emb-lote-qty">Sistema: '+fmt(l.exist)+' '+(l.unidad||'pzas')+' · U. Empaque: '+uEmp+'</div>'
             +(function(){
               const uc=ultimoConteoMap[g.clave+'|'+l.lote];
@@ -6096,7 +6158,7 @@ function imprimirCaratulaEye(btnOrData){
   }
   unidad=pluralizarUnidad_(unidad,exist);
   const lineaCantidad=carEyeImprimirCantidad?('<div class="linea desc">CANTIDAD: '+fmt(exist)+' '+unidad+'</div>'):'';
-  const ubicTxt=ubicTexto_(clave,lote);
+  const ubicTxt=ubicTexto_(clave,lote,almacen);
   // Sin color -- esta carátula cae sobre el papel de color que ya se cargó
   // a mano (verde/amarillo/etc. según la categoría), no lleva fondo propio.
   const lineaUbic=ubicTxt?('<div class="linea ubic">📍 '+ubicTxt+'</div>'):'';
@@ -6197,7 +6259,7 @@ function imprimirClaveCompleta(claveOBtn){
 
   const filas=lotesOrdenados.map(function(l){
     const almU=(l.almacen||'').toUpperCase();
-    const ubicTxt=ubicTexto_(g.clave,l.lote)||'—';
+    const ubicTxt=ubicTexto_(g.clave,l.lote,almU)||'—';
     return '<tr>'+
       '<td>'+l.lote+'</td>'+
       '<td>'+almU+'</td>'+
