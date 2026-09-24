@@ -136,6 +136,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .c-or{color:var(--or)} .c-gn{color:var(--gn)} .c-rd{color:var(--rd)} .c-bl{color:var(--bl)}
 .pill{color:#fff;border-radius:8px;padding:3px 10px;font-size:13px;font-weight:800;white-space:nowrap}
 .p-or{background:var(--or)} .p-gn{background:var(--gn)} .p-rd{background:var(--rd)} .p-bl{background:var(--bl)}
+.pill-dev{color:#455A64;background:#ECEFF1;border:1px solid #CFD8DC;border-radius:8px;padding:2px 9px;font-size:11px;font-weight:700;white-space:nowrap}
 .desc{font-size:13px;font-weight:600;color:var(--gr);line-height:1.35;margin-bottom:6px}
 .card-meta{font-size:11px;color:var(--gr2);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .loc-badge{display:inline-flex;align-items:center;gap:4px;background:#fff3e0;color:#e65100;border-radius:6px;padding:3px 8px;font-size:11px;font-weight:700;font-family:monospace;border:1px solid #ffcc80}
@@ -2231,7 +2232,11 @@ function renderInv(){
         `<div style="font-size:10.5px;color:#1F4E79;font-weight:700;margin-top:3px">📅 Semana ${schedInfoInv.semana_cal} · Clase ${schedInfoInv.abc}</div>`:
         `<div style="font-size:10.5px;color:#b0b0b0;font-style:italic;margin-top:3px">Sin clasificar</div>`;
       const sel=invClaveSel.has(p.clave);
-      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
+      // Dato informativo de DEV (pendiente de traspaso a EYEJAL) -- se
+      // muestra aparte del pill de existencia real, nunca sumado a él.
+      const devQtyInv=existeEnDev_(p.clave);
+      const devBadgeInv=devQtyInv>0?`<span class="pill-dev" title="En DEV -- ya salió de ACOND, pendiente de confirmar contra MOVREP y traspasar a EYEJAL. No está sumado a la existencia.">📦 DEV ${fmt(devQtyInv)}</span>`:'';
+      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span>${devBadgeInv}</div><div class="desc">${p.desc}</div><div class="card-meta">${p.lotes.length} lote${p.lotes.length>1?'s':''}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
     }).join('')
   ).join('');
   actualizarMenuImprimirInv_();
@@ -5942,6 +5947,12 @@ let ACOND_LOADED=[];
 // cada folio, para saber cuáles ya están confirmados por SAI y listos
 // para el traspaso de Devoluciones a EYEJAL.
 let MOVREP_DEV_LOADED=[];
+// Existencia en la pestaña DEV -- lo que Producción ya mandó de ACOND a
+// DEV, pendiente de confirmarse contra MOVREP y traspasarse a EYEJAL. Se
+// muestra en Inventario nada más como dato informativo (badge junto a la
+// clave) -- NUNCA se suma a p.totalExist/k-exist, porque todavía no es
+// existencia real de EYEJAL.
+let DEV_STOCK_LOADED=[];
 
 async function loadAcond_(){
   try{
@@ -5951,6 +5962,26 @@ async function loadAcond_(){
   }catch(e){
     console.error('Error cargando existencia de ACOND:',e);
   }
+}
+
+async function loadDevStock_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=dev_stock&t='+Date.now());
+    const rows=await r.json();
+    DEV_STOCK_LOADED=Array.isArray(rows)?rows:[];
+    renderInv();
+  }catch(e){
+    console.error('Error cargando existencia de DEV:',e);
+  }
+}
+
+// Cuánto hay en DEV para una clave, sumando todos sus lotes -- solo para
+// mostrar el dato, nunca para sumarlo a la existencia mostrada.
+function existeEnDev_(clave){
+  const c=String(clave||'').trim().toUpperCase();
+  if(!c)return 0;
+  return (DEV_STOCK_LOADED||[]).filter(function(r){return String(r.clave||'').trim().toUpperCase()===c;})
+    .reduce(function(s,r){return s+(r.exist||0);},0);
 }
 
 async function loadMovRepDev_(){
@@ -6638,6 +6669,9 @@ function arrancarApp_(){
   // arranque también, en paralelo, para que Inventario muestre EYE+PT
   // juntos sin tener que esperar a que alguien abra un sub-modo aparte.
   loadCaratulasPT();
+  // Igual el dato informativo de DEV -- se pinta como badge en las
+  // tarjetas de Inventario en cuanto llega, sin bloquear el resto.
+  loadDevStock_();
 }
 
 function mostrarCandado_(){
