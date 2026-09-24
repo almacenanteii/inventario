@@ -368,12 +368,14 @@ header.h-dev{background:var(--tl)}
 .dev-card{border-left:6px solid #ccc}
 .dev-card.t-no_utilizado{border-left-color:#1565C0}
 .dev-card.t-destruccion{border-left-color:#8E24AA}
+.dev-card.t-proveedor{border-left-color:#A1887F}
 .dev-card-head{padding:12px 14px}
 .dev-card-row1{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px}
 .dev-folio{font-size:15px;font-weight:800;color:var(--gr);font-family:monospace}
 .dev-tag{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
 .dev-tag.t-no_utilizado{background:#E3F2FD;color:#1565C0}
 .dev-tag.t-destruccion{background:#F3E5F5;color:#8E24AA}
+.dev-tag.t-proveedor{background:#FDF6E3;color:#8D6E63}
 .dev-op-info{font-size:13.5px;color:var(--gr);margin-bottom:2px}
 .dev-op-info b{color:var(--tl);font-family:monospace}
 .dev-meta{font-size:11px;color:var(--gr2)}
@@ -389,6 +391,7 @@ header.h-dev{background:var(--tl)}
 .dev-tipo-btn{flex:1;padding:12px;border-radius:10px;border:2px solid var(--bd);background:#fff;font-size:13px;font-weight:700;color:var(--gr2);cursor:pointer;text-align:center}
 .dev-tipo-btn.sel-no_utilizado{border-color:#1565C0;background:#E3F2FD;color:#1565C0}
 .dev-tipo-btn.sel-destruccion{border-color:#8E24AA;background:#F3E5F5;color:#8E24AA}
+.dev-tipo-btn.sel-proveedor{border-color:#A1887F;background:#FDF6E3;color:#8D6E63}
 .dev-op-sel{background:#F0F4F3;border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:13.5px}
 .dev-op-sel b{color:var(--tl)}
 .dev-op-mat-title{font-size:12.5px;font-weight:700;color:var(--gr2);margin-bottom:6px}
@@ -448,6 +451,7 @@ header.h-dev{background:var(--tl)}
 .dev-modal-box-wide{border-radius:16px;max-width:1300px;width:98%;height:96vh;max-height:96vh;border:5px solid transparent;transition:border-color .15s}
 .dev-modal-box-wide.tipo-no_utilizado{border-color:#1565C0}
 .dev-modal-box-wide.tipo-destruccion{border-color:#8E24AA}
+.dev-modal-box-wide.tipo-proveedor{border-color:#A1887F}
 .emb-modal-body.dev-modal-cols{display:grid;grid-template-columns:1fr 1fr;gap:24px;flex:1;min-height:0;overflow:hidden}
 .dev-col-left,.dev-col-right{min-width:0;height:100%;overflow-y:auto;padding-right:6px}
 .dev-col-right{border-left:1px solid var(--bd);padding-left:24px}
@@ -662,10 +666,15 @@ header.h-dev{background:var(--tl)}
     <input type="search" id="search-dev" placeholder="Buscar folio, OP, código o lote…" autocomplete="off" autocorrect="off" spellcheck="false">
     <button class="clr" id="clr-dev" onclick="document.getElementById('search-dev').value='';sDev='';renderDev();">✕</button>
   </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+    <input type="month" id="filtro-mes-dev" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333">
+    <button onclick="document.getElementById('filtro-mes-dev').value='';mDev='';renderDev();" style="background:rgba(255,255,255,.25);color:#fff;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;cursor:pointer">Ver todos los meses</button>
+  </div>
   <div class="filters" id="fi-dev">
     <div class="chip a-dev" data-f="TODOS">Todos</div>
     <div class="chip" data-f="no_utilizado">🔵 No utilizado</div>
     <div class="chip" data-f="destruccion">🟣 Destrucción</div>
+    <div class="chip" data-f="proveedor">🟤 A Proveedor</div>
     <div class="chip" data-f="ALERTA">⚠️ Con alerta</div>
   </div>
 </header>
@@ -686,6 +695,7 @@ header.h-dev{background:var(--tl)}
   <div class="kpi"><div class="kpi-lbl">Folios</div><div class="kpi-val" style="color:var(--tl)" id="k-dev-folios">—</div><div class="kpi-sub">en este filtro</div></div>
   <div class="kpi"><div class="kpi-lbl">No utilizado</div><div class="kpi-val" style="color:#1565C0" id="k-dev-nu">—</div><div class="kpi-sub">folios</div></div>
   <div class="kpi"><div class="kpi-lbl">Destrucción</div><div class="kpi-val" style="color:#8E24AA" id="k-dev-dest">—</div><div class="kpi-sub">folios</div></div>
+  <div class="kpi"><div class="kpi-lbl">A Proveedor</div><div class="kpi-val" style="color:#8D6E63" id="k-dev-prov">—</div><div class="kpi-sub">folios</div></div>
   <div class="kpi"><div class="kpi-lbl">⚠️ Lote no en sistema</div><div class="kpi-val" style="color:#F9A825" id="k-dev-warn">—</div><div class="kpi-sub">folios con alerta</div></div>
 </div>
 <div class="bar hidden" id="bar-dev"></div>
@@ -729,7 +739,7 @@ header.h-dev{background:var(--tl)}
   <div class="emb-modal-box dev-modal-box-wide">
     <div class="emb-modal-head">
       <div>
-        <h2>↩️ Nuevo folio de devolución</h2>
+        <h2 id="dev-modal-titulo">↩️ Nuevo folio de devolución</h2>
         <div class="emb-modal-sub">Captura lo que trae la papeleta</div>
       </div>
       <button onclick="cerrarModalDevolucion()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--gr2)">✕</button>
@@ -750,6 +760,7 @@ header.h-dev{background:var(--tl)}
         <div class="dev-tipo-btns">
           <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-no_utilizado" onclick="seleccionarDevTipo('no_utilizado')">🔵 No utilizado</button>
           <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-destruccion" onclick="seleccionarDevTipo('destruccion')">🟣 Destrucción</button>
+          <button type="button" class="dev-tipo-btn" id="dev-tipo-btn-proveedor" onclick="seleccionarDevTipo('proveedor')">🟤 Devolución a Proveedor</button>
         </div>
 
         <div style="position:relative;margin-bottom:12px">
@@ -768,7 +779,7 @@ header.h-dev{background:var(--tl)}
     </div>
     <div class="emb-modal-foot">
       <button class="btn-emb-close" onclick="cerrarModalDevolucion()">Cancelar</button>
-      <button class="btn-emb-print" onclick="guardarDevolucion()" style="background:var(--tl)">✓ Guardar folio</button>
+      <button class="btn-emb-print" id="dev-btn-guardar" onclick="guardarDevolucion()" style="background:var(--tl)">✓ Guardar folio</button>
     </div>
   </div>
 </div>
@@ -5877,7 +5888,7 @@ if(carEyeCantChk) carEyeCantChk.addEventListener('change',function(){
 // Cada folio (papeleta) se guarda en la hoja "Devoluciones" como varias
 // filas (una por material devuelto), todas con el mismo Id -- aquí se
 // vuelven a agrupar por Id para mostrarlas como tarjetas de folio.
-let DEV_LOADED=[],devLoaded=false,sDev='',fDev='TODOS';
+let DEV_LOADED=[],devLoaded=false,sDev='',fDev='TODOS',mDev='';
 // Estado del modal de captura mientras está abierto.
 let devLineas=[],devTipoSel='',devOpSelData=null,devMaterialesOP=[];
 // Existencia de ACOND (piso de producción) -- de ahí es de donde SAI
@@ -5948,12 +5959,23 @@ async function loadDevoluciones(){
   renderDev();
 }
 
+// f.fecha se guarda como texto "dd/mm/aaaa" -- se compara contra "aaaa-mm"
+// que entrega el selector de mes (input type="month"), sin usar Date() para
+// no toparse con líos de huso horario por un simple filtro de mes/año.
+function fechaDevEnMes_(fechaTxt,mesSel){
+  if(!mesSel)return true;
+  const p=String(fechaTxt||'').split('/');
+  if(p.length!==3)return false;
+  const mm=p[1].padStart(2,'0'), aaaa=p[2];
+  return (aaaa+'-'+mm)===mesSel;
+}
 function getFiltDev(){
   const q=sDev.toLowerCase().trim();
   return (DEV_LOADED||[]).filter(function(f){
     if(fDev==='ALERTA'){
       if(!f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);}))return false;
     }else if(fDev!=='TODOS'&&f.tipo!==fDev)return false;
+    if(!fechaDevEnMes_(f.fecha,mDev))return false;
     if(!q)return true;
     if(smartMatch(f.folio,sDev)||smartMatch(f.op,sDev)||smartMatch(f.codigoPT,sDev)||smartMatch(f.productoPT,sDev)||smartMatch(f.lotePT,sDev))return true;
     return f.lineas.some(function(l){return smartMatch(l.codigo,sDev)||smartMatch(l.descripcion,sDev)||smartMatch(l.lote,sDev);});
@@ -5965,6 +5987,7 @@ function renderDev(){
   const kF=document.getElementById('k-dev-folios'); if(kF)kF.textContent=folios.length.toLocaleString('en-US');
   const kN=document.getElementById('k-dev-nu'); if(kN)kN.textContent=folios.filter(function(f){return f.tipo==='no_utilizado';}).length.toLocaleString('en-US');
   const kD=document.getElementById('k-dev-dest'); if(kD)kD.textContent=folios.filter(function(f){return f.tipo==='destruccion';}).length.toLocaleString('en-US');
+  const kP=document.getElementById('k-dev-prov'); if(kP)kP.textContent=folios.filter(function(f){return f.tipo==='proveedor';}).length.toLocaleString('en-US');
   const kW=document.getElementById('k-dev-warn');
   const folioTieneAlerta=function(f){return f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);});};
   if(kW)kW.textContent=folios.filter(folioTieneAlerta).length.toLocaleString('en-US');
@@ -5980,7 +6003,8 @@ function renderDev(){
   if(empty)empty.classList.add('hidden');
 
   list.innerHTML=folios.map(function(f){
-    const tagTxt=f.tipo==='destruccion'?'🟣 Destrucción':'🔵 No utilizado';
+    const DEV_TIPO_TXT_={no_utilizado:'🔵 No utilizado',destruccion:'🟣 Destrucción',proveedor:'🟤 Devolución a Proveedor'};
+    const tagTxt=DEV_TIPO_TXT_[f.tipo]||'🔵 No utilizado';
     const totalCant=f.lineas.reduce(function(s,l){return s+(l.cantidad||0);},0);
     const lineasHtml=f.lineas.map(function(l){
       const alerta=!loteEnSistema_(l.codigo,l.lote,l.cantidad);
@@ -6008,7 +6032,7 @@ function renderDev(){
       +'<div class="dev-card-head">'
         +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span></div>'
         +(f.op?'<div class="dev-op-info">OP <b>'+escAttr(f.op)+'</b> · '+escAttr(f.codigoPT)+' — '+escAttr(f.productoPT)+' · Lote '+escAttr(f.lotePT)+'</div>':'')
-        +'<div class="dev-meta">'+f.lineas.length+' material'+(f.lineas.length>1?'es':'')+' · '+fmt(totalCant)+' pz · '+escAttr(f.fecha)+(f.registrado?' · '+escAttr(f.registrado):'')+' <span class="dev-del" onclick="borrarDevolucion(\''+f.id+'\')">🗑️ Borrar folio</span></div>'
+        +'<div class="dev-meta">'+f.lineas.length+' material'+(f.lineas.length>1?'es':'')+' · '+fmt(totalCant)+' pz · '+escAttr(f.fecha)+(f.registrado?' · '+escAttr(f.registrado):'')+' <span class="dev-del" style="color:var(--tl);margin-right:10px" onclick="editarDevolucion(\''+f.id+'\')">✏️ Editar</span><span class="dev-del" onclick="borrarDevolucion(\''+f.id+'\')">🗑️ Borrar folio</span></div>'
         +movHtml
         +(tieneAlerta?'<div class="dev-linea-warn" style="margin-top:8px">⚠️ Este folio tiene lotes que ya no están en ACOND, o hay menos cantidad de la que se está devolviendo. Verifica antes de mandar el movimiento a SAI.</div>':'')
       +'</div>'
@@ -6025,9 +6049,55 @@ function borrarDevolucion(id){
     .catch(function(e){console.error('Error borrando devolución:',e);});
 }
 
+// Abre el mismo modal de captura, ya lleno con los datos de un folio que
+// ya existe -- para corregir un error de captura (folio, tipo, fecha,
+// materiales, etc.) sin tener que borrarlo y volver a teclear todo desde
+// cero. Al guardar (ver guardarDevolucion), como devEditandoId queda
+// puesto, primero se borra este folio viejo y se guarda uno nuevo con los
+// datos corregidos -- es transparente, no hace falta borrar a mano antes.
+function editarDevolucion(id){
+  const f=(DEV_LOADED||[]).find(function(x){return x.id===id;});
+  if(!f)return;
+  abrirModalDevolucion(); // resetea todo primero, igual que un folio nuevo
+  devEditandoId=id;
+  const tit=document.getElementById('dev-modal-titulo'); if(tit)tit.textContent='✏️ Editar folio de devolución';
+  const btnG=document.getElementById('dev-btn-guardar'); if(btnG)btnG.textContent='✓ Guardar cambios';
+
+  document.getElementById('dev-folio').value=f.folio||'';
+  document.getElementById('dev-nummov').value=f.numMovimiento||'';
+
+  // La fecha guardada viene como "dd/mm/aaaa" -- el input type="date"
+  // necesita "aaaa-mm-dd".
+  const partesFecha=String(f.fecha||'').split('/');
+  if(partesFecha.length===3){
+    const dd=partesFecha[0].padStart(2,'0'), mm=partesFecha[1].padStart(2,'0'), aaaa=partesFecha[2];
+    document.getElementById('dev-fecha').value=aaaa+'-'+mm+'-'+dd;
+  }
+
+  if(f.op){
+    devOpSelData={op:f.op,codigo:f.codigoPT,producto:f.productoPT,lote:f.lotePT,materiales:''};
+    document.getElementById('dev-buscar-op').value='OP '+f.op+' · '+f.codigoPT;
+    const sel=document.getElementById('dev-op-sel');
+    sel.innerHTML='OP <b>'+escAttr(f.op)+'</b> · Código <b>'+escAttr(f.codigoPT)+'</b> · '+escAttr(f.productoPT)+' · Lote <b>'+escAttr(f.lotePT||'—')+'</b>';
+    sel.style.display='block';
+  }
+
+  devLineas=f.lineas.map(function(l){return {codigo:l.codigo,descripcion:l.descripcion,lote:l.lote,cantidad:l.cantidad};});
+  renderDevLineas_();
+
+  seleccionarDevTipo(f.tipo);
+}
+
 // ---- Modal de captura de folio ----
+// devEditandoId: null = se va a crear un folio nuevo. Con un id -- se está
+// EDITANDO ese folio (ver editarDevolucion) -- guardarDevolucion() borra
+// primero el folio viejo y guarda el nuevo con los datos corregidos.
+let devEditandoId=null;
 function abrirModalDevolucion(){
   checkNombre();
+  devEditandoId=null;
+  const tit=document.getElementById('dev-modal-titulo'); if(tit)tit.textContent='↩️ Nuevo folio de devolución';
+  const btnG=document.getElementById('dev-btn-guardar'); if(btnG)btnG.textContent='✓ Guardar folio';
   document.getElementById('dev-folio').value='';
   document.getElementById('dev-nummov').value='';
   document.getElementById('dev-fecha').value='';
@@ -6042,8 +6112,9 @@ function abrirModalDevolucion(){
   devLineas=[];
   document.getElementById('dev-tipo-btn-no_utilizado').classList.remove('sel-no_utilizado');
   document.getElementById('dev-tipo-btn-destruccion').classList.remove('sel-destruccion');
+  document.getElementById('dev-tipo-btn-proveedor').classList.remove('sel-proveedor');
   const boxIni=document.querySelector('#modal-dev-folio .dev-modal-box-wide');
-  if(boxIni)boxIni.classList.remove('tipo-no_utilizado','tipo-destruccion');
+  if(boxIni)boxIni.classList.remove('tipo-no_utilizado','tipo-destruccion','tipo-proveedor');
   renderDevLineas_();
   cargarTrazOP_();
   updateDevDatalist_();
@@ -6061,10 +6132,12 @@ function seleccionarDevTipo(tipo){
   devTipoSel=tipo;
   document.getElementById('dev-tipo-btn-no_utilizado').classList.toggle('sel-no_utilizado',tipo==='no_utilizado');
   document.getElementById('dev-tipo-btn-destruccion').classList.toggle('sel-destruccion',tipo==='destruccion');
+  document.getElementById('dev-tipo-btn-proveedor').classList.toggle('sel-proveedor',tipo==='proveedor');
   const box=document.querySelector('#modal-dev-folio .dev-modal-box-wide');
   if(box){
     box.classList.toggle('tipo-no_utilizado',tipo==='no_utilizado');
     box.classList.toggle('tipo-destruccion',tipo==='destruccion');
+    box.classList.toggle('tipo-proveedor',tipo==='proveedor');
   }
 }
 
@@ -6344,7 +6417,7 @@ function guardarDevolucion(){
   // (no se suma al que ya había), así que un folio repetido normalmente es
   // una papeleta capturada dos veces por error, no un caso válido. Se avisa
   // antes de guardar, mostrando cuándo se capturó la anterior.
-  const folioExistente=(DEV_LOADED||[]).find(function(f){return (f.folio||'').trim().toLowerCase()===folio.toLowerCase();});
+  const folioExistente=(DEV_LOADED||[]).find(function(f){return (f.folio||'').trim().toLowerCase()===folio.toLowerCase()&&f.id!==devEditandoId;});
   if(folioExistente){
     const ok=confirm('⚠️ El folio "'+folio+'" ya está registrado (capturado el '+(folioExistente.fecha||'?')+', '+folioExistente.lineas.length+' material'+(folioExistente.lineas.length>1?'es':'')+').\n\nSi guardas de nuevo se crea OTRO registro con el mismo folio (no se junta con el anterior) y se duplicaría en los totales del Dashboard.\n\n¿De todos modos quieres continuar?');
     if(!ok)return;
@@ -6381,12 +6454,23 @@ function guardarDevolucion(){
     numMovimiento:numMovimiento
   };
 
-  const btn=document.querySelector('#modal-dev-folio .btn-emb-print');
+  // Si se está editando un folio ya existente, se borra el viejo (por Id) y
+  // se guarda este como uno nuevo -- transparente para el usuario, no hace
+  // falta borrar a mano antes de corregir algo.
+  const idAEditar=devEditandoId;
+
+  const btn=document.getElementById('dev-btn-guardar');
   if(btn){btn.disabled=true;btn.textContent='Guardando...';}
 
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)})
     .then(function(){
+      if(idAEditar){
+        return fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_devolucion',id:idAEditar})});
+      }
+    })
+    .then(function(){
       if(btn){btn.disabled=false;btn.textContent='✓ Guardar folio';}
+      devEditandoId=null;
       cerrarModalDevolucion();
       devLoaded=false;
       setTimeout(function(){loadDevoluciones();},1200);
@@ -6413,6 +6497,7 @@ document.querySelectorAll('#fi-emb-sub .chip').forEach(function(c){c.addEventLis
 document.querySelectorAll('#fi-car-cat .chip').forEach(function(c){c.addEventListener('click',function(){fCarCat=this.dataset.cat;document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventListener('click',function(){fCarUbic=this.dataset.ubic;document.querySelectorAll('#fi-car-ubic .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.getElementById('search-dev').addEventListener('input',function(){sDev=this.value;renderDev();});
+document.getElementById('filtro-mes-dev').addEventListener('input',function(){mDev=this.value;renderDev();});
 document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListener('click',function(){fDev=this.dataset.f;document.querySelectorAll('#fi-dev .chip').forEach(function(x){x.classList.remove('active','a-dev');});this.classList.add('active');renderDev();});});
 document.getElementById('search-ubi').addEventListener('input',function(){sUbi=this.value;renderUbi();});
 document.querySelectorAll('#fi-ubi .chip').forEach(function(c){c.addEventListener('click',function(){fUbi=this.dataset.f;document.querySelectorAll('#fi-ubi .chip').forEach(function(x){x.classList.remove('active','a-ubi');});this.classList.add('active');renderUbi();});});
