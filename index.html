@@ -537,6 +537,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="PTFGUAD">PTFGUAD</div>
     <div class="chip" data-f="40PT">40 PT</div>
     <div class="chip" data-f="REPROJAL">REPROJAL</div>
+    <div class="chip" data-f="DEV" title="Claves con algo en DEV -- pendiente de traspaso a EYEJAL">📦 DEV</div>
   </div>
 </header>
 
@@ -1335,6 +1336,9 @@ function getFiltA(){
   const ALMS=['EYEJAL','40EYE','PANALAB','40PT','PTJAL','PTFGUAD','REPROJAL'];
   const ALL_A=window._ALL_A||[];return ALL_A.filter(p=>{
     if(ALMS.includes(fInv)&&!p.alms.includes(fInv))return false;
+    // DEV no es un almacén "real" dentro de p.alms (esos lotes no cuentan
+    // como existencia) -- se filtra aparte, por si tiene algo en DEV.
+    if(fInv==='DEV'&&existeEnDev_(p.clave)<=0)return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
     if(q&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!smartMatch(p.loc||'',sInv)&&!p.lotes.some(function(l){return smartMatch(l.lote,sInv)||(ubicMap[p.clave+'|'+l.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sInv);});}))return false;
     return true;
@@ -2199,7 +2203,7 @@ function renderInv(){
         // pendiente de confirmar contra MOVREP y traspasar a EYEJAL. Solo
         // informativo, nunca se suma a l.exist ni al total de la tarjeta.
         const devQtyLote=existeEnDevLote_(p.clave,l.lote);
-        const devLoteHtml=devQtyLote>0?`<div class="dev-ref-linea" title="En DEV -- pendiente de confirmar contra MOVREP y traspasar a EYEJAL. No está sumado a la existencia.">📦 También en DEV: ${fmt(devQtyLote)}</div>`:'';
+        const devLoteHtml=devQtyLote>0?`<div class="dev-ref-linea" title="En DEV -- pendiente de confirmar contra MOVREP y traspasar a EYEJAL. No está sumado a la existencia.">📦 También en DEV: ${fmt(devQtyLote)} &nbsp;·&nbsp; Total con DEV: ${fmt(l.exist+devQtyLote)}</div>`:'';
         const key=p.clave+'|'+l.lote;
         const ubicBtn=ubicRowHtml_(p.clave,l.lote);
         const ultimoConteo=ultimoConteoMap[key];
