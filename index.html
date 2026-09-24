@@ -345,6 +345,13 @@ header.h-ubi{background:#6D4C41}
 .ubi-rack-nombre{color:var(--or);text-transform:none;letter-spacing:0;font-weight:800}
 .ubi-rack-editar{cursor:pointer;font-size:12px;opacity:.55;margin-left:auto}
 .ubi-rack-editar:hover{opacity:1}
+.rack-pos-cell{position:relative}
+.ubi-cell-badge{position:absolute;top:-7px;right:-7px;background:#E53935;color:#fff;border-radius:50%;min-width:18px;height:18px;padding:0 3px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,.35);line-height:1}
+.ubic-pend-lista{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.ubic-pend-item{background:#FFF9C4;border:1px solid #FBC02D;border-radius:6px;padding:7px 26px 7px 10px;font-size:12px;color:#5D4037;position:relative;word-break:break-word}
+.ubic-pend-item .ubic-pend-x{position:absolute;top:5px;right:7px;cursor:pointer;font-weight:700;color:#8D6E63;font-size:12px}
+.ubic-pend-item .ubic-pend-x:hover{color:#5D4037}
+.ubic-pend-item .ubic-pend-meta{font-size:9.5px;color:#8D6E63;margin-top:3px;font-style:italic}
 .ubi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:6px;margin-bottom:6px}
 .ubi-cell{border-radius:8px;padding:8px 4px;text-align:center;font-size:10.5px;font-weight:800;cursor:pointer;font-family:monospace;border:1.5px solid transparent}
 .ubi-cell.libre{background:#E8F5E9;color:#2E7D32;border-color:#C8E6C9}
@@ -752,6 +759,10 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="OCUPADA">🟠 Ocupadas</div>
     <div class="chip" data-f="BLOQUEADA">⬛ Bloqueadas</div>
   </div>
+  <!-- Se llena en vivo en renderUbi() con los racks que de verdad existen
+       en el catálogo -- no es una lista fija, para no tener que tocar el
+       HTML si algún día se agrega/quita un rack. -->
+  <div class="filters" id="fi-ubi-rack"></div>
 </header>
 
 <div class="kpis hidden" id="kpis-ubi">
@@ -981,7 +992,7 @@ let tab='inv',fInv='TODOS',fAbc='TODOS',fEmb='TODOS',sInv='',sAbc='',sEmb='';
 // inventario) -- se cargan aparte de ubicMap, nunca se mezclan con las
 // ubicaciones reales de clave/lote para no afectar huérfanas/conflictos.
 let ubicBloqueadas=[];
-let sUbi='',fUbi='TODOS';
+let sUbi='',fUbi='TODOS',fUbiRack='TODOS';
 // Clave seleccionada en Inventario -- en vez de traer un botón de imprimir
 // en cada tarjeta, primero se selecciona la clave (tap en su encabezado) y
 // arriba en el header aparece el menú de formatos disponibles para esa
@@ -1752,8 +1763,21 @@ function estadoUbicaciones_(){
 
 function renderUbi(){
   const estados=estadoUbicaciones_();
+  // Chips del filtro por rack -- se arman en vivo con los racks que de
+  // verdad existen en el catálogo (no una lista fija), para no tener que
+  // tocar el HTML si algún día se agrega/quita un rack.
+  const rackWrap=document.getElementById('fi-ubi-rack');
+  if(rackWrap){
+    const todosLosRacks=Array.from(new Set(estados.map(function(e){return e.rack||'??';}))).sort();
+    rackWrap.innerHTML='<div class="chip'+(fUbiRack==='TODOS'?' active a-ubi':'')+'" data-fr="TODOS">Todos los racks</div>'+
+      todosLosRacks.map(function(r){
+        const nom=nombresRacks[r];
+        return '<div class="chip'+(fUbiRack===r?' active a-ubi':'')+'" data-fr="'+escAttr(r)+'">Rack '+escAttr(r)+(nom?' · '+escAttr(nom):'')+'</div>';
+      }).join('');
+  }
   const q=(sUbi||'').toLowerCase().trim();
   const filtradas=estados.filter(function(e){
+    if(fUbiRack!=='TODOS'&&(e.rack||'??')!==fUbiRack)return false;
     if(fUbi==='LIBRE'&&e.estado!=='LIBRE')return false;
     if(fUbi==='OCUPADA'&&e.estado!=='OCUPADA')return false;
     if(fUbi==='BLOQUEADA'&&e.estado!=='BLOQUEADA')return false;
@@ -1842,7 +1866,11 @@ function renderUbi(){
         let title=e.codigo;
         if(e.estado==='OCUPADA')title+=' -- '+e.ocupantes.map(function(u){return u.clave+' · '+u.lote;}).join(', ');
         if(e.estado==='BLOQUEADA')title+=' -- '+(e.bloqueada.motivo||'sin motivo');
-        html+='<div class="rack-cell rack-pos-cell '+cls+'" title="'+escAttr(title)+'" onclick="verUbicacionCelda_(\''+e.codigo+'\')">'+escAttr(e.codigo)+'</div>';
+        // Contador de pendientes de ESTA ubicación exacta -- badge rojo
+        // tipo notificación en la esquina de la celda.
+        const nPend=pendientesPorUbicacion_(e.codigo).length;
+        const badgePend=nPend>0?'<span class="ubi-cell-badge">'+nPend+'</span>':'';
+        html+='<div class="rack-cell rack-pos-cell '+cls+'" title="'+escAttr(title)+'" onclick="verUbicacionCelda_(\''+e.codigo+'\')">'+badgePend+escAttr(e.codigo)+'</div>';
       }
     });
     html+='</div></div>';
@@ -1984,6 +2012,28 @@ function verUbicacionCelda_(codigo){
     });
     box.appendChild(idsRow);
   }
+
+  // Pendientes/comentarios sueltos de ESTA ubicación exacta -- lista +
+  // botón para agregar uno nuevo, mismo dato que ya se ve como el
+  // contador rojo sobre la celda.
+  const pends=pendientesPorUbicacion_(e.codigo);
+  if(pends.length){
+    const pendWrap=document.createElement('div');
+    pendWrap.className='ubic-pend-lista';
+    pendWrap.innerHTML=pends.map(function(p){
+      return '<div class="ubic-pend-item">'+
+        '<span class="ubic-pend-x" onclick="eliminarPendienteUbicacion(\''+escAttr(p.id)+'\',\''+escAttr(e.codigo)+'\')" title="Borrar">✕</span>'+
+        escAttr(p.texto)+
+        '<div class="ubic-pend-meta">'+escAttr(p.registrado||'')+(p.fecha?' · '+escAttr(String(p.fecha).split(',')[0]):'')+'</div>'+
+      '</div>';
+    }).join('');
+    box.appendChild(pendWrap);
+  }
+  const btnAddPend=document.createElement('button');
+  btnAddPend.textContent=(pends.length?'+ Agregar otro pendiente':'📌 Agregar pendiente')+' a '+e.codigo;
+  btnAddPend.style.cssText='width:100%;padding:9px 11px;border:1.5px dashed #FBC02D;border-radius:8px;font-size:12px;font-weight:700;background:#FFFDE7;color:#8D6E63;cursor:pointer;margin-top:4px';
+  btnAddPend.onclick=function(){agregarPendienteUbicacion(e.codigo);overlay.remove();};
+  box.appendChild(btnAddPend);
 
   const row=document.createElement('div');
   row.style.cssText='display:flex;gap:8px;margin-top:14px';
@@ -2613,6 +2663,50 @@ async function cargarNombresRacks_(){
 // Pide (o quita, si se deja vacío) el nombre de un rack -- se actualiza
 // local al toque para que se sienta instantáneo, y se manda al Sheet para
 // que quede igual en todos los teléfonos.
+// Pendientes/comentarios sueltos por UBICACIÓN exacta (ej. "01E01") --
+// se muestran como un contador rojo (estilo notificación) encima de la
+// celda del rack que le corresponde. Varios por ubicación, cada uno con
+// su propio Id para poder borrarlo solo. Se guardan en el Sheet para que
+// se vean en todos los teléfonos.
+let pendientesUbic=[];
+function pendientesPorUbicacion_(codigo){
+  return (pendientesUbic||[]).filter(function(p){return p.ubicacion===codigo;});
+}
+async function cargarPendientesUbicaciones_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=pendientes_ubicaciones&t='+Date.now());
+    const rows=await r.json();
+    if(Array.isArray(rows))pendientesUbic=rows;
+  }catch(e){console.warn('No se pudo cargar los pendientes de ubicación:',e);}
+  if(tab==='ubi')renderUbi();
+}
+
+function agregarPendienteUbicacion(codigo){
+  const texto=prompt('Pendiente para '+codigo+':');
+  if(!texto||!texto.trim())return;
+  const nombreReg=localStorage.getItem('cic_nombre')||'Sin nombre';
+  const fecha=new Date().toLocaleString('es-MX');
+  // Id temporal nomás para que se vea al toque en esta pantalla -- se
+  // reemplaza por el real en cuanto refresque (no hace falta esperar la
+  // respuesta del servidor para que se sienta instantáneo).
+  const tempId='tmp-'+Date.now();
+  pendientesUbic.push({id:tempId,ubicacion:codigo,texto:texto.trim(),registrado:nombreReg,fecha:fecha});
+  renderUbi();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'pendiente_ubicacion',ubicacion:codigo,texto:texto.trim(),registrado:nombreReg,fecha:fecha})})
+    .then(function(){cargarPendientesUbicaciones_();})
+    .catch(function(e){console.error('Error guardando pendiente de ubicación:',e);});
+}
+
+function eliminarPendienteUbicacion(id,codigo){
+  if(!confirm('¿Borrar este pendiente de '+codigo+'?'))return;
+  pendientesUbic=pendientesUbic.filter(function(p){return p.id!==id;});
+  renderUbi();
+  const modalAbierto=document.getElementById('ubic-celda-modal');
+  if(modalAbierto)verUbicacionCelda_(codigo);
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_pendiente_ubicacion',id:id})})
+    .catch(function(e){console.error('Error borrando pendiente de ubicación:',e);});
+}
+
 function editarNombreRack(rack){
   const actual=nombresRacks[rack]||'';
   const nombre=prompt('Nombre para el Rack '+rack+' (déjalo vacío para quitarlo):',actual);
@@ -6871,6 +6965,17 @@ document.getElementById('filtro-mes-dev').addEventListener('input',function(){mD
 document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListener('click',function(){fDev=this.dataset.f;document.querySelectorAll('#fi-dev .chip').forEach(function(x){x.classList.remove('active','a-dev');});this.classList.add('active');renderDev();});});
 document.getElementById('search-ubi').addEventListener('input',function(){sUbi=this.value;renderUbi();});
 document.querySelectorAll('#fi-ubi .chip').forEach(function(c){c.addEventListener('click',function(){fUbi=this.dataset.f;document.querySelectorAll('#fi-ubi .chip').forEach(function(x){x.classList.remove('active','a-ubi');});this.classList.add('active');renderUbi();});});
+// Filtro por rack -- los chips se generan en vivo dentro de renderUbi(),
+// así que aquí se usa delegación de eventos (el listener va en el
+// contenedor, no en cada chip, porque los chips todavía no existen
+// cuando corre este script al cargar la página).
+const rackFiltroWrap=document.getElementById('fi-ubi-rack');
+if(rackFiltroWrap)rackFiltroWrap.addEventListener('click',function(e){
+  const chip=e.target.closest('.chip');
+  if(!chip)return;
+  fUbiRack=chip.dataset.fr;
+  renderUbi();
+});
 // ============================================================
 // Candado de acceso. Antes de cargar cualquier dato, se checa si este
 // navegador ya tiene guardado el hash de la clave vigente (localStorage).
@@ -6889,6 +6994,8 @@ function arrancarApp_(){
   loadDevStock_();
   // Nombres de rack (Ubicaciones) -- también en paralelo, sin bloquear.
   cargarNombresRacks_();
+  // Pendientes/comentarios de ubicación -- igual.
+  cargarPendientesUbicaciones_();
 }
 
 function mostrarCandado_(){
