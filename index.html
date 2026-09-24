@@ -1055,10 +1055,67 @@ function imprimirClaveCompletaSel(){
 // vive en un cuadro pegado al lote (se movió aquí para quitarle botones a
 // cada fila). Si cancelas el prompt de un lote, se salta nomás ese y sigue
 // con los demás seleccionados.
+// Arma el contenido (sin doctype/head/salto de página propio) de UNA
+// carátula EYE, para meterla dentro de un documento combinado de varias
+// páginas. Usa estilos en línea (no clases .linea) para que no choque con
+// una página PT metida en el mismo documento. También registra el
+// historial de "impreso" igual que la impresión suelta.
+function contenidoCaratulaEye_(clave,lote,desc,almacen,exist,unidad){
+  unidad=pluralizarUnidad_(unidad,exist);
+  const lineaCantidad=carEyeImprimirCantidad?('<div style="font-size:44px;font-weight:900;margin-top:14px;margin-bottom:22px">CANTIDAD: '+fmt(exist)+' '+unidad+'</div>'):'';
+  const ubicTxt=ubicTexto_(clave,lote);
+  const lineaUbic=ubicTxt?('<div style="font-size:36px;margin-top:10px;color:#333;display:inline-block">📍 '+ubicTxt+'</div>'):'';
+  const ALM_COLORS_CAR_={EYEJAL:'background:#e8f5e9;color:#2e7d32','40EYE':'background:#fff8e1;color:#f57f17',PANALAB:'background:#e3f2fd;color:#1565c0',PTJAL:'background:#fff3e0;color:#e65100',PTFGUAD:'background:#ffebee;color:#c62828','40PT':'background:#fff8e1;color:#f57f17',REPROJAL:'background:#f3e5f5;color:#6a1b9a'};
+  const almStyle_=ALM_COLORS_CAR_[almacen]||'background:#eee;color:#555';
+  const lineaAlm=almacen?('<div style="font-size:38px;font-weight:900;padding:6px 20px;border-radius:10px;margin-top:10px;margin-right:18px;display:inline-block;'+almStyle_+'">'+almacen+'</div>'):'';
+  const chkContado=!!carContadoManual[clave+'|'+lote+'|'+almacen];
+  const ucContado=ultimoConteoMap[clave+'|'+lote];
+  const lineaContado=(chkContado&&ucContado)?
+    '<div style="color:#2E7D32;font-size:40px;font-weight:900;border:4px solid #2E7D32;border-radius:12px;padding:8px 14px;display:inline-block;margin-top:10px">✔ CONTADO<br><span style="font-size:22px">'+(ucContado.fecha||'').split(',')[0]+' · '+fmt(ucContado.cantidad)+' pz</span></div>':'';
+  const key=clave+'|'+lote+'|'+almacen;
+  if(!carEyePrinted[key])carEyePrinted[key]=[];
+  carEyePrinted[key].push({fecha:new Date().toLocaleString('es-MX')});
+  return '<div style="font-size:64px;font-weight:900;margin-bottom:22px;line-height:1.15;word-break:break-word">'+clave+'</div>'+
+    '<div style="font-size:64px;font-weight:900;margin-bottom:22px;line-height:1.15;word-break:break-word">'+lote+'</div>'+
+    '<div style="font-size:44px;font-weight:900;margin-top:14px;margin-bottom:22px">'+desc+'</div>'+
+    lineaCantidad+
+    '<div>'+lineaAlm+lineaUbic+'</div>'+
+    lineaContado;
+}
+
+// Igual que arriba pero para una carátula PT (con cantidad de tarima ya
+// capturada por prompt). También registra el historial de "impreso".
+function contenidoCaratulaPt_(clave,lote,desc,almacen,uEmpaque,cantidad,origen){
+  const esManual=origen==='MANUAL';
+  const lineaManual=esManual?'<div style="color:#E8671A;font-size:40px;font-weight:900;border:4px solid #E8671A;border-radius:12px;padding:10px 16px;display:inline-block;margin-bottom:20px">⚡ AGREGADO A MANO — VERIFICAR EN SISTEMA</div>':'';
+  const lineaCantidadPt=carPtImprimirCantidad?('<div style="font-size:54px;font-weight:900;margin-bottom:26px">CANTIDAD: '+fmt(cantidad)+'</div>'):'';
+  const chkContado=!!carContadoManual[clave+'|'+lote+'|'+almacen];
+  const ucContado=ultimoConteoMap[clave+'|'+lote];
+  const lineaContado=(chkContado&&ucContado)?
+    '<div style="color:#2E7D32;font-size:36px;font-weight:900;border:4px solid #2E7D32;border-radius:12px;padding:8px 14px;display:inline-block;margin-bottom:20px">✔ CONTADO<br><span style="font-size:20px">'+(ucContado.fecha||'').split(',')[0]+' · '+fmt(ucContado.cantidad)+' pz</span></div>':'';
+  const key=clave+'|'+lote+'|'+almacen;
+  if(!carQty[key])carQty[key]=[];
+  carQty[key].push({cantidad:cantidad,fecha:new Date().toLocaleString('es-MX')});
+  return lineaManual+lineaContado+
+    '<div style="font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word">CLAVE: '+clave+'</div>'+
+    '<div style="font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word">LOTE: '+lote+'</div>'+
+    lineaCantidadPt+
+    '<div style="font-size:54px;font-weight:900;margin-bottom:26px;line-height:1.15;word-break:break-word">U EMPAQUE: '+(uEmpaque?fmt(uEmpaque):'—')+' PZ</div>';
+}
+
+// Imprime las carátulas de todos los lotes marcados con invLoteSel EN UN
+// SOLO documento (una página por lote, con salto de página entre cada
+// una) -- antes se abría una pestaña nueva POR CADA lote, una tras otra
+// en el mismo clic, y el navegador (sobre todo en celular) solo deja
+// abrir UNA ventana nueva por toque: la primera carátula salía y las
+// demás se bloqueaban silenciosamente como si fueran popups. Juntándolas
+// en un solo documento, solo se abre una pestaña sin importar cuántos
+// lotes se seleccionen.
 function imprimirCaratulasLotesSel(){
   if(!invLoteSel.size){ alert('Toca el código de uno o más lotes para seleccionarlos, y luego usa esta opción para imprimir sus carátulas.'); return; }
   const ALL_A=window._ALL_A||[];
   const PT_ALMS=['40PT','PTJAL','PTFGUAD','REPROJAL'];
+  const paginas=[];
   Array.from(invLoteSel).forEach(function(key){
     let clave,lote;
     try{ const par=JSON.parse(key); clave=par[0]; lote=par[1]; }catch(e){ return; }
@@ -1069,15 +1126,43 @@ function imprimirCaratulasLotesSel(){
     const almU=(l.almacen||'').toUpperCase();
     if(PT_ALMS.indexOf(almU)!==-1){
       const cantStr=prompt('Cantidad de esta tarima -- '+clave+' · lote '+lote+':');
-      if(cantStr===null)return;
+      if(cantStr===null)return; // se omite nomás este lote, sigue con los demás
       const cant=parseFloat(cantStr);
       if(!cant||cant<=0){ alert('Cantidad inválida, se omite '+clave+' · '+lote+'.'); return; }
       const pzasInfo=PZAS_MAP[clave]||null;
-      imprimirCaratula({clave:clave,desc:p.desc,lote:lote,almacen:almU,origen:l.origen||'',uEmpaque:(pzasInfo&&pzasInfo.pzasXCaja)?pzasInfo.pzasXCaja:null},cant);
+      paginas.push(contenidoCaratulaPt_(clave,lote,p.desc,almU,(pzasInfo&&pzasInfo.pzasXCaja)?pzasInfo.pzasXCaja:null,cant,l.origen||''));
     }else{
-      imprimirCaratulaEye({clave:clave,desc:p.desc,lote:lote,almacen:almU,exist:l.exist,unidad:l.unidad});
+      paginas.push(contenidoCaratulaEye_(clave,lote,p.desc,almU,l.exist,l.unidad));
     }
   });
+  if(!paginas.length)return; // se cancelaron todos los prompts o no se resolvió ninguno
+
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Carátulas ('+paginas.length+')</title>'+
+    '<style>@page{size:letter landscape;margin:15mm}body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0}</style>'+
+    '</head><body>'+
+    paginas.map(function(p,i){return '<div style="'+(i>0?'page-break-before:always;':'')+'padding:40px">'+p+'</div>';}).join('')+
+    '<script>window.onload=function(){window.print();}<\/script>'+
+    '</body></html>';
+  try{
+    const blob=new Blob([html],{type:'text/html'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.target='_blank';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(url);},60000);
+  }catch(e){
+    console.error('Error al generar las carátulas combinadas para imprimir:', e);
+    alert('No se pudo abrir las carátulas para imprimir. Avísale a Eduardo.');
+    return;
+  }
+  try{localStorage.setItem(CAR_EYE_STORAGE_KEY,JSON.stringify(carEyePrinted));}catch(e){}
+  try{localStorage.setItem(CAR_STORAGE_KEY,JSON.stringify(carQty));}catch(e){}
+  recalcCarEyeStatus();
+  recalcCarTotals();
 }
 const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
 let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
