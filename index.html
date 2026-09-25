@@ -6951,11 +6951,24 @@ function folioPasaFiltroEstado_(f,estado){
   if(estado==='UBICADOSINMOV')return f.lineas.some(function(l){return !!l.fechaUbicadoSinMov;});
   return true;
 }
+// Normaliza igual que smartMatch (minúsculas, sin guiones ni espacios) --
+// se usa aparte para detectar cuando la búsqueda es el folio EXACTO de
+// alguna papeleta (ver getFiltDev).
+function norm_(s){return String(s||'').toLowerCase().replace(/[-\s]/g,'');}
+
 function getFiltDev(){
   const q=sDev.toLowerCase().trim();
   const sel=fDevSet&&fDevSet.size?fDevSet:new Set(['TODOS']);
   const tiposSel=DEV_TIPOS_.filter(function(t){return sel.has(t);});
   const estadosSel=['ALERTA','CUADRA','TRASPASADO','SINMOV','UBICADOSINMOV'].filter(function(e){return sel.has(e);});
+  // Si lo que se buscó es el folio EXACTO de alguna papeleta (comparando
+  // normalizado, igual que smartMatch), se enseña NOMÁS esa -- antes,
+  // buscar "F-100" también sacaba "F-1000" o cualquier otra que trajera
+  // "100" en otro campo (línea, OP, movimiento...), por la búsqueda difusa
+  // de smartMatch. Con el folio exacto ya no hace falta adivinar cuál de
+  // los resultados es el que se quería.
+  const normQ=norm_(q);
+  const folioExactoExiste=!!normQ&&(DEV_LOADED||[]).some(function(f){return norm_(f.folio)===normQ;});
   return (DEV_LOADED||[]).filter(function(f){
     if(!sel.has('TODOS')){
       if(tiposSel.length&&tiposSel.indexOf(f.tipo)===-1)return false;
@@ -6964,6 +6977,7 @@ function getFiltDev(){
     if(!fechaDevEnMes_(f.fecha,mDev))return false;
     if(!fechaDevEnSemana_(f.fecha,semDev))return false;
     if(!q)return true;
+    if(folioExactoExiste)return norm_(f.folio)===normQ;
     if(smartMatch(f.folio,sDev)||smartMatch(f.op,sDev)||smartMatch(f.codigoPT,sDev)||smartMatch(f.productoPT,sDev)||smartMatch(f.lotePT,sDev)||smartMatch(f.numMovimiento,sDev))return true;
     return f.lineas.some(function(l){return smartMatch(l.codigo,sDev)||smartMatch(l.descripcion,sDev)||smartMatch(l.lote,sDev);});
   });
