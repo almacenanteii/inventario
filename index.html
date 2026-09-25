@@ -726,14 +726,14 @@ header.h-dev{background:var(--tl)}
     <select id="filtro-mes-dev" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333;flex:1;min-width:130px"><option value="">Todos los meses</option></select>
     <select id="filtro-semana-dev" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333;flex:1;min-width:130px"><option value="">Todas las semanas</option></select>
   </div>
-  <div class="filters" id="fi-dev">
+  <div class="filters" id="fi-dev" style="margin-top:14px">
     <div class="chip a-dev" data-f="TODOS">Todos</div>
     <div class="chip" data-f="no_utilizado">🔵 No utilizado</div>
     <div class="chip" data-f="destruccion">🟣 Destrucción</div>
     <div class="chip" data-f="proveedor">🟤 A Proveedor</div>
     <div class="chip" data-f="ALERTA">⚠️ Con alerta</div>
-    <div class="chip" data-f="CUADRA">✔ Cuadra en cantidad</div>
-    <div class="chip" data-f="TRASPASADO">🚚 Ya traspasados</div>
+    <div class="chip" data-f="CUADRA">✔ Cuadrados</div>
+    <div class="chip" data-f="TRASPASADO">🚚 Traspasados</div>
     <div class="chip" data-f="SINMOV">📋 Sin movimiento capturado</div>
   </div>
 </header>
@@ -6358,7 +6358,16 @@ if(carEyeCantChk) carEyeCantChk.addEventListener('change',function(){
 // Cada folio (papeleta) se guarda en la hoja "Devoluciones" como varias
 // filas (una por material devuelto), todas con el mismo Id -- aquí se
 // vuelven a agrupar por Id para mostrarlas como tarjetas de folio.
-let DEV_LOADED=[],devLoaded=false,sDev='',fDev='TODOS',mDev='',semDev='';
+let DEV_LOADED=[],devLoaded=false,sDev='',mDev='',semDev='';
+// Set de chips activos en #fi-dev -- multi-selección (ver getFiltDev). Se
+// mantiene fDev como alias de compatibilidad hacia atrás (algunos scripts
+// de prueba/código viejo lo leen/escriben como string) -- ver el getter más
+// abajo, después de que fDevSet exista.
+let fDevSet=new Set(['TODOS']);
+Object.defineProperty(window,'fDev',{
+  get:function(){return Array.from(fDevSet)[0]||'TODOS';},
+  set:function(v){fDevSet=new Set([v]);}
+});
 // Estado del modal de captura mientras está abierto.
 let devLineas=[],devTipoSel='',devOpSelData=null,devMaterialesOP=[];
 // Existencia de ACOND (piso de producción) -- de ahí es de donde SAI
@@ -6676,21 +6685,30 @@ function semanaDeFecha_(fechaTxt){
 function folioTodasLineasTraspasadas_(f){
   return f.lineas.length>0&&f.lineas.every(function(l){return l.fechaTraspaso;});
 }
+// Chips de TIPO de papeleta (a qué grupo pertenece) vs. chips de ESTADO
+// (en qué condición está, sin importar el tipo) -- se combinan distinto:
+// entre chips de tipo es OR (una papeleta solo puede ser de un tipo, así
+// que "no_utilizado + destruccion" muestra ambos), entre chips de estado es
+// AND (una papeleta debe cumplir TODOS los estados marcados a la vez, así
+// "no_utilizado + con alerta" de verdad filtra las dos cosas juntas).
+const DEV_TIPOS_=['no_utilizado','destruccion','proveedor'];
+function folioPasaFiltroEstado_(f,estado){
+  if(estado==='ALERTA')return f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);});
+  if(estado==='CUADRA')return folioCuadraMov_(f).cuadraMov&&!folioTodasLineasTraspasadas_(f);
+  if(estado==='TRASPASADO')return folioTodasLineasTraspasadas_(f);
+  if(estado==='SINMOV')return !(f.numMovimiento||'').trim();
+  return true;
+}
 function getFiltDev(){
   const q=sDev.toLowerCase().trim();
+  const sel=fDevSet&&fDevSet.size?fDevSet:new Set(['TODOS']);
+  const tiposSel=DEV_TIPOS_.filter(function(t){return sel.has(t);});
+  const estadosSel=['ALERTA','CUADRA','TRASPASADO','SINMOV'].filter(function(e){return sel.has(e);});
   return (DEV_LOADED||[]).filter(function(f){
-    if(fDev==='ALERTA'){
-      if(!f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);}))return false;
-    }else if(fDev==='CUADRA'){
-      // Ya marcado como traspasado (todas las líneas) = ya no es
-      // "pendiente", así que se saca de esta lista aunque siga cuadrando en
-      // cantidad -- para eso está el filtro aparte "Ya traspasados".
-      if(!folioCuadraMov_(f).cuadraMov||folioTodasLineasTraspasadas_(f))return false;
-    }else if(fDev==='TRASPASADO'){
-      if(!folioTodasLineasTraspasadas_(f))return false;
-    }else if(fDev==='SINMOV'){
-      if((f.numMovimiento||'').trim())return false;
-    }else if(fDev!=='TODOS'&&f.tipo!==fDev)return false;
+    if(!sel.has('TODOS')){
+      if(tiposSel.length&&tiposSel.indexOf(f.tipo)===-1)return false;
+      if(estadosSel.some(function(e){return !folioPasaFiltroEstado_(f,e);}))return false;
+    }
     if(!fechaDevEnMes_(f.fecha,mDev))return false;
     if(!fechaDevEnSemana_(f.fecha,semDev))return false;
     if(!q)return true;
@@ -6808,7 +6826,7 @@ function renderDev(){
     // línea ya se puede marcar como traspasada/destruida por su cuenta, sin
     // esperar a que el resto del folio también cuadre.
     const txtAccion=esDest?'destrucción':'traspaso';
-    const txtHecho=esDest?'Ya se destruyó':'Ya hice el traspaso';
+    const txtHecho=esDest?'Destruido':'Traspasado';
     const txtBadgeHecho=esDest?'🔥 Destruido':'🚚 Traspasado';
     const lineasHtml=f.lineas.map(function(l){
       // El aviso de "ya no está en ACOND" solo tiene caso mientras el
@@ -6834,13 +6852,15 @@ function renderDev(){
         '<div class="dev-ref-linea">📦 En '+almacen+': '+fmt(devInfo.devQty)+' pz'+(devInfo.listo?' <span class="dev-linea-ok-tag">✔ suficiente para traspaso</span>':' <span class="dev-linea-warn-tag">⚠️ faltan '+fmt(Math.max(0,(parseFloat(l.cantidad)||0)-devInfo.devQty))+' pz por llegar a '+almacen+'</span>')+'</div>'
         :'';
       // Estado de marcado de ESTA línea -- ya se puede marcar en cuanto
-      // cuadra contra MOVREP, sin esperar al resto del folio.
+      // cuadra contra MOVREP, sin esperar al resto del folio. Solo aplica a
+      // DEV (no_utilizado/proveedor); para destrucción no se pidió esto,
+      // así que no se ofrece ningún botón ni marca ahí.
       const argsLinea="'"+f.id+"','"+String(l.codigo||'').replace(/'/g,"\\'")+"','"+String(l.lote||'').replace(/'/g,"\\'")+"'";
-      const marcadoHtml=l.fechaTraspaso?
+      const marcadoHtml=esDest?'':(l.fechaTraspaso?
         '<span class="dev-linea-traspasado-tag">'+txtBadgeHecho+' el '+escAttr(l.fechaTraspaso)+'</span><span class="dev-linea-deshacer" onclick="marcarTraspasoLinea_('+argsLinea+',false)">↩️ deshacer</span>'
       :cuadraLinea?
         '<span class="dev-linea-btn-marcar" onclick="marcarTraspasoLinea_('+argsLinea+',true)">✔ '+txtHecho+'</span>'
-      :'';
+      :'');
       return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
         +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+devHtml+'</div>'
         +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
@@ -6850,7 +6870,7 @@ function renderDev(){
     // Si YA se marcaron todas las líneas del folio, ya no tiene caso seguir
     // mostrando el aviso de cuadre/no cuadre -- se reemplaza por un aviso
     // fijo, con opción de deshacer TODO el folio de un jalón.
-    const todasMarcadas=f.lineas.length>0&&f.lineas.every(function(l){return l.fechaTraspaso;});
+    const todasMarcadas=!esDest&&f.lineas.length>0&&f.lineas.every(function(l){return l.fechaTraspaso;});
     const fechaMarcado=f.lineas.reduce(function(mx,l){return l.fechaTraspaso&&(!mx||l.fechaTraspaso>mx)?l.fechaTraspaso:mx;},'');
     const movHtml=todasMarcadas?
       '<div class="dev-mov-traspasado">'+txtBadgeHecho+' (todas las líneas) el '+escAttr(fechaMarcado)+' <span class="dev-del" style="color:#8D6E00" onclick="marcarTraspasoDevolucion(\''+f.id+'\',false)">↩️ Deshacer todo el folio</span></div>'
@@ -7390,7 +7410,28 @@ document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventLi
 document.getElementById('search-dev').addEventListener('input',function(){sDev=this.value;renderDev();});
 document.getElementById('filtro-mes-dev').addEventListener('change',function(){mDev=this.value;renderDev();});
 document.getElementById('filtro-semana-dev').addEventListener('change',function(){semDev=this.value;renderDev();});
-document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListener('click',function(){fDev=this.dataset.f;document.querySelectorAll('#fi-dev .chip').forEach(function(x){x.classList.remove('active','a-dev');});this.classList.add('active');renderDev();});});
+// Multi-selección: "Todos" siempre limpia el resto (es el estado neutro);
+// cualquier otro chip se prende/apaga sin tocar los demás -- así se puede
+// combinar, por ejemplo, "No utilizado" + "Con alerta" a la vez. Si al
+// apagar un chip no queda ninguno prendido, se vuelve a "Todos" solo para
+// no dejar la lista sin ningún filtro visualmente activo.
+document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListener('click',function(){
+  const val=this.dataset.f;
+  if(val==='TODOS'){
+    fDevSet=new Set(['TODOS']);
+  }else{
+    fDevSet.delete('TODOS');
+    if(fDevSet.has(val))fDevSet.delete(val);else fDevSet.add(val);
+    if(!fDevSet.size)fDevSet=new Set(['TODOS']);
+  }
+  document.querySelectorAll('#fi-dev .chip').forEach(function(x){
+    const activo=fDevSet.has(x.dataset.f);
+    x.classList.toggle('active',activo&&x.dataset.f!=='TODOS');
+    x.classList.toggle('a-dev',activo&&x.dataset.f==='TODOS');
+    if(!activo)x.classList.remove('active','a-dev');
+  });
+  renderDev();
+});});
 document.getElementById('search-ubi').addEventListener('input',function(){sUbi=this.value;renderUbi();});
 document.querySelectorAll('#fi-ubi .chip').forEach(function(c){c.addEventListener('click',function(){fUbi=this.dataset.f;document.querySelectorAll('#fi-ubi .chip').forEach(function(x){x.classList.remove('active','a-ubi');});this.classList.add('active');renderUbi();});});
 // Filtro por rack -- los chips se generan en vivo dentro de renderUbi(),
