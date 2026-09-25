@@ -279,10 +279,15 @@ header.h-car{background:var(--rd)}
 .emb-tarima-add{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .car-contado-chk{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--gr2);cursor:pointer;white-space:nowrap}
 .car-contado-chk input{width:15px;height:15px;cursor:pointer}
-.emb-add-input{flex:1;padding:9px 10px;border:2px solid var(--bd);border-radius:8px;font-size:15px;font-weight:700;text-align:center;color:var(--gr);outline:none;min-width:0}
+.emb-add-input{flex:0 1 110px;padding:9px 10px;border:2px solid var(--bd);border-radius:8px;font-size:15px;font-weight:700;text-align:center;color:var(--gr);outline:none;min-width:0}
 .emb-add-input:focus{border-color:var(--gn)}
 .emb-tarima-add button{background:var(--gn);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
 .emb-tarima-sum{font-size:11.5px}
+.salida-card{display:flex;align-items:center;gap:10px}
+.salida-card-sel{border-left-color:var(--gn);background:#F4FBF4}
+.salida-chk-wrap{flex:0 0 auto}
+.salida-chk-wrap input{width:20px;height:20px;cursor:pointer}
+.salida-info{flex:1;min-width:0}
 .emb-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:500;align-items:flex-end;justify-content:center}
 .emb-modal-box{background:#fff;border-radius:16px 16px 0 0;max-height:82vh;width:100%;max-width:560px;display:flex;flex-direction:column;overflow:hidden}
 .emb-modal-head{padding:14px 16px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center}
@@ -647,6 +652,7 @@ header.h-dev{background:var(--tl)}
   </div>
   <div class="filters" id="fi-emb-sub">
     <div class="chip a-emb" data-sub="armar">🚚 Armar Embarques</div>
+    <div class="chip" data-sub="salida">🚛 Salida de Embarque</div>
     <div class="chip" data-sub="plan">📋 Plan de Embarque</div>
   </div>
   <div id="emb-armar-header">
@@ -668,6 +674,21 @@ header.h-dev{background:var(--tl)}
   </div>
   <div id="emb-plan-header" class="hidden">
     <div class="update-bar" id="plan-emb-update-bar">📅 Cargando planes de embarque...</div>
+  </div>
+  <div id="emb-salida-header" class="hidden">
+    <div class="update-bar" id="salida-update-bar">📅 Cargando tarimas...</div>
+    <div class="search-box">
+      <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input type="search" id="search-salida" placeholder="Buscar clave, lote o descripción…" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="clr" id="clr-salida" onclick="document.getElementById('search-salida').value='';sSalida='';renderSalidaEmbarque();">✕</button>
+    </div>
+    <div class="filters" id="fi-salida">
+      <div class="chip a-emb" data-sf="PENDIENTES">📦 Pendientes</div>
+      <div class="chip" data-sf="HISTORIAL">🗂️ Ya salieron</div>
+    </div>
+    <div style="padding:0 14px 10px">
+      <button id="btn-confirmar-salida" onclick="confirmarSalidaTarimas()" disabled style="width:100%;background:#fff;color:var(--gn);border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:800;cursor:pointer">🚛 Confirmar salida (0)</button>
+    </div>
   </div>
 </header>
 
@@ -895,6 +916,11 @@ header.h-dev{background:var(--tl)}
   <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-plan-piezas">—</div><div class="kpi-sub">planeadas</div></div>
   <div class="kpi"><div class="kpi-lbl">Tarimas</div><div class="kpi-val gv" id="k-plan-tarimas">—</div><div class="kpi-sub">planeadas</div></div>
 </div>
+<div class="kpis hidden" id="kpis-salida">
+  <div class="kpi"><div class="kpi-lbl">Tarimas</div><div class="kpi-val gv" id="k-salida-tarimas">—</div><div class="kpi-sub">en este filtro</div></div>
+  <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-salida-piezas">—</div><div class="kpi-sub">en este filtro</div></div>
+  <div class="kpi"><div class="kpi-lbl">Seleccionadas</div><div class="kpi-val" style="color:var(--tl)" id="k-salida-sel">0</div><div class="kpi-sub">para confirmar salida</div></div>
+</div>
 
 <div class="bar" id="bar-inv"></div>
 <div class="bar hidden" id="bar-abc"></div>
@@ -902,6 +928,7 @@ header.h-dev{background:var(--tl)}
 <div class="bar hidden" id="bar-cic"></div>
 <div class="bar hidden" id="bar-emb"></div>
 <div class="bar hidden" id="bar-planemb"></div>
+<div class="bar hidden" id="bar-salida"></div>
 <div class="list" id="list-inv"></div>
 <div class="list hidden" id="list-abc"></div>
 <div class="list hidden" id="list-q40"></div>
@@ -911,7 +938,9 @@ header.h-dev{background:var(--tl)}
 <div class="list hidden" id="list-cic"></div>
 <div class="list hidden" id="list-emb"></div>
 <div class="list hidden" id="list-planemb"></div>
+<div class="list hidden" id="list-salida"></div>
 <div class="empty hidden" id="empty-planemb"><div class="empty-ico">📦</div><p>Todavía no hay planes de embarque registrados.</p></div>
+<div class="empty hidden" id="empty-salida"><div class="empty-ico">🚛</div><p>No hay tarimas pendientes de salida.</p></div>
 <div class="empty hidden" id="empty-inv"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-inv"></span>"</p></div>
 <div class="empty hidden" id="empty-abc"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-abc"></span>"</p></div>
 <div class="empty hidden" id="empty-cic"><div class="empty-ico">📊</div><p>Sin resultados para "<span id="eq-cic"></span>"</p></div>
@@ -1234,13 +1263,15 @@ function imprimirCaratulasLotesSel(){
   recalcCarEyeStatus();
   recalcCarTotals();
 }
-const EMB_STORAGE_KEY='anteii_embarque_tarimas_v1';
 let EMB_LOADED=[],embLoaded=false,fechaGlobal='';
-let embQty={};
-try{
-  const _embRaw=JSON.parse(localStorage.getItem(EMB_STORAGE_KEY)||'{}');
-  Object.keys(_embRaw).forEach(function(k){embQty[k]=Array.isArray(_embRaw[k])?_embRaw[k]:[];});
-}catch(e){embQty={};}
+// Tarimas de Embarque -- YA NO se guardan en localStorage (embQty, versión
+// vieja): ahora viven en el Sheet (hoja "Tarimas", ver codigo.txt) para que
+// una tarima capturada UNA vez se quede ahí -- visible desde cualquier
+// equipo -- hasta que de verdad salga del almacén (ver switchEmbSub sub
+// "salida" / confirmarSalidaTarimas). Cada tarima: {id,clave,descripcion,
+// lote,almacen,piezas,origen,fechaCreacion,estado,fechaSalida}; estado es
+// 'PENDIENTE' o 'SALIO'.
+let TARIMAS_LOADED=[],tarimasLoaded=false;
 let embItemsCount=0,embLotesCount=0;
 
 const CAR_STORAGE_KEY='anteii_caratulas_impresas_v1';
@@ -4970,14 +5001,17 @@ let embSub='armar';
 function switchEmbSub(sub){
   embSub=sub;
   document.querySelectorAll('#fi-emb-sub .chip').forEach(function(c){c.classList.toggle('a-emb',c.dataset.sub===sub);});
-  const esArmar=sub==='armar';
+  const esArmar=sub==='armar',esPlan=sub==='plan',esSalida=sub==='salida';
   document.getElementById('emb-armar-actions')?.classList.toggle('hidden',!esArmar);
   document.getElementById('emb-armar-header')?.classList.toggle('hidden',!esArmar);
-  document.getElementById('emb-plan-header')?.classList.toggle('hidden',esArmar);
+  document.getElementById('emb-plan-header')?.classList.toggle('hidden',!esPlan);
+  document.getElementById('emb-salida-header')?.classList.toggle('hidden',!esSalida);
   ['kpis-emb','bar-emb','list-emb','empty-emb'].forEach(function(id){document.getElementById(id)?.classList.toggle('hidden',!esArmar);});
-  ['kpis-planemb','bar-planemb','list-planemb','empty-planemb'].forEach(function(id){document.getElementById(id)?.classList.toggle('hidden',esArmar);});
+  ['kpis-planemb','bar-planemb','list-planemb','empty-planemb'].forEach(function(id){document.getElementById(id)?.classList.toggle('hidden',!esPlan);});
+  ['kpis-salida','bar-salida','list-salida','empty-salida'].forEach(function(id){document.getElementById(id)?.classList.toggle('hidden',!esSalida);});
   if(esArmar)loadEmbarque();
-  else loadPlanEmbarque();
+  else if(esPlan)loadPlanEmbarque();
+  else loadTarimas();
 }
 
 // Bitácora de Plan de Embarque -- se llena sola: una tarea automática revisa
@@ -5088,6 +5122,11 @@ async function loadEmbarque(){
     // ejemplo, el script todavía no tiene esta acción desplegada), no rompe
     // la carga normal del Embarque.
     await mezclarPtManualEn_(EMB_LOADED);
+    // Se carga ANTES de renderEmb() -- así, cuando renderEmb() arme las
+    // filas y llame internamente a recalcEmbLetters(), las tarimas ya
+    // capturadas de antes salen de inmediato (no hay parpadeo de "0
+    // tarimas" seguido de que aparezcan solas un segundo después).
+    await loadTarimasData_();
     updateEmbDatalist();
     renderEmb();
   }catch(e){
@@ -5096,6 +5135,29 @@ async function loadEmbarque(){
     if(bar) bar.textContent='❌ Error al cargar InventarioPT. Verifica conexión.';
     renderEmb();
   }
+}
+
+// Trae las tarimas del Sheet -- sin efectos de renderizado (eso lo decide
+// quien la llame: loadEmbarque() la usa antes de su propio renderEmb(),
+// loadTarimas() de abajo la usa para la pestaña "Salida de Embarque").
+async function loadTarimasData_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=tarimas&t='+Date.now());
+    const rows=await r.json();
+    TARIMAS_LOADED=Array.isArray(rows)?rows:[];
+  }catch(e){
+    console.error('Error cargando tarimas:',e);
+    if(!tarimasLoaded)TARIMAS_LOADED=[];
+  }
+  tarimasLoaded=true;
+}
+
+// Recarga tarimas y refresca la vista que corresponda según en qué
+// sub-pestaña de Embarques estés parado.
+async function loadTarimas(){
+  await loadTarimasData_();
+  if(embSub==='salida')renderSalidaEmbarque();
+  else recalcEmbLetters();
 }
 
 // Lee lo agregado a mano (acción pt_manual del Apps Script) y lo empuja al
@@ -5371,10 +5433,11 @@ function guardarPtManual(){
   // dejó la cantidad vacía, no hay nada que agregar todavía -- el lote
   // queda listo para capturarla después con "+ Tarima".
   if(cantidad>0){
-    const key=clave+'|'+lote+'|'+ptManualAlm;
-    if(!embQty[key])embQty[key]=[];
-    embQty[key].push(cantidad);
-    try{localStorage.setItem(EMB_STORAGE_KEY,JSON.stringify(embQty));}catch(e){}
+    const tempIdTar='tmp-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+    TARIMAS_LOADED.push({id:tempIdTar,clave:clave,descripcion:desc,lote:lote,almacen:ptManualAlm,piezas:cantidad,origen:'MANUAL',fechaCreacion:fechaHoyTxt_(),estado:'PENDIENTE',fechaSalida:''});
+    fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'crear_tarima',clave:clave,descripcion:desc,lote:lote,almacen:ptManualAlm,piezas:cantidad,origen:'MANUAL'})})
+      .catch(function(e){console.error('Error creando tarima (PT manual):',e);});
+    setTimeout(function(){loadTarimasData_().then(function(){if(embSub==='armar')recalcEmbLetters();});},1500);
   }
 
   updateEmbDatalist();
@@ -5547,17 +5610,22 @@ function recalcEmbLetters(){
   // lotes de Inventario se colarían aquí y correrían mal las letras de
   // tarima del Plan de Embarque.
   document.querySelectorAll('#list-emb .emb-lote-row').forEach(function(row){
-    const key=row.dataset.clave+'|'+row.dataset.lote+'|'+row.dataset.almacen;
-    const arr=embQty[key]||[];
+    const clave=row.dataset.clave,lote=row.dataset.lote,almacen=row.dataset.almacen;
+    // Solo las tarimas PENDIENTES de este lote+almacén cuentan aquí -- las
+    // que ya salieron (ver renderSalidaEmbarque) desaparecen de Armar
+    // Embarques por su cuenta, sin necesidad de borrarlas a mano.
+    const arr=(TARIMAS_LOADED||[]).filter(function(t){
+      return t.estado==='PENDIENTE'&&t.clave===clave&&t.lote===lote&&t.almacen===almacen;
+    });
     const chipsEl=row.querySelector('.emb-tarima-chips');
     let chipsHtml='';
     let sum=0;
-    arr.forEach(function(pz,idx){
+    arr.forEach(function(t){
       counter++;
       const L=embLetter(counter);
-      sum+=pz;
-      assign.push({letter:L,clave:row.dataset.clave,desc:row.dataset.desc,lote:row.dataset.lote,almacen:row.dataset.almacen,piezas:pz,origen:row.dataset.origen||''});
-      chipsHtml+='<span class="emb-tar-chip">Tarima '+L+': '+fmt(pz)+' pz<span class="x" onclick="removeEmbTarima(this)" data-key="'+escAttr(key)+'" data-idx="'+idx+'">✕</span></span>';
+      sum+=t.piezas;
+      assign.push({letter:L,clave:clave,desc:row.dataset.desc,lote:lote,almacen:almacen,piezas:t.piezas,origen:t.origen||''});
+      chipsHtml+='<span class="emb-tar-chip">Tarima '+L+': '+fmt(t.piezas)+' pz<span class="x" onclick="removeEmbTarima(this)" data-id="'+escAttr(t.id)+'">✕</span></span>';
     });
     if(chipsEl) chipsEl.innerHTML=chipsHtml;
 
@@ -5612,11 +5680,10 @@ function recalcEmbCompletas_(){
     const rows=card.querySelectorAll('.emb-lote-row');
     let completa=rows.length>0,algoCapturado=false;
     rows.forEach(function(row){
-      const key=row.dataset.clave+'|'+row.dataset.lote+'|'+row.dataset.almacen;
-      const arr=embQty[key]||[];
-      const sum=arr.reduce(function(s,pz){return s+pz;},0);
+      const clave=row.dataset.clave,lote=row.dataset.lote,almacen=(row.dataset.almacen||'').toUpperCase();
+      const arr=(TARIMAS_LOADED||[]).filter(function(t){return t.estado==='PENDIENTE'&&t.clave===clave&&t.lote===lote&&t.almacen===almacen;});
+      const sum=arr.reduce(function(s,t){return s+t.piezas;},0);
       const total=parseFloat(row.dataset.exist)||0;
-      const almacen=(row.dataset.almacen||'').toUpperCase();
       if(arr.length>0)algoCapturado=true;
       if(!loteEmbCompleta_(sum,total,arr.length,clase,almacen))completa=false;
     });
@@ -5624,6 +5691,12 @@ function recalcEmbCompletas_(){
   });
 }
 
+// Crea una tarima NUEVA (persistente en el Sheet, no en localStorage) --
+// optimista: se ve en pantalla de inmediato con un id temporal, y a los
+// ~1.5s se refresca en vivo para quedarse con el id real del servidor
+// (mismo patrón que guardarUbicacion). Como ya queda guardada, no hay que
+// volver a capturarla la próxima vez que abras esta pestaña -- por eso ya
+// no hace falta "rearmar" el embarque cada semana.
 function addEmbTarima(btn){
   const wrap=btn.closest('.emb-tarima-add');
   const row=btn.closest('.emb-lote-row');
@@ -5631,30 +5704,127 @@ function addEmbTarima(btn){
   const inp=wrap.querySelector('.emb-add-input');
   const v=parseFloat(inp.value);
   if(!v||v<=0){ inp.focus(); return; }
-  const key=row.dataset.clave+'|'+row.dataset.lote+'|'+row.dataset.almacen;
-  if(!embQty[key])embQty[key]=[];
-  embQty[key].push(v);
+  const clave=row.dataset.clave,lote=row.dataset.lote,almacen=row.dataset.almacen,desc=row.dataset.desc,origen=row.dataset.origen||'';
+  const tempId='tmp-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+  TARIMAS_LOADED.push({id:tempId,clave:clave,descripcion:desc,lote:lote,almacen:almacen,piezas:v,origen:origen,fechaCreacion:fechaHoyTxt_(),estado:'PENDIENTE',fechaSalida:''});
   inp.value='';
-  try{localStorage.setItem(EMB_STORAGE_KEY,JSON.stringify(embQty));}catch(e){}
   recalcEmbLetters();
   inp.focus();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'crear_tarima',clave:clave,descripcion:desc,lote:lote,almacen:almacen,piezas:v,origen:origen})})
+    .catch(function(e){console.error('Error creando tarima:',e);});
+  setTimeout(function(){loadTarimasData_().then(function(){if(embSub==='armar')recalcEmbLetters();});},1500);
 }
 
+// Borra una tarima capturada por error -- la "✕" de cada chip. Distinto de
+// marcar su salida (ver confirmarSalidaTarimas): esto la elimina por
+// completo, no deja rastro en el historial.
 function removeEmbTarima(el){
-  const key=el.dataset.key;
-  const idx=parseInt(el.dataset.idx,10);
-  if(!embQty[key])return;
-  embQty[key].splice(idx,1);
-  if(embQty[key].length===0)delete embQty[key];
-  try{localStorage.setItem(EMB_STORAGE_KEY,JSON.stringify(embQty));}catch(e){}
+  const id=el.dataset.id;
+  if(!id)return;
+  TARIMAS_LOADED=(TARIMAS_LOADED||[]).filter(function(t){return t.id!==id;});
   recalcEmbLetters();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_tarima',id:id})})
+    .catch(function(e){console.error('Error eliminando tarima:',e);});
 }
 
 function clearEmbTarimas(){
-  if(!confirm('¿Borrar todas las cantidades de tarimas anotadas?'))return;
-  embQty={};
-  try{localStorage.removeItem(EMB_STORAGE_KEY);}catch(e){}
+  if(!confirm('¿Borrar TODAS las tarimas pendientes anotadas? Esto no se puede deshacer.'))return;
+  const pendientes=(TARIMAS_LOADED||[]).filter(function(t){return t.estado==='PENDIENTE';});
+  TARIMAS_LOADED=(TARIMAS_LOADED||[]).filter(function(t){return t.estado!=='PENDIENTE';});
   renderEmb();
+  pendientes.forEach(function(t){
+    fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'eliminar_tarima',id:t.id})})
+      .catch(function(e){console.error('Error borrando tarima:',e);});
+  });
+}
+
+// ===== Salida de Embarque =====
+// Lista todas las tarimas PENDIENTES (creadas en Armar Embarques y que
+// todavía no han salido físicamente) con un checkbox -- se marcan las que
+// se van en el camión de hoy y se confirma su salida de un jalón. Una vez
+// confirmadas dejan de contar como pendientes (ya no aparecen en Armar
+// Embarques) y quedan en el historial ("🗂️ Ya salieron") por si hay que
+// consultarlas o deshacer un error.
+let fSalida='PENDIENTES',sSalida='',salidaSel=new Set();
+function getFiltSalida(){
+  const q=sSalida.toLowerCase().trim();
+  return (TARIMAS_LOADED||[]).filter(function(t){
+    if(fSalida==='PENDIENTES'&&t.estado!=='PENDIENTE')return false;
+    if(fSalida==='HISTORIAL'&&t.estado!=='SALIO')return false;
+    if(!q)return true;
+    return smartMatch(t.clave,q)||smartMatch(t.descripcion,q)||smartMatch(t.lote,q);
+  }).sort(function(a,b){
+    if(fSalida==='HISTORIAL')return (b.fechaSalida||'').localeCompare(a.fechaSalida||'')||a.clave.localeCompare(b.clave);
+    return a.clave.localeCompare(b.clave)||String(a.lote||'').localeCompare(String(b.lote||''));
+  });
+}
+function renderSalidaEmbarque(){
+  const rows=getFiltSalida();
+  const kT=document.getElementById('k-salida-tarimas'); if(kT)kT.textContent=rows.length.toLocaleString('en-US');
+  const totalPz=rows.reduce(function(s,t){return s+(t.piezas||0);},0);
+  const kP=document.getElementById('k-salida-piezas'); if(kP)kP.textContent=fmt(totalPz);
+  // Si cambiaste de filtro (Pendientes <-> Historial) o buscaste algo que
+  // ya no incluye una tarima que tenías marcada, se le quita la marca --
+  // así "Confirmar salida" nunca actúa sobre algo que ya no ves en pantalla.
+  const idsVisibles=new Set(rows.map(function(t){return t.id;}));
+  Array.from(salidaSel).forEach(function(id){ if(!idsVisibles.has(id))salidaSel.delete(id); });
+  const kSel=document.getElementById('k-salida-sel'); if(kSel)kSel.textContent=salidaSel.size.toLocaleString('en-US');
+  const btn=document.getElementById('btn-confirmar-salida');
+  if(btn){
+    btn.textContent='🚛 Confirmar salida ('+salidaSel.size+')';
+    btn.disabled=salidaSel.size===0;
+    btn.classList.toggle('hidden',fSalida!=='PENDIENTES');
+  }
+  const barEl=document.getElementById('bar-salida'); if(barEl)barEl.textContent=rows.length+' tarima'+(rows.length===1?'':'s')+' · '+fmt(totalPz)+' pz';
+
+  const list=document.getElementById('list-salida'),empty=document.getElementById('empty-salida');
+  if(!list)return;
+  if(!rows.length){
+    list.innerHTML='';
+    if(empty)empty.classList.remove('hidden');
+    return;
+  }
+  if(empty)empty.classList.add('hidden');
+  const esPendientes=fSalida==='PENDIENTES';
+  list.innerHTML=rows.map(function(t){
+    const marcada=salidaSel.has(t.id);
+    return '<div class="card salida-card'+(marcada?' salida-card-sel':'')+'">'
+      +(esPendientes?'<label class="salida-chk-wrap"><input type="checkbox" '+(marcada?'checked':'')+' onchange="toggleSalidaSel(\''+escAttr(t.id)+'\')"></label>':'')
+      +'<div class="salida-info">'
+        +'<div class="card-row1"><span class="clave c-gn">'+escAttr(t.clave)+'</span><span class="pill p-gn">'+fmt(t.piezas)+' pz</span></div>'
+        +'<div class="desc">'+escAttr(t.descripcion)+'</div>'
+        +'<div class="card-meta">Lote '+escAttr(t.lote)+' · '+escAttr(t.almacen)+' · creada '+escAttr(t.fechaCreacion)+(t.fechaSalida?' · salió '+escAttr(t.fechaSalida):'')+'</div>'
+      +'</div>'
+      +(!esPendientes?'<span class="dev-del" style="color:#8D6E00" onclick="deshacerSalidaTarima(\''+escAttr(t.id)+'\')">↩️ Deshacer</span>':'')
+    +'</div>';
+  }).join('');
+}
+function toggleSalidaSel(id){
+  if(salidaSel.has(id))salidaSel.delete(id);else salidaSel.add(id);
+  renderSalidaEmbarque();
+}
+// Marca la salida de todas las tarimas seleccionadas de un jalón --
+// optimista (se actualiza en pantalla al instante), un solo POST para
+// todas en vez de uno por tarima.
+function confirmarSalidaTarimas(){
+  if(!salidaSel.size)return;
+  const ids=Array.from(salidaSel);
+  if(!confirm('¿Confirmar la salida de '+ids.length+' tarima'+(ids.length===1?'':'s')+'? Dejarán de verse como pendientes en Armar Embarques.'))return;
+  const fecha=fechaHoyTxt_();
+  (TARIMAS_LOADED||[]).forEach(function(t){ if(ids.indexOf(t.id)!==-1){ t.estado='SALIO'; t.fechaSalida=fecha; } });
+  salidaSel=new Set();
+  renderSalidaEmbarque();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'salida_tarima',ids:ids,marcar:true})})
+    .catch(function(e){console.error('Error confirmando salida de tarimas:',e);});
+}
+function deshacerSalidaTarima(id){
+  const t=(TARIMAS_LOADED||[]).find(function(x){return x.id===id;});
+  if(!t)return;
+  t.estado='PENDIENTE';
+  t.fechaSalida='';
+  renderSalidaEmbarque();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'salida_tarima',id:id,marcar:false})})
+    .catch(function(e){console.error('Error deshaciendo salida de tarima:',e);});
 }
 
 function openEmbResumen(){
@@ -7405,6 +7575,8 @@ document.getElementById('search-emb').addEventListener('input',function(){sEmb=t
 if(document.getElementById('search-car')) document.getElementById('search-car').addEventListener('input',function(){sCar=this.value;renderCar();});
 document.querySelectorAll('#fi-emb .chip').forEach(function(c){c.addEventListener('click',function(){fEmb=this.dataset.f;document.querySelectorAll('#fi-emb .chip').forEach(function(x){x.classList.remove('active','a-emb');});this.classList.add('active');renderEmb();});});
 document.querySelectorAll('#fi-emb-sub .chip').forEach(function(c){c.addEventListener('click',function(){switchEmbSub(this.dataset.sub);});});
+if(document.getElementById('search-salida')) document.getElementById('search-salida').addEventListener('input',function(){sSalida=this.value;renderSalidaEmbarque();});
+document.querySelectorAll('#fi-salida .chip').forEach(function(c){c.addEventListener('click',function(){fSalida=this.dataset.sf;document.querySelectorAll('#fi-salida .chip').forEach(function(x){x.classList.remove('a-emb');});this.classList.add('a-emb');renderSalidaEmbarque();});});
 document.querySelectorAll('#fi-car-cat .chip').forEach(function(c){c.addEventListener('click',function(){fCarCat=this.dataset.cat;document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventListener('click',function(){fCarUbic=this.dataset.ubic;document.querySelectorAll('#fi-car-ubic .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.getElementById('search-dev').addEventListener('input',function(){sDev=this.value;renderDev();});
