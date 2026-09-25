@@ -731,6 +731,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="ALERTA">⚠️ Con alerta</div>
     <div class="chip" data-f="CUADRA">✔ Cuadra en cantidad</div>
     <div class="chip" data-f="TRASPASADO">🚚 Ya traspasados</div>
+    <div class="chip" data-f="SINMOV">📋 Sin movimiento capturado</div>
   </div>
 </header>
 
@@ -753,6 +754,7 @@ header.h-dev{background:var(--tl)}
   <div class="kpi"><div class="kpi-lbl">A Proveedor</div><div class="kpi-val" style="color:#8D6E63" id="k-dev-prov">—</div><div class="kpi-sub">folios</div></div>
   <div class="kpi"><div class="kpi-lbl">⚠️ Lote no en sistema</div><div class="kpi-val" style="color:#F9A825" id="k-dev-warn">—</div><div class="kpi-sub">folios con alerta</div></div>
   <div class="kpi"><div class="kpi-lbl">✔ Cuadran con MOVREP</div><div class="kpi-val" style="color:#2E7D32" id="k-dev-pct">—</div><div class="kpi-sub" id="k-dev-pct-sub">de folios con movimiento capturado</div></div>
+  <div class="kpi"><div class="kpi-lbl">📋 Sin movimiento capturado</div><div class="kpi-val" style="color:#8D6E63" id="k-dev-sinmov">—</div><div class="kpi-sub">folios -- click en el filtro para verlos</div></div>
 </div>
 <div class="bar hidden" id="bar-dev"></div>
 <div class="list hidden" id="list-dev"></div>
@@ -6677,6 +6679,8 @@ function getFiltDev(){
       if(!folioCuadraMov_(f).cuadraMov||f.fechaTraspaso)return false;
     }else if(fDev==='TRASPASADO'){
       if(!f.fechaTraspaso)return false;
+    }else if(fDev==='SINMOV'){
+      if((f.numMovimiento||'').trim())return false;
     }else if(fDev!=='TODOS'&&f.tipo!==fDev)return false;
     if(!fechaDevEnMes_(f.fecha,mDev))return false;
     if(!fechaDevEnSemana_(f.fecha,semDev))return false;
@@ -6743,6 +6747,7 @@ function renderDev(){
     const sinMovN=folios.length-conMov.length;
     kPct.textContent=conMov.length?Math.round(cuadranN/conMov.length*100)+'%':'—';
     if(kPctSub)kPctSub.textContent=conMov.length?(cuadranN+' de '+conMov.length+' con movimiento capturado'+(sinMovN?' · '+sinMovN+' sin movimiento aún':'')):'ningún folio con movimiento capturado';
+    const kSinMov=document.getElementById('k-dev-sinmov'); if(kSinMov)kSinMov.textContent=sinMovN.toLocaleString('en-US');
   }
   const barEl=document.getElementById('bar-dev'); if(barEl)barEl.textContent=folios.length+' folio'+(folios.length===1?'':'s');
 
