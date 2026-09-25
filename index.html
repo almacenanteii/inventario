@@ -461,6 +461,8 @@ header.h-dev{background:var(--tl)}
 .dev-linea-btn-marcar{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#fff;background:#2E7D32;border-radius:5px;padding:2px 7px;vertical-align:middle;cursor:pointer}
 .dev-linea-traspasado-tag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#455A64;background:#CFD8DC;border-radius:5px;padding:2px 6px;vertical-align:middle}
 .dev-linea-deshacer{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:700;color:#8D6E00;cursor:pointer;text-decoration:underline;vertical-align:middle}
+.dev-linea-btn-marcar-ubic{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#fff;background:#1565C0;border-radius:5px;padding:2px 7px;vertical-align:middle;cursor:pointer}
+.dev-linea-ubicado-tag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#0D47A1;background:#BBDEFB;border-radius:5px;padding:2px 6px;vertical-align:middle}
 
 /* ===== Plan de Embarque (sub-pestaña dentro de Embarques) ===== */
 .plan-emb-card{border-left:6px solid var(--gn)}
@@ -730,6 +732,10 @@ header.h-dev{background:var(--tl)}
 <header class="h-dash hidden" id="hdr-dash">
   <div class="hdr-top"><h1>📈 Dashboard</h1></div>
   <div class="update-bar" id="dash-update-bar">📅 Cargando estadísticas...</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+    <select id="filtro-mes-dash" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333;flex:1;min-width:130px"><option value="">Todos los meses</option></select>
+    <select id="filtro-semana-dash" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333;flex:1;min-width:130px"><option value="">Todas las semanas</option></select>
+  </div>
 </header>
 
 <header class="h-dev hidden" id="hdr-dev">
@@ -756,6 +762,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="CUADRA">✔ Cuadrados</div>
     <div class="chip" data-f="TRASPASADO">🚚 Traspasados</div>
     <div class="chip" data-f="SINMOV">📋 Sin movimiento capturado</div>
+    <div class="chip" data-f="UBICADOSINMOV">📍 Ubicado, falta mov</div>
   </div>
 </header>
 
@@ -2875,6 +2882,14 @@ function cambiarDashSemana(sw){
   renderDash();
 }
 
+// Filtro global de mes/semana CALENDARIO del Dashboard (distinto de
+// dashSemanaSel, que es el número de semana del calendario de Cíclicos).
+// Aplica a las secciones que sí tienen fecha por registro: Devoluciones,
+// Pendientes por ubicación y el historial de Cíclicos (responsables /
+// total de conteos). Inventario y el avance semanal de Cíclicos son una
+// foto del momento / usan su propio selector, así que no se ven afectados.
+let dashMesSel='',dashSemCalSel='';
+
 function parseCicCSV(text){
   const lines=text.trim().split('\n');
   const rows=[];
@@ -4103,8 +4118,16 @@ function computeDashStats_(){
   const agotados=cicData.filter(function(p){return p.estatus==='Agotado';}).length;
   const exclusionesActivas=Object.keys(atrasadosExcluidos).length;
 
+  // El historial de responsables/total de conteos SÍ se filtra por el mes/
+  // semana calendario elegido en el Dashboard (dashMesSel/dashSemCalSel) --
+  // a diferencia de histMap arriba, que necesita TODO el historial para
+  // saber si un lote "ya se contó alguna vez" (atrasados, incidencias, etc.)
+  const cicHistFiltrado=cicHist.filter(function(h){
+    const fh=soloFechaTxt_(h.fecha);
+    return fechaDevEnMes_(fh,dashMesSel)&&fechaDevEnSemana_(fh,dashSemCalSel);
+  });
   const porResponsable={};
-  cicHist.forEach(function(h){
+  cicHistFiltrado.forEach(function(h){
     const r=h.registrado||'Sin nombre';
     porResponsable[r]=(porResponsable[r]||0)+1;
   });
@@ -4113,7 +4136,10 @@ function computeDashStats_(){
   // ---- Devoluciones ----
   // Se aplana a nivel línea (cada material de cada folio) para poder sumar
   // y agrupar de varias formas sin recorrer los folios una y otra vez.
-  const devFolios=DEV_LOADED||[];
+  // También respeta el filtro de mes/semana del Dashboard.
+  const devFolios=(DEV_LOADED||[]).filter(function(f){
+    return fechaDevEnMes_(f.fecha,dashMesSel)&&fechaDevEnSemana_(f.fecha,dashSemCalSel);
+  });
   const devLineasAll=[];
   devFolios.forEach(function(f){
     (f.lineas||[]).forEach(function(l){
@@ -4162,10 +4188,51 @@ function computeDashStats_(){
     atrasadosActivos:atrasadosActivos,atrasadosPorClase:atrasadosPorClase,diasAtrasoProm:diasAtrasoProm,
     incidencias:incidenciasSet.size,
     sinClasificar:sinClasificar,agotados:agotados,exclusionesActivas:exclusionesActivas,
-    cicHistTotal:cicHist.length,topResponsables:topResponsables,
+    cicHistTotal:cicHistFiltrado.length,topResponsables:topResponsables,
     devFoliosTotal:devFolios.length,devTotalPiezas:devTotalPiezas,devTopMateriales:devTopMateriales,
-    devPorTipo:devPorTipo,devPorCategoria:devPorCategoriaMap,devTopProductos:devTopProductos
+    devPorTipo:devPorTipo,devPorCategoria:devPorCategoriaMap,devTopProductos:devTopProductos,
+    pendientesFiltrados:(pendientesUbic||[]).filter(function(p){
+      const fp=soloFechaTxt_(p.fecha);
+      return fechaDevEnMes_(fp,dashMesSel)&&fechaDevEnSemana_(fp,dashSemCalSel);
+    })
   };
+}
+
+// Arma las opciones del filtro de mes/semana del Dashboard con lo que de
+// verdad hay -- unión de fechas de folios de Devoluciones, pendientes de
+// ubicación e historial de Cíclicos -- igual que actualizarSelectsFechaDev_
+// pero mezclando tres fuentes en vez de una sola. Conserva la selección
+// actual (dashMesSel/dashSemCalSel) al re-pintar.
+function actualizarSelectsFechaDash_(){
+  const selMes=document.getElementById('filtro-mes-dash');
+  const selSem=document.getElementById('filtro-semana-dash');
+  if(!selMes||!selSem)return;
+  const meses=new Set(), semanas=new Set();
+  (DEV_LOADED||[]).forEach(function(f){
+    const m=mesDeFecha_(f.fecha); if(m)meses.add(m);
+    const s=semanaDeFecha_(f.fecha); if(s)semanas.add(s);
+  });
+  (pendientesUbic||[]).forEach(function(p){
+    const fp=soloFechaTxt_(p.fecha);
+    const m=mesDeFecha_(fp); if(m)meses.add(m);
+    const s=semanaDeFecha_(fp); if(s)semanas.add(s);
+  });
+  (cicHist||[]).forEach(function(h){
+    const fh=soloFechaTxt_(h.fecha);
+    const m=mesDeFecha_(fh); if(m)meses.add(m);
+    const s=semanaDeFecha_(fh); if(s)semanas.add(s);
+  });
+  const mesesOrd=Array.from(meses).sort().reverse();
+  selMes.innerHTML='<option value="">Todos los meses</option>'+mesesOrd.map(function(m){
+    const partes=m.split('-');
+    const nombre=MESES_NOMBRE_[parseInt(partes[1],10)-1]||partes[1];
+    return '<option value="'+m+'"'+(m===dashMesSel?' selected':'')+'>'+nombre+' '+partes[0]+'</option>';
+  }).join('');
+  const semanasOrd=Array.from(semanas).sort().reverse();
+  selSem.innerHTML='<option value="">Todas las semanas</option>'+semanasOrd.map(function(s){
+    const partes=s.split('-W');
+    return '<option value="'+s+'"'+(s===dashSemCalSel?' selected':'')+'>Semana '+parseInt(partes[1],10)+' ('+partes[0]+')</option>';
+  }).join('');
 }
 
 function renderDash(){
@@ -4175,6 +4242,7 @@ function renderDash(){
     list.innerHTML='<div class="empty"><div class="empty-ico">📈</div><p>Cargando estadísticas...</p></div>';
     return;
   }
+  actualizarSelectsFechaDash_();
   const s=computeDashStats_();
   const bar=document.getElementById('dash-update-bar');
   if(bar)bar.textContent='📅 Inventario actualizado al: '+(fechaGlobal||'—')+' · '+s.cicHistTotal+' conteos en historial';
@@ -4191,10 +4259,10 @@ function renderDash(){
 
   html+='<div class="dash-sec-title">📌 Pendientes por ubicación</div>';
   html+='<div class="dash-grid">'
-    +'<div class="dash-card"><div class="dash-card-lbl">Abiertos</div><div class="dash-card-val">'+fmt(pendientesUbic.length)+'</div><div class="dash-card-sub">en '+fmt(new Set(pendientesUbic.map(function(p){return p.ubicacion;})).size)+' ubicación(es)</div></div>'
+    +'<div class="dash-card"><div class="dash-card-lbl">Abiertos</div><div class="dash-card-val">'+fmt(s.pendientesFiltrados.length)+'</div><div class="dash-card-sub">en '+fmt(new Set(s.pendientesFiltrados.map(function(p){return p.ubicacion;})).size)+' ubicación(es)</div></div>'
   +'</div>';
-  if(pendientesUbic.length){
-    const pendOrdenados=pendientesUbic.slice().sort(function(a,b){return (a.ubicacion||'').localeCompare(b.ubicacion||'');});
+  if(s.pendientesFiltrados.length){
+    const pendOrdenados=s.pendientesFiltrados.slice().sort(function(a,b){return (a.ubicacion||'').localeCompare(b.ubicacion||'');});
     html+='<div class="dash-block"><div class="dash-block-title">Lista de pendientes</div>'
       +pendOrdenados.map(function(p){
         return '<div class="dash-pend-row">'
@@ -6785,7 +6853,7 @@ async function loadDevoluciones(){
       if(!porId[row.id]){
         porId[row.id]={id:row.id,folio:row.folio,tipo:row.tipo,op:row.op,codigoPT:row.codigoPT,productoPT:row.productoPT,lotePT:row.lotePT,fecha:row.fecha,registrado:row.registrado,numMovimiento:row.numMovimiento||'',lineas:[]};
       }
-      porId[row.id].lineas.push({codigo:row.codigo,descripcion:row.descripcion,lote:row.lote,cantidad:row.cantidad,fechaTraspaso:row.fechaTraspaso||''});
+      porId[row.id].lineas.push({codigo:row.codigo,descripcion:row.descripcion,lote:row.lote,cantidad:row.cantidad,fechaTraspaso:row.fechaTraspaso||'',fechaUbicadoSinMov:row.fechaUbicadoSinMov||''});
     });
     DEV_LOADED=Object.values(porId).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
     devLoaded=true;
@@ -6849,6 +6917,14 @@ function semanaDeFecha_(fechaTxt){
   if(isNaN(d.getTime()))return null;
   return isoWeekStr_(d);
 }
+// Algunas fechas guardadas en la app traen hora pegada con toLocaleString
+// (ej. "24/9/2026, 10:37:15" de fechaConteo/pendientesUbic), a diferencia
+// de las de Devoluciones que son solo "dd/mm/aaaa" (fechaHoyTxt_). Esto
+// deja nomás la parte de fecha para poder reusar mesDeFecha_/semanaDeFecha_/
+// fechaDevEnMes_/fechaDevEnSemana_ con cualquiera de los dos formatos.
+function soloFechaTxt_(fechaTxt){
+  return String(fechaTxt||'').split(',')[0].trim();
+}
 // ¿Ya se marcaron TODAS las líneas del folio como traspasadas/destruidas?
 // El marcado es por línea (ver marcarTraspasoLinea_), así que "el folio ya
 // se traspasó" se deriva de que cada renglón tenga su propia fecha.
@@ -6867,13 +6943,18 @@ function folioPasaFiltroEstado_(f,estado){
   if(estado==='CUADRA')return folioCuadraMov_(f).cuadraMov&&!folioTodasLineasTraspasadas_(f);
   if(estado==='TRASPASADO')return folioTodasLineasTraspasadas_(f);
   if(estado==='SINMOV')return !(f.numMovimiento||'').trim();
+  // Al menos una línea ya se regresó físicamente pero SAI todavía no le
+  // captura el movimiento -- ver marcarUbicadoLinea_. Se queda "some" (no
+  // "every" como TRASPASADO) porque lo normal es ir marcando línea por
+  // línea conforme se van regresando, no todo el folio de un jalón.
+  if(estado==='UBICADOSINMOV')return f.lineas.some(function(l){return !!l.fechaUbicadoSinMov;});
   return true;
 }
 function getFiltDev(){
   const q=sDev.toLowerCase().trim();
   const sel=fDevSet&&fDevSet.size?fDevSet:new Set(['TODOS']);
   const tiposSel=DEV_TIPOS_.filter(function(t){return sel.has(t);});
-  const estadosSel=['ALERTA','CUADRA','TRASPASADO','SINMOV'].filter(function(e){return sel.has(e);});
+  const estadosSel=['ALERTA','CUADRA','TRASPASADO','SINMOV','UBICADOSINMOV'].filter(function(e){return sel.has(e);});
   return (DEV_LOADED||[]).filter(function(f){
     if(!sel.has('TODOS')){
       if(tiposSel.length&&tiposSel.indexOf(f.tipo)===-1)return false;
@@ -7031,8 +7112,21 @@ function renderDev(){
       :cuadraLinea?
         '<span class="dev-linea-btn-marcar" onclick="marcarTraspasoLinea_('+argsLinea+',true)">✔ '+txtHecho+'</span>'
       :'');
+      // "Ubicado, falta mov" -- para cuando YA se regresó físicamente el
+      // material pero SAI todavía no captura el número de movimiento, así
+      // que el cruce con MOVREP (cuadraLinea) nunca va a pasar todavía y el
+      // botón de arriba no puede aparecer. Igual que el de traspaso, excluye
+      // destrucción y es por línea (código+lote). Solo se ofrece el botón
+      // mientras el folio no tenga movimiento capturado -- en cuanto llega,
+      // el flujo normal de traspaso toma su lugar; la marca ya hecha se
+      // sigue mostrando (y se puede deshacer) aunque el movimiento llegue.
+      const ubicadoHtml=esDest?'':(l.fechaUbicadoSinMov?
+        '<span class="dev-linea-ubicado-tag">📍 Ubicado, falta mov. el '+escAttr(l.fechaUbicadoSinMov)+'</span><span class="dev-linea-deshacer" onclick="marcarUbicadoLinea_('+argsLinea+',false)">↩️ deshacer</span>'
+      :(!f.numMovimiento&&!l.fechaTraspaso)?
+        '<span class="dev-linea-btn-marcar-ubic" onclick="marcarUbicadoLinea_('+argsLinea+',true)">📍 Ubicado, falta mov</span>'
+      :'');
       return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
-        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+devHtml+'</div>'
+        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+ubicadoHtml+devHtml+'</div>'
         +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
       +'</div>';
     }).join('');
@@ -7089,6 +7183,21 @@ function marcarTraspasoLinea_(id,codigo,lote,marcar){
   renderDev();
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'marcar_traspaso_devolucion',id:id,codigo:codigo,lote:lote,marcar:marcar})})
     .catch(function(e){console.error('Error marcando traspaso de línea:',e);});
+}
+
+// Marca (o deshace) que UNA LÍNEA en particular ya se regresó físicamente
+// pero todavía le falta a SAI capturar el número de movimiento -- misma
+// mecánica que marcarTraspasoLinea_, pero guardando en su propia columna
+// (fechaUbicadoSinMov) para no mezclarse con el traspaso real.
+function marcarUbicadoLinea_(id,codigo,lote,marcar){
+  const f=(DEV_LOADED||[]).find(function(x){return x.id===id;});
+  if(!f)return;
+  const l=(f.lineas||[]).find(function(x){return String(x.codigo||'').trim().toUpperCase()===String(codigo||'').trim().toUpperCase()&&String(x.lote||'').trim().toUpperCase()===String(lote||'').trim().toUpperCase();});
+  if(!l)return;
+  l.fechaUbicadoSinMov=marcar?fechaHoyTxt_():'';
+  renderDev();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'marcar_ubicado_devolucion',id:id,codigo:codigo,lote:lote,marcar:marcar})})
+    .catch(function(e){console.error('Error marcando ubicado sin mov de línea:',e);});
 }
 
 // Marca (o deshace) TODAS las líneas del folio de un jalón -- lo usa el
@@ -7582,6 +7691,8 @@ document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventLi
 document.getElementById('search-dev').addEventListener('input',function(){sDev=this.value;renderDev();});
 document.getElementById('filtro-mes-dev').addEventListener('change',function(){mDev=this.value;renderDev();});
 document.getElementById('filtro-semana-dev').addEventListener('change',function(){semDev=this.value;renderDev();});
+document.getElementById('filtro-mes-dash').addEventListener('change',function(){dashMesSel=this.value;renderDash();});
+document.getElementById('filtro-semana-dash').addEventListener('change',function(){dashSemCalSel=this.value;renderDash();});
 // Multi-selección: "Todos" siempre limpia el resto (es el estado neutro);
 // cualquier otro chip se prende/apaga sin tocar los demás -- así se puede
 // combinar, por ejemplo, "No utilizado" + "Con alerta" a la vez. Si al
