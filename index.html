@@ -7113,16 +7113,15 @@ function renderDev(){
         '<span class="dev-linea-btn-marcar" onclick="marcarTraspasoLinea_('+argsLinea+',true)">✔ '+txtHecho+'</span>'
       :'');
       // "Ubicado, falta mov" -- para cuando YA se regresó físicamente el
-      // material pero SAI todavía no captura el número de movimiento, así
-      // que el cruce con MOVREP (cuadraLinea) nunca va a pasar todavía y el
-      // botón de arriba no puede aparecer. Igual que el de traspaso, excluye
-      // destrucción y es por línea (código+lote). Solo se ofrece el botón
-      // mientras el folio no tenga movimiento capturado -- en cuanto llega,
-      // el flujo normal de traspaso toma su lugar; la marca ya hecha se
-      // sigue mostrando (y se puede deshacer) aunque el movimiento llegue.
+      // material, tenga o no ya un número de movimiento capturado (aunque
+      // lo tenga, puede que todavía no cuadre con MOVREP -- cuadraLinea --
+      // así que el botón normal de traspaso no siempre está disponible).
+      // Igual que el de traspaso, excluye destrucción y es por línea
+      // (código+lote). Deja de ofrecerse en cuanto esa línea ya se marcó
+      // como traspasada de verdad (marcadoHtml de arriba).
       const ubicadoHtml=esDest?'':(l.fechaUbicadoSinMov?
         '<span class="dev-linea-ubicado-tag">📍 Ubicado, falta mov. el '+escAttr(l.fechaUbicadoSinMov)+'</span><span class="dev-linea-deshacer" onclick="marcarUbicadoLinea_('+argsLinea+',false)">↩️ deshacer</span>'
-      :(!f.numMovimiento&&!l.fechaTraspaso)?
+      :(!l.fechaTraspaso)?
         '<span class="dev-linea-btn-marcar-ubic" onclick="marcarUbicadoLinea_('+argsLinea+',true)">📍 Ubicado, falta mov</span>'
       :'');
       return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
