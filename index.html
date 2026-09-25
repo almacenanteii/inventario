@@ -453,6 +453,9 @@ header.h-dev{background:var(--tl)}
 .dev-linea-row.dev-linea-row-ok{background:#E8F5E9}
 .dev-linea-row-ok .dev-linea-lote{color:#1B5E20;font-weight:700}
 .dev-linea-ok-tag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#1B5E20;background:#C8E6C9;border-radius:5px;padding:2px 6px;vertical-align:middle}
+.dev-linea-btn-marcar{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#fff;background:#2E7D32;border-radius:5px;padding:2px 7px;vertical-align:middle;cursor:pointer}
+.dev-linea-traspasado-tag{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:800;color:#455A64;background:#CFD8DC;border-radius:5px;padding:2px 6px;vertical-align:middle}
+.dev-linea-deshacer{display:inline-block;margin-left:6px;font-size:9.5px;font-weight:700;color:#8D6E00;cursor:pointer;text-decoration:underline;vertical-align:middle}
 
 /* ===== Plan de Embarque (sub-pestaña dentro de Embarques) ===== */
 .plan-emb-card{border-left:6px solid var(--gn)}
@@ -6603,7 +6606,7 @@ async function loadDevoluciones(){
       if(!porId[row.id]){
         porId[row.id]={id:row.id,folio:row.folio,tipo:row.tipo,op:row.op,codigoPT:row.codigoPT,productoPT:row.productoPT,lotePT:row.lotePT,fecha:row.fecha,registrado:row.registrado,numMovimiento:row.numMovimiento||'',lineas:[]};
       }
-      porId[row.id].lineas.push({codigo:row.codigo,descripcion:row.descripcion,lote:row.lote,cantidad:row.cantidad});
+      porId[row.id].lineas.push({codigo:row.codigo,descripcion:row.descripcion,lote:row.lote,cantidad:row.cantidad,fechaTraspaso:row.fechaTraspaso||''});
     });
     DEV_LOADED=Object.values(porId).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
     devLoaded=true;
@@ -6667,18 +6670,24 @@ function semanaDeFecha_(fechaTxt){
   if(isNaN(d.getTime()))return null;
   return isoWeekStr_(d);
 }
+// ¿Ya se marcaron TODAS las líneas del folio como traspasadas/destruidas?
+// El marcado es por línea (ver marcarTraspasoLinea_), así que "el folio ya
+// se traspasó" se deriva de que cada renglón tenga su propia fecha.
+function folioTodasLineasTraspasadas_(f){
+  return f.lineas.length>0&&f.lineas.every(function(l){return l.fechaTraspaso;});
+}
 function getFiltDev(){
   const q=sDev.toLowerCase().trim();
   return (DEV_LOADED||[]).filter(function(f){
     if(fDev==='ALERTA'){
       if(!f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);}))return false;
     }else if(fDev==='CUADRA'){
-      // Ya marcado como traspasado = ya no es "pendiente", así que se saca
-      // de esta lista aunque siga cuadrando en cantidad -- para eso está el
-      // filtro aparte "Ya traspasados".
-      if(!folioCuadraMov_(f).cuadraMov||f.fechaTraspaso)return false;
+      // Ya marcado como traspasado (todas las líneas) = ya no es
+      // "pendiente", así que se saca de esta lista aunque siga cuadrando en
+      // cantidad -- para eso está el filtro aparte "Ya traspasados".
+      if(!folioCuadraMov_(f).cuadraMov||folioTodasLineasTraspasadas_(f))return false;
     }else if(fDev==='TRASPASADO'){
-      if(!f.fechaTraspaso)return false;
+      if(!folioTodasLineasTraspasadas_(f))return false;
     }else if(fDev==='SINMOV'){
       if((f.numMovimiento||'').trim())return false;
     }else if(fDev!=='TODOS'&&f.tipo!==fDev)return false;
@@ -6792,6 +6801,15 @@ function renderDev(){
       return {codigo:l.codigo,lote:l.lote,falta:Math.max(0,(parseFloat(l.cantidad)||0)-di.devQty)};
     }).filter(function(x){return x.falta>0.01;}):[];
     const listoTraspaso=esDest?cuadraMov:(cuadraMov&&devFaltantes.length===0);
+    // Pedir que el FOLIO COMPLETO cuadre para poder marcar algo resultó muy
+    // difícil en la práctica (basta con que UNA línea no coincida para que
+    // nada se pueda marcar) -- así que el marcado ahora es POR LÍNEA: en
+    // cuanto una clave+lote coincide exacto con MOVREP (cuadraLinea), esa
+    // línea ya se puede marcar como traspasada/destruida por su cuenta, sin
+    // esperar a que el resto del folio también cuadre.
+    const txtAccion=esDest?'destrucción':'traspaso';
+    const txtHecho=esDest?'Ya se destruyó':'Ya hice el traspaso';
+    const txtBadgeHecho=esDest?'🔥 Destruido':'🚚 Traspasado';
     const lineasHtml=f.lineas.map(function(l){
       // El aviso de "ya no está en ACOND" solo tiene caso mientras el
       // movimiento todavía no se ha confirmado en MOVREP -- una vez que SAI
@@ -6815,36 +6833,38 @@ function renderDev(){
       const devHtml=(devInfo&&devInfo.devQty>0)?
         '<div class="dev-ref-linea">📦 En '+almacen+': '+fmt(devInfo.devQty)+' pz'+(devInfo.listo?' <span class="dev-linea-ok-tag">✔ suficiente para traspaso</span>':' <span class="dev-linea-warn-tag">⚠️ faltan '+fmt(Math.max(0,(parseFloat(l.cantidad)||0)-devInfo.devQty))+' pz por llegar a '+almacen+'</span>')+'</div>'
         :'';
+      // Estado de marcado de ESTA línea -- ya se puede marcar en cuanto
+      // cuadra contra MOVREP, sin esperar al resto del folio.
+      const argsLinea="'"+f.id+"','"+String(l.codigo||'').replace(/'/g,"\\'")+"','"+String(l.lote||'').replace(/'/g,"\\'")+"'";
+      const marcadoHtml=l.fechaTraspaso?
+        '<span class="dev-linea-traspasado-tag">'+txtBadgeHecho+' el '+escAttr(l.fechaTraspaso)+'</span><span class="dev-linea-deshacer" onclick="marcarTraspasoLinea_('+argsLinea+',false)">↩️ deshacer</span>'
+      :cuadraLinea?
+        '<span class="dev-linea-btn-marcar" onclick="marcarTraspasoLinea_('+argsLinea+',true)">✔ '+txtHecho+'</span>'
+      :'';
       return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
-        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+devHtml+'</div>'
+        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+devHtml+'</div>'
         +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
       +'</div>';
     }).join('');
     const tieneAlerta=folioTieneAlerta(f);
-    // Botón para marcar/deshacer el traspaso o la destrucción -- solo tiene
-    // caso ofrecerlo una vez que el folio cuadra con MOVREP (antes de eso
-    // no hay nada que "ya se hizo"). Una vez marcado, el aviso de abajo
-    // cambia a un estado neutro fijo y este botón se convierte en
-    // "deshacer".
-    const txtAccion=esDest?'destrucción':'traspaso';
-    const btnTraspaso=cuadraMov?
-      (f.fechaTraspaso?
-        '<span class="dev-del" style="color:#8D6E00" onclick="marcarTraspasoDevolucion(\''+f.id+'\',false)">↩️ Deshacer '+txtAccion+'</span>'
-      :'<span class="dev-del" style="color:#1B5E20" onclick="marcarTraspasoDevolucion(\''+f.id+'\',true)">✔ '+(esDest?'Ya se destruyó':'Ya hice el traspaso')+'</span>')
-      :'';
-    const movHtml=f.fechaTraspaso?
-      '<div class="dev-mov-traspasado">'+(esDest?'🔥 Destruido el ':'🚚 Traspasado a EYEJAL el ')+escAttr(f.fechaTraspaso)+' '+btnTraspaso+'</div>'
+    // Si YA se marcaron todas las líneas del folio, ya no tiene caso seguir
+    // mostrando el aviso de cuadre/no cuadre -- se reemplaza por un aviso
+    // fijo, con opción de deshacer TODO el folio de un jalón.
+    const todasMarcadas=f.lineas.length>0&&f.lineas.every(function(l){return l.fechaTraspaso;});
+    const fechaMarcado=f.lineas.reduce(function(mx,l){return l.fechaTraspaso&&(!mx||l.fechaTraspaso>mx)?l.fechaTraspaso:mx;},'');
+    const movHtml=todasMarcadas?
+      '<div class="dev-mov-traspasado">'+txtBadgeHecho+' (todas las líneas) el '+escAttr(fechaMarcado)+' <span class="dev-del" style="color:#8D6E00" onclick="marcarTraspasoDevolucion(\''+f.id+'\',false)">↩️ Deshacer todo el folio</span></div>'
     :f.numMovimiento?
       (!movMatch?
         '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+notaCompartido+' no aparece en MOVREP ('+almacen+') todavía</div>'
       :!cuadraMov?
-        '<div class="dev-mov-nocuadra">⚠️ Mov. '+escAttr(f.numMovimiento)+' está en MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+' pero NO coincide con lo capturado en conjunto:<br>• '+movCmp.diffs.join('<br>• ')+'</div>'
+        '<div class="dev-mov-nocuadra">⚠️ Mov. '+escAttr(f.numMovimiento)+' está en MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+' pero NO coincide con lo capturado en conjunto -- revisa abajo cuáles líneas SÍ coinciden, esas ya se pueden marcar individualmente:<br>• '+movCmp.diffs.join('<br>• ')+'</div>'
       :listoTraspaso?
-        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+' — coincide en materiales, lotes y cantidades'+(esDest?'':', y ya está completo en '+almacen)+' — listo para '+(esDest?'proceder con la destrucción':'traspaso a EYEJAL')+' '+btnTraspaso+'</div>'
+        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+' — coincide en materiales, lotes y cantidades'+(esDest?'':', y ya está completo en '+almacen)+' — listo para '+(esDest?'proceder con la destrucción':'traspaso a EYEJAL')+' (márcalo por línea abajo)</div>'
       :
-        '<div class="dev-mov-faltadev">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+', pero todavía falta que llegue a '+almacen+':<br>• '+devFaltantes.map(function(x){return escAttr(x.codigo)+' lote '+escAttr(x.lote)+' (faltan '+fmt(x.falta)+' pz)';}).join('<br>• ')+btnTraspaso+'</div>'
+        '<div class="dev-mov-faltadev">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+', pero todavía falta que llegue a '+almacen+':<br>• '+devFaltantes.map(function(x){return escAttr(x.codigo)+' lote '+escAttr(x.lote)+' (faltan '+fmt(x.falta)+' pz)';}).join('<br>• ')+'</div>'
       ):'';
-    return '<div class="card dev-card t-'+f.tipo+(listoTraspaso&&!f.fechaTraspaso?' dev-card-cuadra':'')+'">'
+    return '<div class="card dev-card t-'+f.tipo+(listoTraspaso&&!todasMarcadas?' dev-card-cuadra':'')+'">'
       +'<div class="dev-card-head">'
         +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span></div>'
         +(f.op?'<div class="dev-op-info">OP <b>'+escAttr(f.op)+'</b> · '+escAttr(f.codigoPT)+' — '+escAttr(f.productoPT)+' · Lote '+escAttr(f.lotePT)+'</div>':'')
@@ -6857,16 +6877,39 @@ function renderDev(){
   }).join('');
 }
 
-// Marca (o deshace) que este folio YA se traspasó físicamente a EYEJAL --
-// puramente informativo/de control para que el usuario no se confunda
-// viendo como "pendiente" algo que ya hizo. No mueve nada de inventario ni
-// afecta ningún cálculo, solo guarda la fecha en la hoja Devoluciones.
+function fechaHoyTxt_(){
+  const hoy=new Date();
+  return String(hoy.getDate()).padStart(2,'0')+'/'+String(hoy.getMonth()+1).padStart(2,'0')+'/'+hoy.getFullYear();
+}
+
+// Marca (o deshace) que UNA LÍNEA en particular (código+lote) de este folio
+// YA se traspasó/destruyó físicamente -- puramente informativo/de control
+// para que el usuario no se confunda viendo como "pendiente" algo que ya
+// hizo. Se marca por línea (no hace falta que todo el folio cuadre parejo)
+// porque pedir que TODO el folio cuadre antes de poder marcar algo resultó
+// muy difícil en la práctica. No mueve nada de inventario ni afecta ningún
+// cálculo, solo guarda la fecha en la hoja Devoluciones (una columna por
+// cada renglón/línea real de la hoja, no una sola por folio).
+function marcarTraspasoLinea_(id,codigo,lote,marcar){
+  const f=(DEV_LOADED||[]).find(function(x){return x.id===id;});
+  if(!f)return;
+  const l=(f.lineas||[]).find(function(x){return String(x.codigo||'').trim().toUpperCase()===String(codigo||'').trim().toUpperCase()&&String(x.lote||'').trim().toUpperCase()===String(lote||'').trim().toUpperCase();});
+  if(!l)return;
+  l.fechaTraspaso=marcar?fechaHoyTxt_():'';
+  renderDev();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'marcar_traspaso_devolucion',id:id,codigo:codigo,lote:lote,marcar:marcar})})
+    .catch(function(e){console.error('Error marcando traspaso de línea:',e);});
+}
+
+// Marca (o deshace) TODAS las líneas del folio de un jalón -- lo usa el
+// botón "Deshacer todo el folio" una vez que ya se marcaron todas a mano.
+// No se manda ningún código/lote al backend, así que ahí se aplica a TODOS
+// los renglones de ese id (ver doPostMarcarTraspasoDevolucion).
 function marcarTraspasoDevolucion(id,marcar){
   const f=(DEV_LOADED||[]).find(function(x){return x.id===id;});
   if(!f)return;
-  const hoy=new Date();
-  const fechaTxt=String(hoy.getDate()).padStart(2,'0')+'/'+String(hoy.getMonth()+1).padStart(2,'0')+'/'+hoy.getFullYear();
-  f.fechaTraspaso=marcar?fechaTxt:'';
+  const fechaTxt=marcar?fechaHoyTxt_():'';
+  (f.lineas||[]).forEach(function(l){l.fechaTraspaso=fechaTxt;});
   renderDev();
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'marcar_traspaso_devolucion',id:id,marcar:marcar})})
     .catch(function(e){console.error('Error marcando traspaso:',e);});
