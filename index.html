@@ -752,6 +752,7 @@ header.h-dev{background:var(--tl)}
   <div class="kpi"><div class="kpi-lbl">Destrucción</div><div class="kpi-val" style="color:#8E24AA" id="k-dev-dest">—</div><div class="kpi-sub">folios</div></div>
   <div class="kpi"><div class="kpi-lbl">A Proveedor</div><div class="kpi-val" style="color:#8D6E63" id="k-dev-prov">—</div><div class="kpi-sub">folios</div></div>
   <div class="kpi"><div class="kpi-lbl">⚠️ Lote no en sistema</div><div class="kpi-val" style="color:#F9A825" id="k-dev-warn">—</div><div class="kpi-sub">folios con alerta</div></div>
+  <div class="kpi"><div class="kpi-lbl">✔ Cuadran con MOVREP</div><div class="kpi-val" style="color:#2E7D32" id="k-dev-pct">—</div><div class="kpi-sub" id="k-dev-pct-sub">de folios con movimiento capturado</div></div>
 </div>
 <div class="bar hidden" id="bar-dev"></div>
 <div class="list hidden" id="list-dev"></div>
@@ -6366,12 +6367,19 @@ let ACOND_LOADED=[];
 // cada folio, para saber cuáles ya están confirmados por SAI y listos
 // para el traspaso de Devoluciones a EYEJAL.
 let MOVREP_DEV_LOADED=[];
+// Igual que MOVREP_DEV_LOADED pero para el almacén DEST (de movdest.XLS) --
+// es contra esto que se cruzan las papeletas de tipo "destruccion", nunca
+// contra los movimientos de DEV. Ver almacenDevolucion_/folioCuadraMov_.
+let MOVREP_DEST_LOADED=[];
 // Existencia en la pestaña DEV -- lo que Producción ya mandó de ACOND a
 // DEV, pendiente de confirmarse contra MOVREP y traspasarse a EYEJAL. Se
 // muestra en Inventario nada más como dato informativo (badge junto a la
 // clave) -- NUNCA se suma a p.totalExist/k-exist, porque todavía no es
 // existencia real de EYEJAL.
 let DEV_STOCK_LOADED=[];
+// Igual que DEV_STOCK_LOADED pero para el almacén DEST -- lo que ya llegó
+// ahí de las papeletas de destrucción, pendiente de confirmarse/destruirse.
+let DEST_STOCK_LOADED=[];
 
 async function loadAcond_(){
   try{
@@ -6392,6 +6400,39 @@ async function loadDevStock_(){
   }catch(e){
     console.error('Error cargando existencia de DEV:',e);
   }
+}
+
+// Igual que loadDevStock_ pero para el almacén DEST -- lo que ya llegó ahí
+// de las papeletas de destrucción. Solo se usa dentro de Devoluciones (ver
+// existeEnAlmacenLote_/folioCuadraMov_), no se muestra en Inventario.
+async function loadDestStock_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=dest_stock&t='+Date.now());
+    const rows=await r.json();
+    DEST_STOCK_LOADED=Array.isArray(rows)?rows:[];
+  }catch(e){
+    console.error('Error cargando existencia de DEST:',e);
+  }
+}
+
+// De qué almacén "de paso" (dentro de SAI, entre ACOND y su destino final)
+// depende cada tipo de papeleta de Devoluciones: las de destrucción pasan
+// por DEST, las demás (no_utilizado, proveedor) por DEV -- cada una se
+// cruza contra su propio MOVREP y su propia existencia, nunca mezclados.
+function almacenDevolucion_(tipo){
+  return String(tipo||'').trim()==='destruccion'?'DEST':'DEV';
+}
+
+// Cuánto hay en el almacén de paso (DEV o DEST según corresponda) para ESE
+// lote exacto (código+lote) -- generaliza existeEnDevLote_ (que se queda
+// tal cual, fija a DEV, porque la usa Inventario) para el cruce de
+// Devoluciones, donde el almacén depende del tipo de papeleta.
+function existeEnAlmacenLote_(clave,lote,almacen){
+  const c=String(clave||'').trim().toUpperCase(),l=String(lote||'').trim().toUpperCase();
+  if(!c||!l)return 0;
+  const fuente=almacen==='DEST'?DEST_STOCK_LOADED:DEV_STOCK_LOADED;
+  return (fuente||[]).filter(function(r){return String(r.clave||'').trim().toUpperCase()===c&&String(r.lote||'').trim().toUpperCase()===l;})
+    .reduce(function(s,r){return s+(r.exist||0);},0);
 }
 
 // Cuánto hay en DEV para una clave, sumando todos sus lotes -- solo para
@@ -6422,13 +6463,29 @@ async function loadMovRepDev_(){
   }
 }
 
+// Igual que loadMovRepDev_ pero para el almacén DEST -- los movimientos de
+// las papeletas de tipo "destruccion". Antes no se cargaba nada de esto y
+// esas papeletas se comparaban (por error) contra los movimientos de DEV,
+// así que nunca cuadraban aunque SAI ya los hubiera registrado bien.
+async function loadMovRepDest_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=movrep_dest&t='+Date.now());
+    const rows=await r.json();
+    MOVREP_DEST_LOADED=Array.isArray(rows)?rows:[];
+  }catch(e){
+    console.error('Error cargando MOVREP (DEST):',e);
+  }
+}
+
 // ¿El número de movimiento capturado a mano en el folio existe de verdad
-// en MOVREP para el almacén DEV? Comparación por texto (trim), no
+// en MOVREP para el almacén que le toca (DEV o DEST, según el tipo de
+// papeleta -- ver almacenDevolucion_)? Comparación por texto (trim), no
 // numérica -- SAI a veces trae ceros a la izquierda o espacios.
-function movimientoCuadraMovRep_(numMovimiento){
+function movimientoCuadraMovRep_(numMovimiento,almacen){
   const n=(numMovimiento||'').trim();
   if(!n)return null;
-  return (MOVREP_DEV_LOADED||[]).find(function(m){return (m.movimiento||'').trim()===n;})||null;
+  const fuente=almacen==='DEST'?MOVREP_DEST_LOADED:MOVREP_DEV_LOADED;
+  return (fuente||[]).find(function(m){return (m.movimiento||'').trim()===n;})||null;
 }
 
 // Un mismo número de movimiento puede venir repartido en VARIAS papeletas
@@ -6436,24 +6493,28 @@ function movimientoCuadraMovRep_(numMovimiento){
 // devolución). Para cuadrar de verdad hay que juntar los materiales de
 // TODAS las papeletas que compartan ese número antes de compararlos contra
 // MOVREP -- comparar una papeleta sola contra el movimiento completo
-// siempre marcaría diferencias por lo que trajeron las otras.
-function lineasDeMovimientoEnFolios_(numMovimiento){
+// siempre marcaría diferencias por lo que trajeron las otras. Se limita a
+// papeletas del MISMO almacén de paso (DEV/DEST) para no mezclar folios de
+// destrucción con folios normales aunque, por casualidad, alguien haya
+// capturado el mismo número de movimiento en los dos (no debería pasar,
+// pero así queda a prueba de ese error de captura).
+function lineasDeMovimientoEnFolios_(numMovimiento,almacen){
   const n=(numMovimiento||'').trim();
   if(!n)return [];
   const combinadas=[];
   (DEV_LOADED||[]).forEach(function(f){
-    if((f.numMovimiento||'').trim()===n) combinadas.push.apply(combinadas,f.lineas||[]);
+    if((f.numMovimiento||'').trim()===n&&almacenDevolucion_(f.tipo)===almacen) combinadas.push.apply(combinadas,f.lineas||[]);
   });
   return combinadas;
 }
 
-// ¿Cuántas papeletas distintas comparten este número de movimiento? Sirve
-// para avisar en la tarjeta que el cuadre se está haciendo en conjunto, no
-// solo con esta papeleta.
-function foliosConMismoMovimiento_(numMovimiento){
+// ¿Cuántas papeletas distintas (del mismo almacén de paso) comparten este
+// número de movimiento? Sirve para avisar en la tarjeta que el cuadre se
+// está haciendo en conjunto, no solo con esta papeleta.
+function foliosConMismoMovimiento_(numMovimiento,almacen){
   const n=(numMovimiento||'').trim();
   if(!n)return 0;
-  return (DEV_LOADED||[]).filter(function(f){return (f.numMovimiento||'').trim()===n;}).length;
+  return (DEV_LOADED||[]).filter(function(f){return (f.numMovimiento||'').trim()===n&&almacenDevolucion_(f.tipo)===almacen;}).length;
 }
 
 // Compara lo capturado a mano (código+lote+cantidad de cada línea, ya
@@ -6497,22 +6558,29 @@ function compararMovRepConLineas_(lineas,movMatch){
 // la tarjeta, para no repetir la misma lógica dos veces y que puedan
 // desincronizarse.
 function folioCuadraMov_(f){
-  const movMatch=movimientoCuadraMovRep_(f.numMovimiento);
-  const nFoliosMov=movMatch?foliosConMismoMovimiento_(f.numMovimiento):1;
+  // Cada tipo de papeleta se cruza contra el almacén de paso que le
+  // corresponde de verdad en SAI: destrucción -> DEST, todo lo demás -> DEV
+  // (ver almacenDevolucion_). Antes esto era fijo a DEV para todos los
+  // tipos, así que las papeletas de destrucción nunca cuadraban aunque el
+  // movimiento SÍ estuviera bien registrado -- solo que en MOVREP DEST.
+  const almacen=almacenDevolucion_(f.tipo);
+  const movMatch=movimientoCuadraMovRep_(f.numMovimiento,almacen);
+  const nFoliosMov=movMatch?foliosConMismoMovimiento_(f.numMovimiento,almacen):1;
   const compartido=nFoliosMov>1;
-  const lineasParaComparar=compartido?lineasDeMovimientoEnFolios_(f.numMovimiento):f.lineas;
+  const lineasParaComparar=compartido?lineasDeMovimientoEnFolios_(f.numMovimiento,almacen):f.lineas;
   const movCmp=movMatch?compararMovRepConLineas_(lineasParaComparar,movMatch):null;
   const cuadraMov=!!movMatch&&movCmp.cuadra;
-  return {movMatch:movMatch,nFoliosMov:nFoliosMov,compartido:compartido,movCmp:movCmp,cuadraMov:cuadraMov};
+  return {almacen:almacen,movMatch:movMatch,nFoliosMov:nFoliosMov,compartido:compartido,movCmp:movCmp,cuadraMov:cuadraMov};
 }
 
-// ¿Cuánto hay en DEV para este código+lote comparado contra lo que se está
-// devolviendo? "listo" = ya hay en DEV al menos la misma cantidad (o más)
-// que se devolvió -- con eso ya se puede hacer con confianza el traspaso a
-// EYEJAL, sin necesidad de que coincida exacto (si hay de más, es que DEV
-// ya trae otras devoluciones/movimientos del mismo lote juntos).
-function devListoParaTraspasoLinea_(codigo,lote,cantidad){
-  const devQty=existeEnDevLote_(codigo,lote);
+// ¿Cuánto hay en el almacén de paso (DEV o DEST) para este código+lote
+// comparado contra lo que se está devolviendo/destruyendo? "listo" = ya
+// hay ahí al menos la misma cantidad (o más) -- con eso ya se puede hacer
+// con confianza el traspaso a EYEJAL (DEV) o proceder con la destrucción
+// (DEST), sin necesidad de que coincida exacto (si hay de más, es que ese
+// almacén ya trae otros movimientos del mismo lote juntos).
+function devListoParaTraspasoLinea_(codigo,lote,cantidad,almacen){
+  const devQty=existeEnAlmacenLote_(codigo,lote,almacen||'DEV');
   const cant=parseFloat(cantidad)||0;
   return {devQty:devQty,listo:devQty>=cant-0.01};
 }
@@ -6523,7 +6591,9 @@ async function loadDevoluciones(){
     const [r]=await Promise.all([
       fetch(APPS_URL+'?accion=devoluciones&t='+Date.now()),
       loadAcond_(),
-      loadMovRepDev_()
+      loadMovRepDev_(),
+      loadMovRepDest_(),
+      loadDestStock_()
     ]);
     const rows=await r.json();
     const porId={};
@@ -6655,10 +6725,25 @@ function renderDev(){
   // esperado (el material ya se movió de ahí). El aviso de existencia en
   // ACOND es útil SOLO mientras el movimiento todavía no se ha hecho.
   const folioTieneAlerta=function(f){
-    if(movimientoCuadraMovRep_(f.numMovimiento))return false;
+    if(folioCuadraMov_(f).movMatch)return false;
     return f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);});
   };
   if(kW)kW.textContent=folios.filter(folioTieneAlerta).length.toLocaleString('en-US');
+  // % de papeletas que "están bien" = de las que ya traen un número de
+  // movimiento capturado (solo esas se pueden evaluar de verdad), cuántas
+  // cuadran exacto contra MOVREP (mismos materiales, lotes y cantidades).
+  // Las que todavía no tienen movimiento capturado no cuentan ni a favor
+  // ni en contra -- no es que estén "mal", es que todavía no hay con qué
+  // verificarlas -- por eso se excluyen del denominador y se aclara en el
+  // subtítulo cuántas son.
+  const kPct=document.getElementById('k-dev-pct'),kPctSub=document.getElementById('k-dev-pct-sub');
+  if(kPct){
+    const conMov=folios.filter(function(f){return (f.numMovimiento||'').trim();});
+    const cuadranN=conMov.filter(function(f){return folioCuadraMov_(f).cuadraMov;}).length;
+    const sinMovN=folios.length-conMov.length;
+    kPct.textContent=conMov.length?Math.round(cuadranN/conMov.length*100)+'%':'—';
+    if(kPctSub)kPctSub.textContent=conMov.length?(cuadranN+' de '+conMov.length+' con movimiento capturado'+(sinMovN?' · '+sinMovN+' sin movimiento aún':'')):'ningún folio con movimiento capturado';
+  }
   const barEl=document.getElementById('bar-dev'); if(barEl)barEl.textContent=folios.length+' folio'+(folios.length===1?'':'s');
 
   const list=document.getElementById('list-dev'),empty=document.getElementById('empty-dev');
@@ -6686,17 +6771,22 @@ function renderDev(){
     // completo en DEV es lo que de verdad dice si ya se puede hacer el
     // traspaso a EYEJAL sin que falte nada.
     const fcm=folioCuadraMov_(f);
-    const movMatch=fcm.movMatch,movCmp=fcm.movCmp,cuadraMov=fcm.cuadraMov;
+    const movMatch=fcm.movMatch,movCmp=fcm.movCmp,cuadraMov=fcm.cuadraMov,almacen=fcm.almacen;
+    // Destrucción se cruza contra DEST, todo lo demás contra DEV -- ver
+    // almacenDevolucion_/folioCuadraMov_. El destino final y el texto
+    // cambian según cuál sea: DEV termina en traspaso a EYEJAL, DEST
+    // termina en que se proceda a destruir.
+    const esDest=almacen==='DEST';
     const notaCompartido=fcm.compartido?' (compartido entre '+fcm.nFoliosMov+' papeletas con este mismo movimiento)':'';
-    // Si cuadra con MOVREP, revisa además cuánto de cada línea ya llegó a
-    // DEV -- "listo" (ver pregunta al usuario) = ya hay en DEV al menos lo
-    // mismo que se devolvió. Si falta algo, se lista para que sepan qué
-    // todavía no ha llegado a DEV.
-    const devFaltantes=cuadraMov?f.lineas.map(function(l){
-      const di=devListoParaTraspasoLinea_(l.codigo,l.lote,l.cantidad);
+    // El chequeo de "cuánto ya llegó al almacén de paso" solo aplica a
+    // DEV (no_utilizado/proveedor) -- para destrucción no se lleva ese
+    // control por piezas, así que basta con que el folio cuadre contra
+    // MOVREP (DEST) para darlo por bueno, sin pedir nada de DEST_STOCK.
+    const devFaltantes=(cuadraMov&&!esDest)?f.lineas.map(function(l){
+      const di=devListoParaTraspasoLinea_(l.codigo,l.lote,l.cantidad,almacen);
       return {codigo:l.codigo,lote:l.lote,falta:Math.max(0,(parseFloat(l.cantidad)||0)-di.devQty)};
     }).filter(function(x){return x.falta>0.01;}):[];
-    const listoTraspaso=cuadraMov&&devFaltantes.length===0;
+    const listoTraspaso=esDest?cuadraMov:(cuadraMov&&devFaltantes.length===0);
     const lineasHtml=f.lineas.map(function(l){
       // El aviso de "ya no está en ACOND" solo tiene caso mientras el
       // movimiento todavía no se ha confirmado en MOVREP -- una vez que SAI
@@ -6713,10 +6803,12 @@ function renderDev(){
       // Cuánto hay en DEV para este código+lote -- informativo en toda
       // línea (no solo cuando cuadra con MOVREP), para poder ir viendo el
       // avance del traspaso ACOND -> DEV aunque el movimiento de SAI
-      // todavía no se haya capturado/confirmado.
-      const devInfo=devListoParaTraspasoLinea_(l.codigo,l.lote,l.cantidad);
-      const devHtml=devInfo.devQty>0?
-        '<div class="dev-ref-linea">📦 En DEV: '+fmt(devInfo.devQty)+' pz'+(devInfo.listo?' <span class="dev-linea-ok-tag">✔ suficiente para traspaso</span>':' <span class="dev-linea-warn-tag">⚠️ faltan '+fmt(Math.max(0,(parseFloat(l.cantidad)||0)-devInfo.devQty))+' pz por traspasar a DEV</span>')+'</div>'
+      // todavía no se haya capturado/confirmado. Para destrucción NO se
+      // muestra nada de esto -- ese control por piezas en DEST no se lleva
+      // (ver nota en devFaltantes/listoTraspaso arriba).
+      const devInfo=esDest?null:devListoParaTraspasoLinea_(l.codigo,l.lote,l.cantidad,almacen);
+      const devHtml=(devInfo&&devInfo.devQty>0)?
+        '<div class="dev-ref-linea">📦 En '+almacen+': '+fmt(devInfo.devQty)+' pz'+(devInfo.listo?' <span class="dev-linea-ok-tag">✔ suficiente para traspaso</span>':' <span class="dev-linea-warn-tag">⚠️ faltan '+fmt(Math.max(0,(parseFloat(l.cantidad)||0)-devInfo.devQty))+' pz por llegar a '+almacen+'</span>')+'</div>'
         :'';
       return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
         +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+devHtml+'</div>'
@@ -6724,26 +6816,28 @@ function renderDev(){
       +'</div>';
     }).join('');
     const tieneAlerta=folioTieneAlerta(f);
-    // Botón para marcar/deshacer el traspaso -- solo tiene caso ofrecerlo
-    // una vez que el folio cuadra con MOVREP (antes de eso no hay nada que
-    // "ya se traspasó"). Una vez marcado, el aviso de abajo cambia a un
-    // estado neutro fijo y este botón se convierte en "deshacer".
+    // Botón para marcar/deshacer el traspaso o la destrucción -- solo tiene
+    // caso ofrecerlo una vez que el folio cuadra con MOVREP (antes de eso
+    // no hay nada que "ya se hizo"). Una vez marcado, el aviso de abajo
+    // cambia a un estado neutro fijo y este botón se convierte en
+    // "deshacer".
+    const txtAccion=esDest?'destrucción':'traspaso';
     const btnTraspaso=cuadraMov?
       (f.fechaTraspaso?
-        '<span class="dev-del" style="color:#8D6E00" onclick="marcarTraspasoDevolucion(\''+f.id+'\',false)">↩️ Deshacer traspaso</span>'
-      :'<span class="dev-del" style="color:#1B5E20" onclick="marcarTraspasoDevolucion(\''+f.id+'\',true)">✔ Ya hice el traspaso</span>')
+        '<span class="dev-del" style="color:#8D6E00" onclick="marcarTraspasoDevolucion(\''+f.id+'\',false)">↩️ Deshacer '+txtAccion+'</span>'
+      :'<span class="dev-del" style="color:#1B5E20" onclick="marcarTraspasoDevolucion(\''+f.id+'\',true)">✔ '+(esDest?'Ya se destruyó':'Ya hice el traspaso')+'</span>')
       :'';
     const movHtml=f.fechaTraspaso?
-      '<div class="dev-mov-traspasado">🚚 Traspasado a EYEJAL el '+escAttr(f.fechaTraspaso)+' '+btnTraspaso+'</div>'
+      '<div class="dev-mov-traspasado">'+(esDest?'🔥 Destruido el ':'🚚 Traspasado a EYEJAL el ')+escAttr(f.fechaTraspaso)+' '+btnTraspaso+'</div>'
     :f.numMovimiento?
       (!movMatch?
-        '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+notaCompartido+' no aparece en MOVREP (DEV) todavía</div>'
+        '<div class="dev-mov-nocuadra">✕ Mov. '+escAttr(f.numMovimiento)+notaCompartido+' no aparece en MOVREP ('+almacen+') todavía</div>'
       :!cuadraMov?
-        '<div class="dev-mov-nocuadra">⚠️ Mov. '+escAttr(f.numMovimiento)+' está en MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+' pero NO coincide con lo capturado en conjunto:<br>• '+movCmp.diffs.join('<br>• ')+'</div>'
+        '<div class="dev-mov-nocuadra">⚠️ Mov. '+escAttr(f.numMovimiento)+' está en MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+' pero NO coincide con lo capturado en conjunto:<br>• '+movCmp.diffs.join('<br>• ')+'</div>'
       :listoTraspaso?
-        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+' — coincide en materiales, lotes y cantidades, y ya está completo en DEV — listo para traspaso a EYEJAL '+btnTraspaso+'</div>'
+        '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+' — coincide en materiales, lotes y cantidades'+(esDest?'':', y ya está completo en '+almacen)+' — listo para '+(esDest?'proceder con la destrucción':'traspaso a EYEJAL')+' '+btnTraspaso+'</div>'
       :
-        '<div class="dev-mov-faltadev">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+escAttr(movMatch.fecha||'')+')'+notaCompartido+', pero todavía falta que llegue a DEV:<br>• '+devFaltantes.map(function(x){return escAttr(x.codigo)+' lote '+escAttr(x.lote)+' (faltan '+fmt(x.falta)+' pz)';}).join('<br>• ')+btnTraspaso+'</div>'
+        '<div class="dev-mov-faltadev">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+', pero todavía falta que llegue a '+almacen+':<br>• '+devFaltantes.map(function(x){return escAttr(x.codigo)+' lote '+escAttr(x.lote)+' (faltan '+fmt(x.falta)+' pz)';}).join('<br>• ')+btnTraspaso+'</div>'
       ):'';
     return '<div class="card dev-card t-'+f.tipo+(listoTraspaso&&!f.fechaTraspaso?' dev-card-cuadra':'')+'">'
       +'<div class="dev-card-head">'
