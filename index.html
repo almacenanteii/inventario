@@ -7038,6 +7038,52 @@ function renderDev(){
   }
   if(empty)empty.classList.add('hidden');
 
+  // Vista especial: cuando el filtro activo es SOLO "Ubicado, falta mov",
+  // no tiene caso mostrar la papeleta completa (con líneas que ya se
+  // traspasaron o que ni siquiera aplican) -- lo que de verdad importa aquí
+  // es nada más el LOTE que ya está físico pero descuadrado contra SAI,
+  // para poder contarlo y ajustarlo cuanto antes. Reusa el mismo mecanismo
+  // de conteo/causa/historial de Cíclicos (registrarConteo), así el ajuste
+  // queda en el mismo lugar de siempre aunque el lote no esté programado
+  // ahí (doPostConteo en el backend no exige que exista en Cíclicos, nomás
+  // deja de actualizar esa fila si no la encuentra -- el Historial sí se
+  // guarda siempre).
+  const esVistaAjusteUbicado=fDevSet&&fDevSet.size===1&&fDevSet.has('UBICADOSINMOV');
+  if(esVistaAjusteUbicado){
+    const filasAjuste=[];
+    folios.forEach(function(f){
+      (f.lineas||[]).forEach(function(l){
+        if(l.fechaUbicadoSinMov)filasAjuste.push({f:f,l:l});
+      });
+    });
+    if(!filasAjuste.length){
+      list.innerHTML='';
+      if(empty){empty.classList.remove('hidden');const eq=document.getElementById('eq-dev');if(eq)eq.textContent=sDev;}
+      return;
+    }
+    if(empty)empty.classList.add('hidden');
+    if(barEl)barEl.textContent=filasAjuste.length+' lote'+(filasAjuste.length===1?'':'s')+' por ajustar';
+    list.innerHTML=filasAjuste.map(function(row){
+      const f=row.f,l=row.l;
+      const cardId='devajuste_'+String(f.id).replace(/[^a-z0-9]/gi,'_')+'_'+String(l.codigo||'').replace(/[^a-z0-9]/gi,'_')+'_'+String(l.lote||'').replace(/[^a-z0-9]/gi,'_');
+      const lotData=(cicData||[]).find(function(p){return p.clave===l.codigo&&p.lote===l.lote;});
+      const saiTxt=lotData?('SAI: '+fmt(lotData.existSAI)+' '+(lotData.unidad||'')):'No está programado en Cíclicos — se cuenta igual, queda en el historial';
+      return '<div class="card" style="padding:14px">'
+        +'<div style="font-family:monospace;font-size:14px;font-weight:800;color:var(--pu)">'+escAttr(l.codigo)+'</div>'
+        +'<div style="font-size:13px;color:#3a3a3a;margin-bottom:2px">'+escAttr(l.descripcion)+'</div>'
+        +'<div style="font-family:monospace;font-size:12.5px;color:#4a4a4a;margin-bottom:4px">Lote '+escAttr(l.lote)+'</div>'
+        +'<div style="font-size:11px;color:#7a7a7a;margin-bottom:6px">'+saiTxt+'</div>'
+        +'<div style="font-size:10.5px;color:#0D47A1;margin-bottom:8px">📍 Ubicado el '+escAttr(l.fechaUbicadoSinMov)+' · devuelto en folio <b>'+escAttr(f.folio)+'</b> ('+fmt(l.cantidad)+' pz) · '+escAttr(f.fecha)+'</div>'
+        +'<div style="display:flex;gap:8px;align-items:center">'
+          +'<input class="c40-input" type="number" placeholder="Cant. física" data-clave="'+escAttr(l.codigo)+'" data-lote="'+escAttr(l.lote)+'" data-card="'+cardId+'" style="width:110px;padding:8px;font-size:15px;text-align:center;font-weight:600">'
+          +'<button class="c40-btn" onclick="registrarConteo(this)" style="padding:8px;font-size:16px;width:44px;height:44px;border-radius:10px">✓</button>'
+        +'</div>'
+        +'<div id="msg-'+cardId+'" style="font-size:10px;color:#2E7D32;margin-top:4px"></div>'
+      +'</div>';
+    }).join('');
+    return;
+  }
+
   list.innerHTML=folios.map(function(f){
     const DEV_TIPO_TXT_={no_utilizado:'🔵 No utilizado',destruccion:'🟣 Destrucción',proveedor:'🟤 Devolución a Proveedor'};
     const tagTxt=DEV_TIPO_TXT_[f.tipo]||'🔵 No utilizado';
