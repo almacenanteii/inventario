@@ -452,6 +452,7 @@ header.h-dev{background:var(--tl)}
 .dev-mov-nocuadra{margin-top:8px;background:#F5F5F5;border:1.5px dashed #bbb;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:#777;line-height:1.4}
 .dev-mov-faltadev{margin-top:8px;background:#FFF8E1;border:1.5px solid #F9A825;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:#8D6E00;line-height:1.4}
 .dev-mov-traspasado{margin-top:8px;background:#ECEFF1;border:1.5px solid #90A4AE;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;color:#455A64;line-height:1.4}
+.dev-mov-sinmov{margin-top:8px;background:#EFEBE9;border:1.5px dashed #8D6E63;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:800;color:#5D4037;line-height:1.4}
 /* Línea de material individual que SÍ coincide con MOVREP (mismo código,
    lote y cantidad exactos) -- para que se distinga de un vistazo cuál está
    bien sin tener que leer el cuadro de diferencias de arriba. */
@@ -7192,7 +7193,13 @@ function renderDev(){
         '<div class="dev-mov-cuadra">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+' — coincide en materiales, lotes y cantidades'+(esDest?'':', y ya está completo en '+almacen)+' — listo para '+(esDest?'proceder con la destrucción':'traspaso a EYEJAL')+' (márcalo por línea abajo)</div>'
       :
         '<div class="dev-mov-faltadev">✔ Mov. '+escAttr(f.numMovimiento)+' cuadra con MOVREP ('+almacen+', '+escAttr(movMatch.fecha||'')+')'+notaCompartido+', pero todavía falta que llegue a '+almacen+':<br>• '+devFaltantes.map(function(x){return escAttr(x.codigo)+' lote '+escAttr(x.lote)+' (faltan '+fmt(x.falta)+' pz)';}).join('<br>• ')+'</div>'
-      ):'';
+      )
+    // Sin número de movimiento capturado todavía -- antes esto no mostraba
+    // NADA en la tarjeta (había que abrir el filtro "Sin movimiento
+    // capturado" para enterarte), así que se te podía pasar sin querer.
+    // Ahora se ve de un jalón en la propia papeleta, sin tener que entrar
+    // a ningún filtro.
+    :'<div class="dev-mov-sinmov">📋 Sin número de movimiento capturado todavía</div>';
     return '<div class="card dev-card t-'+f.tipo+(listoTraspaso&&!todasMarcadas?' dev-card-cuadra':'')+'">'
       +'<div class="dev-card-head">'
         +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span></div>'
