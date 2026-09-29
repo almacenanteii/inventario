@@ -1487,12 +1487,17 @@ function switchTab(t){
   if(schedTabsEl) schedTabsEl.classList.toggle('hidden',t!=='cic');
   if(confBlock) confBlock.classList.toggle('hidden',t!=='cic');
 
-  // Plan de Embarque es una sub-pestaña dentro de Embarques con sus propios
-  // bloques (kpis-planemb/bar-planemb/list-planemb/empty-planemb) que el
-  // loop genérico de arriba no toca -- si se sale de 'emb' hay que
+  // Plan de Embarque y Salida de Embarque son sub-pestañas dentro de
+  // Embarques con sus propios bloques (kpis-planemb/..., kpis-salida/...)
+  // que el loop genérico de arriba no toca -- si se sale de 'emb' hay que
   // esconderlos a mano para que no se queden pegados al cambiar de pestaña.
+  // (Antes solo se hacía para Plan de Embarque; a Salida de Embarque se le
+  // olvidó agregar aquí, así que sus tarjetas de tarimas se quedaban
+  // visibles encima de cualquier otra pestaña -- ej. Cíclicos -- hasta que
+  // se volvía a entrar a Embarques.)
   if(t!=='emb'){
-    ['kpis-planemb','bar-planemb','list-planemb','empty-planemb'].forEach(function(id){
+    ['kpis-planemb','bar-planemb','list-planemb','empty-planemb',
+     'emb-salida-header','kpis-salida','bar-salida','list-salida','empty-salida'].forEach(function(id){
       document.getElementById(id)?.classList.add('hidden');
     });
   }
@@ -2656,20 +2661,38 @@ function imprimirFormatoConteo(claveOClaves){
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
 
-  try{
-    const blob=new Blob([html],{type:'text/html'});
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.target='_blank';
-    a.rel='noopener';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(function(){URL.revokeObjectURL(url);},60000);
-  }catch(e){
-    console.error('Error al generar el formato de conteo:', e);
-    alert('No se pudo abrir el formato para imprimir. Avísale a Eduardo.');
+  // window.open('','_blank') + document.write es el mismo patrón que usan
+  // TODOS los demás formatos de la app (F-AL-018, atrasados, bitácora...) y
+  // es el que de verdad funciona en Windows/Android -- se prueba primero.
+  // Antes este formato en particular usaba SOLO Blob + link (pensado nomás
+  // para el caso de iOS con la app instalada en pantalla de inicio, ver nota
+  // en imprimirCaratula), y en Windows/Chrome ese método a veces se queda
+  // callado sin abrir nada cuando el documento sale grande (varias claves
+  // juntas, como 7) -- sin ningún error visible, simplemente no pasa nada.
+  // Ahora se intenta primero la vía normal, y solo si el navegador de plano
+  // bloquea la ventana (o truena) se cae al Blob + link como respaldo.
+  let win=null;
+  try{ win=window.open('','_blank'); }catch(e){ win=null; }
+  if(win&&win.document){
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+  }else{
+    try{
+      const blob=new Blob([html],{type:'text/html'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.target='_blank';
+      a.rel='noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){URL.revokeObjectURL(url);},60000);
+    }catch(e2){
+      console.error('Error al generar el formato de conteo:', e2);
+      alert('No se pudo abrir el formato para imprimir. Si tu navegador está bloqueando ventanas emergentes, permítelas para este sitio e inténtalo de nuevo.');
+    }
   }
 }
 
