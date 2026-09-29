@@ -622,6 +622,7 @@ header.h-dev{background:var(--tl)}
       <div id="cic-imprimir-menu" class="print-menu hidden">
         <button id="btn-imprimir" class="menu-item" onclick="imprimirSemanaActual();cerrarMenusImprimir()">🖨️ Imprimir semana</button>
         <button id="btn-reporte" class="menu-item" onclick="generarReporteActual();cerrarMenusImprimir()">📄 Reporte F-AL-018</button>
+        <button id="btn-verif-ajustes" class="menu-item" onclick="generarReporteVerificacionAjustesActual();cerrarMenusImprimir()">🔎 Verificación de ajustes pendientes</button>
         <button id="btn-atrasados-print" class="menu-item hidden" style="color:#C62828" onclick="imprimirAtrasados();cerrarMenusImprimir()">🔴 Atrasados</button>
       </div>
     </div>
@@ -3016,6 +3017,19 @@ function generarReporte(semana){
   const clavesSem=new Set(items.map(function(s){return s.clave;}));
   const lotesSem=ordenarPorClave_(cicData.filter(function(p){return clavesSem.has(p.clave);}));
 
+  // Existencia SAI total por CLAVE (sumando todos sus lotes) -- es la misma
+  // base que usa registrarConteo() para el umbral del 3% que obliga a
+  // capturar causa. Se usa para mostrar, junto a cada diferencia en piezas,
+  // qué % representa de esa existencia total -- así se ve de un vistazo
+  // cuáles diferencias sí rebasan ese 3% sin tener que sacar la cuenta.
+  const saiTotalClaveMap={};
+  cicData.forEach(function(p){saiTotalClaveMap[p.clave]=(saiTotalClaveMap[p.clave]||0)+(p.existSAI||0);});
+  const pctDiferencia_=function(clave,diff){
+    const total=saiTotalClaveMap[clave]||0;
+    if(!total)return null;
+    return diff/total*100;
+  };
+
   // Stats
   const conteos=lotesSem.filter(function(p){return histMap[p.clave+'|'+p.lote];});
   const diffsArr=conteos.filter(function(p){
@@ -3057,6 +3071,11 @@ function generarReporte(semana){
     const diff=conteo!==null?conteo-p.existSAI:null;
     const diffColor=diff===null?'':diff===0?'#2E7D32':diff>0?'#E65100':'#C62828';
     const diffStr=diff===null?'':(diff===0?'0':(diff>0?'+':'')+diff.toFixed(0));
+    // % que representa la diferencia sobre la existencia SAI TOTAL de la
+    // clave (todos sus lotes) -- mismo umbral del 3% que obliga a capturar
+    // causa al contar, para no tener que sacar la cuenta a mano.
+    const pct=diff!==null?pctDiferencia_(p.clave,diff):null;
+    const pctStr=(pct===null||diff===0)?'':' ('+(pct>0?'+':'')+pct.toFixed(1)+'%)';
     rowsHtml+=
       '<tr style="border-bottom:1px solid #e0e0e0;'+(num%2===0?'background:#fafafa;':'')+'">'+
       '<td style="padding:4px 6px;text-align:center;font-size:10px;color:#666">'+num+'</td>'+
@@ -3067,7 +3086,7 @@ function generarReporte(semana){
       '<td style="padding:4px 6px;font-size:10px;text-align:right">'+p.existSAI.toLocaleString("en-US")+'</td>'+
       '<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:700;color:'+(conteo!==null?'#333':'#ccc')+'">'+
         (conteo!==null?conteo.toLocaleString("en-US"):'—')+'</td>'+
-      '<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:700;color:'+diffColor+'">'+diffStr+'</td>'+
+      '<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:700;color:'+diffColor+'">'+diffStr+'<span style="font-weight:600;font-size:9px">'+pctStr+'</span></td>'+
       '</tr>';
     num++;
   });
@@ -3086,6 +3105,8 @@ function generarReporte(semana){
     const causaTxt=(h[0].causa||'').trim();
     const diffColor=!tieneDiff?'#2E7D32':diff>0?'#E65100':'#C62828';
     const diffStr=!tieneDiff?'0':(diff>0?'+':'')+diff.toFixed(0);
+    const pctD=tieneDiff?pctDiferencia_(p.clave,diff):null;
+    const pctDStr=(pctD===null)?'':' ('+(pctD>0?'+':'')+pctD.toFixed(1)+'%)';
     diffsHtml+=
       '<tr style="border-bottom:1px solid #e0e0e0;'+(nd%2===0?'background:#fafafa;':'')+'">'+
       '<td style="padding:5px 6px;text-align:center;font-size:10px">'+nd+'</td>'+
@@ -3094,7 +3115,7 @@ function generarReporte(semana){
       '<td style="padding:5px 6px;font-family:monospace;font-size:9px;text-align:center">'+p.lote+'</td>'+
       '<td style="padding:5px 6px;font-size:10px;text-align:right">'+p.existSAI.toLocaleString("en-US")+'</td>'+
       '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700">'+conteo.toLocaleString("en-US")+'</td>'+
-      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700;color:'+diffColor+'">'+diffStr+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700;color:'+diffColor+'">'+diffStr+'<span style="font-weight:600;font-size:9px">'+pctDStr+'</span></td>'+
       '<td style="padding:5px 6px;font-size:9px">'+(tieneDiff?(causaTxt||'—'):'')+'</td>'+
       '</tr>';
     nd++;
@@ -3241,6 +3262,145 @@ function generarReporte(semana){
 }
 
 
+// Nuevo formato: "Verificación de ajustes pendientes" (F-AL-019).
+// Motivo: cuando se entrega el F-AL-018 para firma, a veces tarda en
+// firmarse y mientras tanto la existencia en SAI sigue moviéndose (entradas,
+// salidas, otros ajustes). Si eso pasa, el ajuste que se iba a aplicar ya no
+// corresponde a la realidad -- aplicarlo tal cual dejaría el sistema mal.
+// Este formato compara, para la semana ya contada, la cantidad que se contó
+// contra la existencia ACTUAL en vivo (cicData.existSAI, que siempre refleja
+// el presente) para cada clave/lote contado, y marca cuáles siguen
+// coincidiendo (ajuste todavía vigente, se puede aplicar) y cuáles ya no
+// (la existencia se movió desde el conteo, el ajuste ya no tiene caso tal
+// cual y toca reconteo). Al final resume qué % de los conteos de la semana
+// ya perdieron vigencia por no haberse aplicado a tiempo.
+function generarReporteVerificacionAjustes(semana){
+  const items=getSchedForSemana(semana);
+  if(!items.length){alert('No hay claves asignadas para la semana '+semana);return;}
+
+  const histMap={};
+  cicHist.forEach(function(h){
+    const k=h.clave+'|'+h.lote;
+    if(!histMap[k])histMap[k]=[];
+    histMap[k].push(h);
+  });
+  Object.values(histMap).forEach(function(arr){
+    arr.sort(function(a,b){
+      var pd=function(s){try{var p=s.split(',')[0].trim().split('/');return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));}catch(e){return new Date(0);}};
+      return pd(b.fecha)-pd(a.fecha);
+    });
+  });
+
+  const clavesSem=new Set(items.map(function(s){return s.clave;}));
+  const lotesSem=ordenarPorClave_(cicData.filter(function(p){return clavesSem.has(p.clave);}));
+  // Solo lotes que SÍ se contaron esta semana -- este formato no aplica a
+  // los que faltan por contar, no hay nada que verificar todavía.
+  const conteos=lotesSem.filter(function(p){return histMap[p.clave+'|'+p.lote];});
+
+  if(!conteos.length){alert('Todavía no hay conteos registrados para la semana '+semana+'.');return;}
+
+  let vigentes=0, perdidos=0;
+  let filasHtml='';
+  let num=1;
+  conteos.forEach(function(p){
+    const k=p.clave+'|'+p.lote;
+    const h=histMap[k][0];
+    const cantContada=parseFloat(h.cantidad);
+    const fechaConteo=(h.fecha||'').split(',')[0];
+    const existActual=p.existSAI||0;
+    const diff=existActual-cantContada;
+    const vigente=Math.abs(diff)<=0.01;
+    if(vigente)vigentes++; else perdidos++;
+    const estadoTxt=vigente?'✔ VIGENTE':'✖ YA NO VIGENTE';
+    const estadoColor=vigente?'#2E7D32':'#C62828';
+    const estadoBg=vigente?'#E8F5E9':'#FFEBEE';
+    filasHtml+=
+      '<tr style="border-bottom:1px solid #e0e0e0;'+(num%2===0?'background:#fafafa;':'')+'">'+
+      '<td style="padding:5px 6px;text-align:center;font-size:10px">'+num+'</td>'+
+      '<td style="padding:5px 6px;font-family:monospace;font-size:10px;font-weight:700;color:#E8671A">'+p.clave+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px">'+p.desc+'</td>'+
+      '<td style="padding:5px 6px;font-family:monospace;font-size:9px;text-align:center">'+p.lote+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700">'+cantContada.toLocaleString("en-US")+'</td>'+
+      '<td style="padding:5px 6px;font-size:9px;text-align:center;color:#666">'+escAttr(fechaConteo)+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700">'+existActual.toLocaleString("en-US")+'</td>'+
+      '<td style="padding:5px 6px;text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800;color:'+estadoColor+';background:'+estadoBg+'">'+estadoTxt+'</span></td>'+
+      '</tr>';
+    num++;
+  });
+
+  const pctPerdidos=(perdidos/conteos.length*100);
+  const fecha=new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const folio='VA-'+semana+'-'+new Date().getFullYear();
+
+  const win=window.open('','_blank');
+  if(!win||!win.document){alert('No se pudo abrir el formato para imprimir. Si tu navegador está bloqueando ventanas emergentes, permítelas para este sitio e inténtalo de nuevo.');return;}
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>F-AL-019 Verificación de Ajustes Pendientes · Semana ${semana}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;font-size:11px;color:#333;padding:16px;max-width:900px;margin:0 auto}
+      .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:3px solid #E8671A}
+      .folio{text-align:right;font-size:10px;color:#666}
+      .folio strong{display:block;font-size:13px;color:#E8671A;font-weight:900}
+      .section-title{background:#E8671A;color:#fff;padding:5px 10px;font-size:10px;font-weight:700;margin:10px 0 0;text-transform:uppercase;letter-spacing:.5px}
+      table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:10px}
+      th{background:#4A4A4A;color:#fff;padding:5px 6px;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.3px}
+      td{padding:0}
+      .resumen{background:#f5f5f5;border-left:4px solid #E8671A;padding:8px 12px;margin:6px 0;font-size:11px;display:flex;gap:24px}
+      .res-item strong{display:block;font-size:16px;color:#E8671A;font-weight:900}
+      .alerta{background:#FFEBEE;border-left:4px solid #C62828;padding:8px 12px;font-size:11px;color:#C62828;margin:6px 0;font-weight:700}
+      .footer{margin-top:12px;padding-top:8px;border-top:1px solid #ddd;font-size:8px;color:#999;text-align:center}
+      @media print{body{padding:8px;font-size:10px}}
+    </style>
+  </head><body>
+    <div class="header">
+      <div>
+        <img src="${LOGO_ANTEII_B64}" style="height:90px;width:auto;display:block;margin-bottom:2px" alt="Anteii Laboratorios">
+        <div style="font-size:13px;font-weight:800;color:#4A4A4A;text-align:center;margin-top:4px;letter-spacing:.3px">F-AL-019 · Verificación de Ajustes Pendientes</div>
+      </div>
+      <div class="folio">
+        <strong>${folio}</strong>
+        Semana ${semana} · Verificado el ${fecha}
+      </div>
+    </div>
+
+    <div class="section-title">Conteo vs. Existencia Actual</div>
+    <table>
+      <thead><tr>
+        <th style="width:24px;text-align:center">#</th>
+        <th style="width:100px">Clave</th>
+        <th>Descripción</th>
+        <th style="width:90px;text-align:center">Lote</th>
+        <th style="width:75px;text-align:right">Cant. Contada</th>
+        <th style="width:75px;text-align:center">Fecha Conteo</th>
+        <th style="width:80px;text-align:right">Exist. Actual</th>
+        <th style="width:110px;text-align:center">Ajuste</th>
+      </tr></thead>
+      <tbody>${filasHtml}</tbody>
+    </table>
+
+    <div class="section-title">Resumen</div>
+    <div class="resumen">
+      <div class="res-item"><strong>${conteos.length}</strong>Conteos verificados</div>
+      <div class="res-item"><strong style="color:#2E7D32">${vigentes}</strong>Ajustes vigentes</div>
+      <div class="res-item"><strong style="color:#C62828">${perdidos}</strong>Ya perdieron vigencia</div>
+      <div class="res-item"><strong style="color:${pctPerdidos>0?'#C62828':'#2E7D32'}">${pctPerdidos.toFixed(1)}%</strong>% que perdió vigencia</div>
+    </div>
+    ${perdidos>0?'<div class="alerta">⚠ '+perdidos+' de '+conteos.length+' conteo(s) ('+pctPerdidos.toFixed(1)+'%) ya no coinciden con la existencia actual: la existencia se movió desde que se contó. No aplicar el ajuste tal cual -- se recomienda recontar antes de ajustar en SAI.</div>':'<div class="resumen" style="border-left-color:#2E7D32"><div class="res-item" style="width:100%"><strong style="color:#2E7D32">✔</strong>Todos los ajustes pendientes de esta semana siguen vigentes, se pueden aplicar con confianza.</div></div>'}
+
+    <div class="footer">Este documento es propiedad de Laboratorios Anteii S.A. de C.V. · Referencia: P-AL-003 Inventario anual y cíclico · ${folio}</div>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(function(){win.print();},500);
+}
+
+function generarReporteVerificacionAjustesActual(){
+  const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
+  generarReporteVerificacionAjustes(semana);
+}
+
 function marcarAjustado(btn){
   const wrap=btn.closest('[data-clave]')||btn.parentElement;
   const clave=btn.dataset.clave;
@@ -3339,8 +3499,12 @@ function imprimirSemana(semana){
     // desaparece en el papel. Por eso aquí se marca con un sello de texto
     // en negritas + sombreado de fila, que se ve aunque no haya color.
     const bg=ultimo?'background:#dcdcdc;':'';
+    // Antes decía "✔ YA CONTADO" -- se pidió que en vez de esa leyenda salga
+    // la cantidad y la fecha del último conteo (misma fecha que ya se
+    // guarda en el historial), para saber DE CUÁNDO es ese conteo sin tener
+    // que ir a buscarlo aparte.
     const conteoCell=ultimo?
-      '<td style="'+bg+'text-align:center;font-size:10.5px;font-weight:800;color:#2E7D32;border-bottom:1px solid #ccc;min-width:60px">✔ YA CONTADO<br>'+ultimo.cantidad.toLocaleString('en-US')+'</td>'
+      '<td style="'+bg+'text-align:center;font-size:10.5px;font-weight:800;color:#2E7D32;border-bottom:1px solid #ccc;min-width:60px">'+ultimo.cantidad.toLocaleString('en-US')+'<br><span style="font-size:9px;font-weight:700;color:#555">'+escAttr((ultimo.fecha||'').split(',')[0])+'</span></td>'
       :'<td style="border-bottom:1px solid #ccc;min-width:60px"></td>';
     return '<tr>'+
       '<td style="'+bg+'font-family:monospace;font-size:11px;font-weight:700;color:#E8671A">'+p.clave+'</td>'+
