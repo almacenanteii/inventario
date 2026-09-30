@@ -747,6 +747,7 @@ header.h-dev{background:var(--tl)}
       <button onclick="toggleImprimirMenuDev(event)" style="background:#fff;color:var(--tl);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir ▾</button>
       <div id="dev-imprimir-menu" class="print-menu hidden">
         <button class="menu-item" onclick="generarReportePendientesAcondDev();cerrarMenusImprimir()">📄 Pendientes ACOND → DEV</button>
+        <button class="menu-item" onclick="exportarPendientesAcondDevExcel();cerrarMenusImprimir()">📊 Pendientes ACOND → DEV (Excel)</button>
       </div>
     </div>
     <button onclick="abrirModalDevolucion()" style="background:#fff;color:var(--tl);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">+ Nuevo folio</button>
@@ -7121,7 +7122,11 @@ function devListoParaTraspasoLinea_(codigo,lote,cantidad,almacen){
 // encontrado en MOVREP / no cuadra / cuadra) -- así Almacén sabe en una
 // sola hoja qué le falta mover a Producción Y qué folios siguen sin
 // cuadrar el movimiento en SAI, sin tener que ir folio por folio en la app.
-function generarReportePendientesAcondDev(){
+// Calcula las filas de "Pendientes de Traspaso ACOND → DEV" -- usado tanto
+// por el formato para imprimir (generarReportePendientesAcondDev) como por
+// la exportación a Excel (exportarPendientesAcondDevExcel), para que las dos
+// vías muestren siempre exactamente lo mismo sin repetir la lógica.
+function calcularPendientesAcondDev_(){
   const TIPO_TXT={no_utilizado:'No utilizado',proveedor:'A Proveedor'};
   // Prioridad para decidir qué estatus de movimiento mostrar cuando un mismo
   // código+lote junta varios folios con estatus distintos -- se enseña el
@@ -7176,6 +7181,38 @@ function generarReportePendientesAcondDev(){
   });
 
   filas.sort(function(a,b){return (a.codigo||'').localeCompare(b.codigo||'')||(a.lote||'').localeCompare(b.lote||'');});
+  return filas;
+}
+
+// Descarga las mismas filas del reporte "Pendientes de Traspaso ACOND → DEV"
+// como CSV (se abre directo en Excel) -- mismo patrón que
+// exportarEmbTarimasExcel(): BOM + comas + descarga por Blob, sin depender
+// de ninguna librería de xlsx.
+function exportarPendientesAcondDevExcel(){
+  const filas=calcularPendientesAcondDev_();
+  if(!filas.length){ alert('No hay líneas pendientes de traspaso ACOND → DEV en este momento -- no hay nada que exportar.'); return; }
+  const escCsv=function(v){
+    const s=String(v==null?'':v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+  const encabezado=['Folio(s)','Tipo','Código','Descripción','Lote','Solicitado','En DEV','Falta','En ACOND','Movimiento SAI'];
+  const cuerpo=filas.map(function(r){
+    return [r.folios,r.tipoTxt,r.codigo,r.descripcion,r.lote,r.cantidad,r.devQty,r.falta,r.enAcond,r.movEstado].map(escCsv).join(',');
+  });
+  const csv='﻿'+encabezado.join(',')+'\r\n'+cuerpo.join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='Pendientes_ACOND_DEV_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function generarReportePendientesAcondDev(){
+  const filas=calcularPendientesAcondDev_();
 
   let filasHtml='';
   let num=1;
