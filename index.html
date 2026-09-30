@@ -7132,7 +7132,7 @@ function generarReportePendientesAcondDev(){
   if(!win||!win.document){alert('No se pudo abrir el formato para imprimir. Si tu navegador está bloqueando ventanas emergentes, permítelas para este sitio e inténtalo de nuevo.');return;}
   win.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8">
-    <title>F-AL-020 Pendientes de Traspaso ACOND-DEV</title>
+    <title>Pendientes de Traspaso ACOND-DEV</title>
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
       body{font-family:Arial,sans-serif;font-size:11px;color:#333;padding:16px;max-width:1000px;margin:0 auto}
@@ -7154,7 +7154,7 @@ function generarReportePendientesAcondDev(){
     <div class="header">
       <div>
         <img src="${LOGO_ANTEII_B64}" style="height:90px;width:auto;display:block;margin-bottom:2px" alt="Anteii Laboratorios">
-        <div style="font-size:13px;font-weight:800;color:#4A4A4A;text-align:center;margin-top:4px;letter-spacing:.3px">F-AL-020 · Pendientes de Traspaso ACOND → DEV</div>
+        <div style="font-size:13px;font-weight:800;color:#4A4A4A;text-align:center;margin-top:4px;letter-spacing:.3px">Pendientes de Traspaso ACOND → DEV</div>
       </div>
       <div class="folio">
         <strong>${folioDoc}</strong>
@@ -7173,9 +7173,9 @@ function generarReportePendientesAcondDev(){
           '<th>Descripción</th>'+
           '<th style="width:75px;text-align:center">Lote</th>'+
           '<th style="width:60px;text-align:right">Solicitado</th>'+
-          '<th style="width:55px;text-align:right">Ya en DEV</th>'+
+          '<th style="width:55px;text-align:right">DEV</th>'+
           '<th style="width:55px;text-align:right">Falta</th>'+
-          '<th style="width:65px;text-align:right">En ACOND</th>'+
+          '<th style="width:65px;text-align:right">ACOND</th>'+
           '<th style="width:95px;text-align:center">Movimiento SAI</th>'+
         '</tr></thead>'+
         '<tbody>'+filasHtml+'</tbody>'+
