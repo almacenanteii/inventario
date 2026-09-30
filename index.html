@@ -743,7 +743,13 @@ header.h-dev{background:var(--tl)}
 <header class="h-dev hidden" id="hdr-dev">
   <div class="hdr-top">
     <h1>↩️ Devoluciones</h1>
-    <button onclick="abrirModalDevolucion()" style="background:#fff;color:var(--tl);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Nuevo folio</button>
+    <div class="print-menu-wrap">
+      <button onclick="toggleImprimirMenuDev(event)" style="background:#fff;color:var(--tl);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir ▾</button>
+      <div id="dev-imprimir-menu" class="print-menu hidden">
+        <button class="menu-item" onclick="generarReportePendientesAcondDev();cerrarMenusImprimir()">📄 Pendientes ACOND → DEV</button>
+      </div>
+    </div>
+    <button onclick="abrirModalDevolucion()" style="background:#fff;color:var(--tl);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">+ Nuevo folio</button>
   </div>
   <div class="update-bar" id="dev-update-bar">📅 Cargando folios...</div>
   <div class="search-box">
@@ -3475,6 +3481,14 @@ function toggleImprimirMenuCic(e){
 }
 function cerrarMenusImprimir(){
   document.querySelectorAll('.print-menu').forEach(function(x){x.classList.add('hidden');});
+}
+function toggleImprimirMenuDev(e){
+  if(e)e.stopPropagation();
+  const m=document.getElementById('dev-imprimir-menu');
+  if(!m)return;
+  const abrir=m.classList.contains('hidden');
+  cerrarMenusImprimir();
+  if(abrir)m.classList.remove('hidden');
 }
 document.addEventListener('click',function(e){
   if(!e.target.closest('.print-menu-wrap'))cerrarMenusImprimir();
@@ -7040,6 +7054,149 @@ function devListoParaTraspasoLinea_(codigo,lote,cantidad,almacen){
   const devQty=existeEnAlmacenLote_(codigo,lote,almacen||'DEV');
   const cant=parseFloat(cantidad)||0;
   return {devQty:devQty,listo:devQty>=cant-0.01};
+}
+
+// Primer reporte imprimible de Devoluciones (F-AL-020): "Pendientes de
+// Traspaso ACOND → DEV". Solo folios que NO son de destrucción (esos van a
+// DEST, no a DEV -- ver almacenDevolucion_). Por cada línea que todavía no
+// esté completa en DEV (devListoParaTraspasoLinea_ = false), se imprime:
+// cuánto falta por traspasar, si en ACOND hay suficiente para cubrir eso
+// (si no, el problema es de origen, no solo de que falte moverlo), y el
+// estatus del movimiento de SAI capturado en el folio (sin capturar / no
+// encontrado en MOVREP / no cuadra / cuadra) -- así Almacén sabe en una
+// sola hoja qué le falta mover a Producción Y qué folios siguen sin
+// cuadrar el movimiento en SAI, sin tener que ir folio por folio en la app.
+function generarReportePendientesAcondDev(){
+  const filas=[];
+  (DEV_LOADED||[]).forEach(function(f){
+    if(almacenDevolucion_(f.tipo)!=='DEV')return; // destrucción va a DEST, no aplica aquí
+    const fcm=folioCuadraMov_(f);
+    let movEstado='Sin capturar',movColor='#999',movBg='#f0f0f0';
+    if((f.numMovimiento||'').trim()){
+      if(!fcm.movMatch){movEstado='No encontrado en SAI';movColor='#C62828';movBg='#FFEBEE';}
+      else if(fcm.cuadraMov){movEstado='Cuadra ✓';movColor='#2E7D32';movBg='#E8F5E9';}
+      else{movEstado='No cuadra';movColor='#C62828';movBg='#FFEBEE';}
+    }else{movColor='#E65100';movBg='#FFF3E0';}
+    (f.lineas||[]).forEach(function(l){
+      const devQty=existeEnAlmacenLote_(l.codigo,l.lote,'DEV');
+      const cant=parseFloat(l.cantidad)||0;
+      const falta=cant-devQty;
+      if(falta<=0.01)return; // ya está completo el traspaso de esta línea
+      const enAcond=existeAcond_(l.codigo,l.lote);
+      const acondInsuficiente=enAcond<falta-0.01;
+      filas.push({
+        folio:f.folio,tipo:f.tipo,fecha:f.fecha,registrado:f.registrado,numMovimiento:f.numMovimiento,
+        movEstado:movEstado,movColor:movColor,movBg:movBg,
+        codigo:l.codigo,descripcion:l.descripcion,lote:l.lote,
+        cantidad:cant,devQty:devQty,falta:falta,enAcond:enAcond,acondInsuficiente:acondInsuficiente
+      });
+    });
+  });
+
+  filas.sort(function(a,b){return (a.folio||'').localeCompare(b.folio||'');});
+
+  const TIPO_TXT={no_utilizado:'No utilizado',proveedor:'A Proveedor'};
+
+  let filasHtml='';
+  let num=1;
+  filas.forEach(function(r){
+    const faltaColor=r.acondInsuficiente?'#C62828':'#E65100';
+    const acondTxt=r.acondInsuficiente?
+      '<span style="color:#C62828;font-weight:800">'+fmt(r.enAcond)+' ⚠</span>':
+      fmt(r.enAcond);
+    filasHtml+=
+      '<tr style="border-bottom:1px solid #e0e0e0;'+(num%2===0?'background:#fafafa;':'')+'">'+
+      '<td style="padding:5px 6px;text-align:center;font-size:10px">'+num+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;font-weight:700">'+escAttr(r.folio)+'<div style="font-size:8px;font-weight:400;color:#888">'+(TIPO_TXT[r.tipo]||r.tipo)+'</div></td>'+
+      '<td style="padding:5px 6px;font-family:monospace;font-size:10px;font-weight:700;color:#E8671A">'+escAttr(r.codigo)+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px">'+escAttr(r.descripcion)+'</td>'+
+      '<td style="padding:5px 6px;font-family:monospace;font-size:9px;text-align:center">'+escAttr(r.lote)+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right">'+fmt(r.cantidad)+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right">'+fmt(r.devQty)+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:800;color:'+faltaColor+'">'+fmt(r.falta)+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right">'+acondTxt+'</td>'+
+      '<td style="padding:5px 6px;text-align:center"><span style="display:inline-block;padding:2px 7px;border-radius:10px;font-size:8.5px;font-weight:800;color:'+r.movColor+';background:'+r.movBg+'">'+r.movEstado+'</span></td>'+
+      '</tr>';
+    num++;
+  });
+
+  const foliosPendientesSet=new Set(filas.map(function(r){return r.folio;}));
+  const lineasAcondInsuf=filas.filter(function(r){return r.acondInsuficiente;}).length;
+  const foliosMovPendiente=new Set(filas.filter(function(r){return r.movEstado!=='Cuadra ✓';}).map(function(r){return r.folio;})).size;
+
+  const fecha=new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const hora=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+  const folioDoc='PA-'+new Date().getTime().toString().slice(-6);
+
+  const win=window.open('','_blank');
+  if(!win||!win.document){alert('No se pudo abrir el formato para imprimir. Si tu navegador está bloqueando ventanas emergentes, permítelas para este sitio e inténtalo de nuevo.');return;}
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>F-AL-020 Pendientes de Traspaso ACOND-DEV</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,sans-serif;font-size:11px;color:#333;padding:16px;max-width:1000px;margin:0 auto}
+      .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:10px;border-bottom:3px solid #E8671A}
+      .folio{text-align:right;font-size:10px;color:#666}
+      .folio strong{display:block;font-size:13px;color:#E8671A;font-weight:900}
+      .section-title{background:#E8671A;color:#fff;padding:5px 10px;font-size:10px;font-weight:700;margin:10px 0 0;text-transform:uppercase;letter-spacing:.5px}
+      table{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:10px}
+      th{background:#4A4A4A;color:#fff;padding:5px 6px;text-align:left;font-size:8.5px;text-transform:uppercase;letter-spacing:.3px}
+      td{padding:0}
+      .resumen{background:#f5f5f5;border-left:4px solid #E8671A;padding:8px 12px;margin:6px 0;font-size:11px;display:flex;gap:20px;flex-wrap:wrap}
+      .res-item strong{display:block;font-size:16px;color:#E8671A;font-weight:900}
+      .alerta{background:#FFF3E0;border-left:4px solid #E8671A;padding:8px 12px;font-size:11px;color:#E65100;margin:6px 0;font-weight:700}
+      .ok{background:#E8F5E9;border-left:4px solid #2E7D32;padding:8px 12px;font-size:11px;color:#2E7D32;margin:6px 0;font-weight:700}
+      .footer{margin-top:12px;padding-top:8px;border-top:1px solid #ddd;font-size:8px;color:#999;text-align:center}
+      @media print{body{padding:8px;font-size:10px}}
+    </style>
+  </head><body>
+    <div class="header">
+      <div>
+        <img src="${LOGO_ANTEII_B64}" style="height:90px;width:auto;display:block;margin-bottom:2px" alt="Anteii Laboratorios">
+        <div style="font-size:13px;font-weight:800;color:#4A4A4A;text-align:center;margin-top:4px;letter-spacing:.3px">F-AL-020 · Pendientes de Traspaso ACOND → DEV</div>
+      </div>
+      <div class="folio">
+        <strong>${folioDoc}</strong>
+        Generado ${fecha} · ${hora} hrs
+      </div>
+    </div>
+
+    ${filas.length===0?
+      '<div class="ok">✔ No hay líneas pendientes de traspaso ACOND → DEV en este momento. Todos los folios activos (no destrucción) ya tienen su material completo en DEV.</div>'
+      :'<div class="section-title">Líneas pendientes de traspasar</div>'+
+      '<table>'+
+        '<thead><tr>'+
+          '<th style="width:22px;text-align:center">#</th>'+
+          '<th style="width:90px">Folio</th>'+
+          '<th style="width:85px">Código</th>'+
+          '<th>Descripción</th>'+
+          '<th style="width:75px;text-align:center">Lote</th>'+
+          '<th style="width:60px;text-align:right">Solicitado</th>'+
+          '<th style="width:55px;text-align:right">Ya en DEV</th>'+
+          '<th style="width:55px;text-align:right">Falta</th>'+
+          '<th style="width:65px;text-align:right">En ACOND</th>'+
+          '<th style="width:95px;text-align:center">Movimiento SAI</th>'+
+        '</tr></thead>'+
+        '<tbody>'+filasHtml+'</tbody>'+
+      '</table>'+
+      '<div style="font-size:9px;color:#888;margin:-4px 0 10px;padding:0 2px">⚠ junto al valor de "En ACOND" = ahí no hay suficiente para cubrir lo que falta por traspasar; hay que revisar el origen antes de mover, no solo esperar el traspaso.</div>'
+    }
+
+    <div class="section-title">Resumen</div>
+    <div class="resumen">
+      <div class="res-item"><strong>${foliosPendientesSet.size}</strong>Folios con pendientes</div>
+      <div class="res-item"><strong>${filas.length}</strong>Líneas por traspasar</div>
+      <div class="res-item"><strong style="color:${lineasAcondInsuf>0?'#C62828':'#2E7D32'}">${lineasAcondInsuf}</strong>Con problema en ACOND</div>
+      <div class="res-item"><strong style="color:${foliosMovPendiente>0?'#E65100':'#2E7D32'}">${foliosMovPendiente}</strong>Folios con movimiento sin cuadrar</div>
+    </div>
+    ${lineasAcondInsuf>0?'<div class="alerta">⚠ '+lineasAcondInsuf+' línea(s) no tienen suficiente existencia en ACOND para cubrir lo que falta traspasar -- avisar a Producción antes de seguir esperando el traspaso.</div>':''}
+
+    <div class="footer">Este documento es propiedad de Laboratorios Anteii S.A. de C.V. · Referencia: P-AL-003 · ${folioDoc}</div>
+</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(function(){win.print();},500);
 }
 
 async function loadDevoluciones(){
