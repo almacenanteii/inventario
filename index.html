@@ -1141,8 +1141,25 @@ function toggleImprimirMenuInv(e){
   if(abrir)m.classList.remove('hidden');
 }
 function imprimirFormatoConteoSel(){
-  if(!invClaveSel.size)return;
-  imprimirFormatoConteo(Array.from(invClaveSel));
+  // Bug reportado: si seleccionas lotes tocando el chip del LOTE (invLoteSel)
+  // en vez de tocar el encabezado de la tarjeta (invClaveSel), este botón no
+  // hacía nada -- solo miraba invClaveSel, que quedaba vacío, y se salía en
+  // silencio sin avisar. La barra de arriba sí cuenta y muestra "N lotes"
+  // (ver actualizarMenuImprimirInv_), así que desde la vista del usuario
+  // "hay algo seleccionado" pero el botón no reaccionaba. Ahora, si no hay
+  // claves marcadas pero sí hay lotes marcados, se sacan las claves de esos
+  // lotes (el formato de conteo de una clave siempre lista TODOS sus lotes,
+  // así que no hace falta que la selección sea por lote exacto).
+  let claves=Array.from(invClaveSel);
+  if(!claves.length&&invLoteSel.size){
+    const set=new Set();
+    invLoteSel.forEach(function(key){
+      try{ const par=JSON.parse(key); if(par[0])set.add(par[0]); }catch(e){}
+    });
+    claves=Array.from(set);
+  }
+  if(!claves.length){ alert('Selecciona una o más claves (o lotes) en Inventario para imprimir su formato de conteo.'); return; }
+  imprimirFormatoConteo(claves);
 }
 // "Imprimir clave completa" (todos los lotes + ubicaciones de UNA clave, en
 // una sola hoja) solo tiene sentido para una clave a la vez -- si hay
