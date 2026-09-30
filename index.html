@@ -7067,7 +7067,20 @@ function devListoParaTraspasoLinea_(codigo,lote,cantidad,almacen){
 // sola hoja qué le falta mover a Producción Y qué folios siguen sin
 // cuadrar el movimiento en SAI, sin tener que ir folio por folio en la app.
 function generarReportePendientesAcondDev(){
-  const filas=[];
+  const TIPO_TXT={no_utilizado:'No utilizado',proveedor:'A Proveedor'};
+  // Prioridad para decidir qué estatus de movimiento mostrar cuando un mismo
+  // código+lote junta varios folios con estatus distintos -- se enseña el
+  // más urgente de atender, no el primero que se encontró.
+  const PRIORIDAD_MOV={'No cuadra':4,'No encontrado en SAI':3,'Sin capturar':2,'Cuadra ✓':1};
+
+  // Un mismo código+lote puede pedirse en más de un folio de devolución a la
+  // vez -- antes cada folio salía en su propia fila aunque fuera el mismo
+  // material, así que si dos folios pedían el mismo lote parecía que faltaba
+  // el doble. Ahora se junta por código+lote: se suma lo solicitado entre
+  // todos los folios que lo piden, y se compara una sola vez contra lo que
+  // ya hay en DEV y en ACOND (esos son un solo dato físico, no uno por
+  // folio).
+  const grupos={};
   (DEV_LOADED||[]).forEach(function(f){
     if(almacenDevolucion_(f.tipo)!=='DEV')return; // destrucción va a DEST, no aplica aquí
     const fcm=folioCuadraMov_(f);
@@ -7078,24 +7091,36 @@ function generarReportePendientesAcondDev(){
       else{movEstado='No cuadra';movColor='#C62828';movBg='#FFEBEE';}
     }else{movColor='#E65100';movBg='#FFF3E0';}
     (f.lineas||[]).forEach(function(l){
-      const devQty=existeEnAlmacenLote_(l.codigo,l.lote,'DEV');
-      const cant=parseFloat(l.cantidad)||0;
-      const falta=cant-devQty;
-      if(falta<=0.01)return; // ya está completo el traspaso de esta línea
-      const enAcond=existeAcond_(l.codigo,l.lote);
-      const acondInsuficiente=enAcond<falta-0.01;
-      filas.push({
-        folio:f.folio,tipo:f.tipo,fecha:f.fecha,registrado:f.registrado,numMovimiento:f.numMovimiento,
-        movEstado:movEstado,movColor:movColor,movBg:movBg,
-        codigo:l.codigo,descripcion:l.descripcion,lote:l.lote,
-        cantidad:cant,devQty:devQty,falta:falta,enAcond:enAcond,acondInsuficiente:acondInsuficiente
-      });
+      const key=String(l.codigo||'').trim().toUpperCase()+'|'+String(l.lote||'').trim().toUpperCase();
+      if(!grupos[key])grupos[key]={codigo:l.codigo,descripcion:l.descripcion,lote:l.lote,cantidadTotal:0,folios:[]};
+      grupos[key].cantidadTotal+=parseFloat(l.cantidad)||0;
+      grupos[key].folios.push({folio:f.folio,tipo:f.tipo,movEstado:movEstado,movColor:movColor,movBg:movBg});
     });
   });
 
-  filas.sort(function(a,b){return (a.folio||'').localeCompare(b.folio||'');});
+  const filas=[];
+  Object.keys(grupos).forEach(function(key){
+    const g=grupos[key];
+    const devQty=existeEnAlmacenLote_(g.codigo,g.lote,'DEV');
+    const falta=g.cantidadTotal-devQty;
+    if(falta<=0.01)return; // ya está completo el traspaso (sumando todos los folios que lo piden)
+    const enAcond=existeAcond_(g.codigo,g.lote);
+    const acondInsuficiente=enAcond<falta-0.01;
+    // El estatus de movimiento que se muestra es el más urgente entre todos
+    // los folios que piden este código+lote (ver PRIORIDAD_MOV).
+    const peorFolio=g.folios.slice().sort(function(a,b){return (PRIORIDAD_MOV[b.movEstado]||0)-(PRIORIDAD_MOV[a.movEstado]||0);})[0];
+    const foliosTxt=g.folios.map(function(x){return x.folio;}).filter(function(v,i,arr){return arr.indexOf(v)===i;}).join(', ');
+    const tiposUnicos=g.folios.map(function(x){return x.tipo;}).filter(function(v,i,arr){return arr.indexOf(v)===i;});
+    const tipoTxt=tiposUnicos.length===1?(TIPO_TXT[tiposUnicos[0]]||tiposUnicos[0]):'Varios tipos';
+    filas.push({
+      folios:foliosTxt,tipoTxt:tipoTxt,
+      movEstado:peorFolio.movEstado,movColor:peorFolio.movColor,movBg:peorFolio.movBg,
+      codigo:g.codigo,descripcion:g.descripcion,lote:g.lote,
+      cantidad:g.cantidadTotal,devQty:devQty,falta:falta,enAcond:enAcond,acondInsuficiente:acondInsuficiente
+    });
+  });
 
-  const TIPO_TXT={no_utilizado:'No utilizado',proveedor:'A Proveedor'};
+  filas.sort(function(a,b){return (a.codigo||'').localeCompare(b.codigo||'')||(a.lote||'').localeCompare(b.lote||'');});
 
   let filasHtml='';
   let num=1;
@@ -7107,7 +7132,7 @@ function generarReportePendientesAcondDev(){
     filasHtml+=
       '<tr style="border-bottom:1px solid #e0e0e0;'+(num%2===0?'background:#fafafa;':'')+'">'+
       '<td style="padding:5px 6px;text-align:center;font-size:10px">'+num+'</td>'+
-      '<td style="padding:5px 6px;font-size:10px;font-weight:700">'+escAttr(r.folio)+'<div style="font-size:8px;font-weight:400;color:#888">'+(TIPO_TXT[r.tipo]||r.tipo)+'</div></td>'+
+      '<td style="padding:5px 6px;font-size:10px;font-weight:700">'+escAttr(r.folios)+'<div style="font-size:8px;font-weight:400;color:#888">'+escAttr(r.tipoTxt)+'</div></td>'+
       '<td style="padding:5px 6px;font-family:monospace;font-size:10px;font-weight:700;color:#E8671A">'+escAttr(r.codigo)+'</td>'+
       '<td style="padding:5px 6px;font-size:10px">'+escAttr(r.descripcion)+'</td>'+
       '<td style="padding:5px 6px;font-family:monospace;font-size:9px;text-align:center">'+escAttr(r.lote)+'</td>'+
@@ -7120,9 +7145,9 @@ function generarReportePendientesAcondDev(){
     num++;
   });
 
-  const foliosPendientesSet=new Set(filas.map(function(r){return r.folio;}));
+  const foliosPendientesSet=new Set(filas.reduce(function(arr,r){return arr.concat(r.folios.split(', '));},[]));
   const lineasAcondInsuf=filas.filter(function(r){return r.acondInsuficiente;}).length;
-  const foliosMovPendiente=new Set(filas.filter(function(r){return r.movEstado!=='Cuadra ✓';}).map(function(r){return r.folio;})).size;
+  const foliosMovPendiente=new Set(filas.filter(function(r){return r.movEstado!=='Cuadra ✓';}).reduce(function(arr,r){return arr.concat(r.folios.split(', '));},[])).size;
 
   const fecha=new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'2-digit',year:'numeric'});
   const hora=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
@@ -7168,7 +7193,7 @@ function generarReportePendientesAcondDev(){
       '<table>'+
         '<thead><tr>'+
           '<th style="width:22px;text-align:center">#</th>'+
-          '<th style="width:90px">Folio</th>'+
+          '<th style="width:90px">Folio(s)</th>'+
           '<th style="width:85px">Código</th>'+
           '<th>Descripción</th>'+
           '<th style="width:75px;text-align:center">Lote</th>'+
@@ -7186,11 +7211,11 @@ function generarReportePendientesAcondDev(){
     <div class="section-title">Resumen</div>
     <div class="resumen">
       <div class="res-item"><strong>${foliosPendientesSet.size}</strong>Folios con pendientes</div>
-      <div class="res-item"><strong>${filas.length}</strong>Líneas por traspasar</div>
+      <div class="res-item"><strong>${filas.length}</strong>Materiales por traspasar</div>
       <div class="res-item"><strong style="color:${lineasAcondInsuf>0?'#C62828':'#2E7D32'}">${lineasAcondInsuf}</strong>Con problema en ACOND</div>
       <div class="res-item"><strong style="color:${foliosMovPendiente>0?'#E65100':'#2E7D32'}">${foliosMovPendiente}</strong>Folios con movimiento sin cuadrar</div>
     </div>
-    ${lineasAcondInsuf>0?'<div class="alerta">⚠ '+lineasAcondInsuf+' línea(s) no tienen suficiente existencia en ACOND para cubrir lo que falta traspasar -- avisar a Producción antes de seguir esperando el traspaso.</div>':''}
+    ${lineasAcondInsuf>0?'<div class="alerta">⚠ '+lineasAcondInsuf+' material(es) no tienen suficiente existencia en ACOND para cubrir lo que falta traspasar -- avisar a Producción antes de seguir esperando el traspaso.</div>':''}
 
     <div class="footer">Este documento es propiedad de Laboratorios Anteii S.A. de C.V. · Referencia: P-AL-003 · ${folioDoc}</div>
 </body></html>`);
