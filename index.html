@@ -2618,11 +2618,40 @@ function renderInv(){
 // tabla (una fila por lote, con la clave como primera columna), no una
 // tabla repetida por cada clave. Así se puede seleccionar 2 o más códigos
 // en Inventario y sacarlos juntos, parejos, en un solo formato.
-function imprimirFormatoConteo(claveOClaves){
+async function imprimirFormatoConteo(claveOClaves){
   const claves=Array.isArray(claveOClaves)?claveOClaves:[claveOClaves];
   const ALL_A=window._ALL_A||[];
   const grupos=claves.map(function(c){return ALL_A.find(function(x){return x.clave===c;});}).filter(function(p){return p&&p.lotes.length;});
   if(!grupos.length){ alert('No se encontraron lotes para la(s) clave(s) seleccionada(s).'); return; }
+
+  // Si todavía no se ha cargado Devoluciones (pasa si el usuario nunca ha
+  // entrado a esa pestaña en esta sesión, ej. imprime el formato de conteo
+  // directo desde Inventario), se carga aquí para poder avisar si la clave
+  // tiene devoluciones registradas -- sin esto DEV_LOADED saldría vacío y
+  // siempre diría "sin devoluciones" aunque sí hubiera.
+  if(!devLoaded){ try{ await loadDevoluciones(); }catch(e){ console.error('No se pudo cargar Devoluciones para el formato de conteo:',e); } }
+
+  // Últimas 3 devoluciones (de cualquier lote) para UNA clave -- para avisar
+  // en el formato de conteo si ese código tiene historial de devoluciones,
+  // que puede explicar diferencias al contar (material que volvió y no se
+  // ha traspasado, por ejemplo). Se ordena por fecha del folio, más
+  // reciente primero.
+  const DEV_TIPO_TXT_CONTEO_={no_utilizado:'No utilizado',destruccion:'Destrucción',proveedor:'A Proveedor'};
+  function devolucionesRecientesClave_(clave){
+    const encontradas=[];
+    (DEV_LOADED||[]).forEach(function(f){
+      (f.lineas||[]).forEach(function(l){
+        if(String(l.codigo||'').trim().toUpperCase()===String(clave||'').trim().toUpperCase()){
+          encontradas.push({folio:f.folio,tipo:f.tipo,fecha:f.fecha,lote:l.lote,cantidad:l.cantidad});
+        }
+      });
+    });
+    encontradas.sort(function(a,b){
+      var pd=function(s){try{var p=(s||'').split(',')[0].trim().split('/');return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));}catch(e){return new Date(0);}};
+      return pd(b.fecha)-pd(a.fecha);
+    });
+    return encontradas.slice(0,3);
+  }
 
   const filas=[];
   grupos.forEach(function(p){
@@ -2653,22 +2682,46 @@ function imprimirFormatoConteo(claveOClaves){
   const tituloHdr=esVarias?'Formato de conteo':grupos[0].clave;
   const subHdr=esVarias?(grupos.length+' claves: '+grupos.map(function(p){return p.clave;}).join(', ')):(grupos[0].desc||'');
 
+  // Bloque de devoluciones por clave -- avisa si el código tiene historial
+  // de devoluciones (puede explicar diferencias al contar: material que
+  // volvió y todavía no se traspasa/ajusta) e imprime las últimas 3. Si
+  // hay varias claves seleccionadas, se repite el bloque por cada una con
+  // su encabezado; si es una sola, va directo sin repetir el nombre.
+  const devHtml=grupos.map(function(p){
+    const devs=devolucionesRecientesClave_(p.clave);
+    const tituloClave=esVarias?('<div class="dev-clave-hdr">'+p.clave+'</div>'):'';
+    if(!devs.length){
+      return '<div class="dev-block">'+tituloClave+'<div class="dev-sin">Sin devoluciones registradas para esta clave.</div></div>';
+    }
+    const filasDev=devs.map(function(d){
+      return '<tr><td>'+escAttr(d.folio)+'</td><td>'+(DEV_TIPO_TXT_CONTEO_[d.tipo]||d.tipo)+'</td><td>'+escAttr(d.lote)+'</td><td style="text-align:right">'+fmt(parseFloat(d.cantidad)||0)+'</td><td>'+escAttr((d.fecha||'').split(',')[0])+'</td></tr>';
+    }).join('');
+    return '<div class="dev-block">'+tituloClave+
+      '<table class="dev-table"><thead><tr><th>Folio</th><th>Tipo</th><th>Lote</th><th>Cant.</th><th>Fecha</th></tr></thead><tbody>'+filasDev+'</tbody></table></div>';
+  }).join('');
+
   const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Formato de conteo · '+tituloDoc+'</title>'+
-    '<style>@page{size:5.5in 8.5in;margin:8mm}'+
-    'body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0;font-size:11px}'+
-    '.hdr{display:flex;align-items:center;gap:10px;border-bottom:2px solid #E8671A;padding-bottom:8px;margin-bottom:10px}'+
-    '.hdr img{height:38px;width:auto;display:block}'+
-    '.clave-hdr{font-size:'+(esVarias?16:20)+'px;font-weight:900;line-height:1.1}'+
-    '.desc-hdr{font-size:10px;color:#555;margin-top:2px}'+
-    '.meta{font-size:9.5px;color:#888;margin-bottom:8px}'+
+    '<style>@page{size:letter;margin:14mm}'+
+    'body{font-family:Arial,Helvetica,sans-serif;color:#000;margin:0;padding:0;font-size:12px}'+
+    '.hdr{display:flex;align-items:center;gap:12px;border-bottom:2px solid #E8671A;padding-bottom:10px;margin-bottom:12px}'+
+    '.hdr img{height:44px;width:auto;display:block}'+
+    '.clave-hdr{font-size:'+(esVarias?18:24)+'px;font-weight:900;line-height:1.1}'+
+    '.desc-hdr{font-size:11px;color:#555;margin-top:2px}'+
+    '.meta{font-size:10px;color:#888;margin-bottom:10px}'+
     'table{width:100%;border-collapse:collapse}'+
-    'th,td{border:1px solid #999;padding:5px 4px;font-size:9.5px;text-align:left;vertical-align:middle}'+
-    'th{background:#4A4A4A;color:#fff;font-size:8.5px;text-transform:uppercase;letter-spacing:.3px}'+
-    '.celda-clave{font-weight:900;font-size:10.5px}'+
-    '.celda-desc{font-size:8px;color:#666;margin-top:1px}'+
-    '.foot{margin-top:22px;font-size:10.5px}'+
-    '.foot div{margin-bottom:20px;border-bottom:1px solid #999;padding-bottom:3px}'+
-    '.fila-nueva td{height:20px}'+
+    'th,td{border:1px solid #999;padding:6px 5px;font-size:10.5px;text-align:left;vertical-align:middle}'+
+    'th{background:#4A4A4A;color:#fff;font-size:9px;text-transform:uppercase;letter-spacing:.3px}'+
+    '.celda-clave{font-weight:900;font-size:11.5px}'+
+    '.celda-desc{font-size:8.5px;color:#666;margin-top:1px}'+
+    '.foot{margin-top:24px;font-size:11px}'+
+    '.foot div{margin-bottom:22px;border-bottom:1px solid #999;padding-bottom:3px}'+
+    '.fila-nueva td{height:22px}'+
+    '.dev-section-title{background:#E8671A;color:#fff;padding:5px 10px;font-size:10px;font-weight:700;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px}'+
+    '.dev-block{margin-bottom:10px}'+
+    '.dev-clave-hdr{font-weight:900;font-size:11px;color:#E8671A;margin-bottom:3px}'+
+    '.dev-sin{font-size:10px;color:#777;font-style:italic}'+
+    '.dev-table{margin-bottom:0}'+
+    '.dev-table th,.dev-table td{font-size:9.5px;padding:4px 5px}'+
     '</style></head><body>'+
     '<div class="hdr"><img src="'+LOGO_ANTEII_B64+'" alt="Anteii Laboratorios">'+
       '<div><div class="clave-hdr">'+tituloHdr+'</div><div class="desc-hdr">'+subHdr+'</div></div>'+
@@ -2678,6 +2731,8 @@ function imprimirFormatoConteo(claveOClaves){
     filas.join('')+
     filasBlanco+
     '</tbody></table>'+
+    '<div class="dev-section-title">📋 Devoluciones</div>'+
+    devHtml+
     '<div class="foot">'+
       '<div>Contado por: _______________________</div>'+
       '<div>Fecha: _______________________</div>'+
