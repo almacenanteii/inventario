@@ -2737,6 +2737,7 @@ async function imprimirFormatoConteo(claveOClaves){
     '<div class="foot">'+
       '<div>Contado por: _______________________</div>'+
       '<div>Fecha: _______________________</div>'+
+      '<div>Fecha de ajuste: _______________________</div>'+
     '</div>'+
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
@@ -7077,7 +7078,10 @@ function compararMovRepConLineas_(lineas,movMatch){
       else diffs.push('<b>'+escAttr(clave)+'</b> lote <b>'+escAttr(lote)+'</b>: capturaste '+fmt(cCapt)+' pz, SAI registró '+fmt(cReal)+' pz.');
     }
   });
-  return {cuadra:diffs.length===0,diffs:diffs,keysMalas:keysMalas};
+  // capt/real se regresan también (no solo los textos de diffs) para poder
+  // pintar, línea por línea en la tarjeta, "SAI registró X · debería ser Y"
+  // aunque la línea sí cuadre -- no solo cuando hay diferencia.
+  return {cuadra:diffs.length===0,diffs:diffs,keysMalas:keysMalas,capt:capt,real:real};
 }
 
 // Junta en un solo lugar el cálculo de "¿este folio cuadra contra MOVREP?"
@@ -7631,6 +7635,23 @@ function renderDev(){
       // está entre las que salieron con diferencia (movCmp.keysMalas).
       const keyLinea=String(l.codigo||'').trim().toUpperCase()+'|'+String(l.lote||'').trim().toUpperCase();
       const cuadraLinea=!!movMatch&&movCmp&&!movCmp.keysMalas[keyLinea];
+      // Ubicación física de este código+lote -- se reusa el mismo catálogo
+      // de Inventario/Cíclicos (ubicMap). No se filtra por almacén porque la
+      // papeleta de Devoluciones no trae uno fijo: se muestra dondequiera
+      // que esté guardado ese lote. Si está partido en varias ubicaciones
+      // (tarima partida), ubicTexto_ ya las junta separadas por coma.
+      const ubicTxtLinea=ubicTexto_(l.codigo,l.lote);
+      const ubicHtmlLinea=ubicTxtLinea?('<div class="dev-ubic-linea" style="color:#1F4E79;font-weight:700">📍 '+escAttr(ubicTxtLinea)+'</div>'):'<div class="dev-ubic-linea" style="color:#999">📍 Sin ubicación registrada</div>';
+      // Por cuánto quedó registrado el movimiento en MOVREP (lo que SAI
+      // trae de verdad para esta clave+lote) contra por cuánto debería estar
+      // (lo capturado en el folio, sumando entre papeletas si el movimiento
+      // es compartido) -- se muestra siempre que ya hay un movimiento
+      // encontrado en MOVREP, cuadre o no, para no tener que ir a leer el
+      // texto de diferencias de arriba para saber los números exactos.
+      const movCmpLineaHtml=(movMatch&&movCmp)?
+        '<div class="dev-mov-linea-cmp" style="color:'+(cuadraLinea?'#2E7D32':'#C62828')+'">'+
+          (cuadraLinea?'✔ ':'⚠️ ')+'MOVREP: '+fmt(movCmp.real[keyLinea]||0)+' pz · Debería ser: '+fmt(movCmp.capt[keyLinea]||0)+' pz'+
+        '</div>':'';
       // Cuánto hay en DEV para este código+lote -- informativo en toda
       // línea (no solo cuando cuadra con MOVREP), para poder ir viendo el
       // avance del traspaso ACOND -> DEV aunque el movimiento de SAI
@@ -7664,7 +7685,7 @@ function renderDev(){
         '<span class="dev-linea-btn-marcar-ubic" onclick="marcarUbicadoLinea_('+argsLinea+',true)">📍 Ubicado, falta mov</span>'
       :'');
       return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
-        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+ubicadoHtml+devHtml+'</div>'
+        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+ubicadoHtml+ubicHtmlLinea+movCmpLineaHtml+devHtml+'</div>'
         +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
       +'</div>';
     }).join('');
