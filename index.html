@@ -748,6 +748,7 @@ header.h-dev{background:var(--tl)}
       <div id="dev-imprimir-menu" class="print-menu hidden">
         <button class="menu-item" onclick="generarReportePendientesAcondDev();cerrarMenusImprimir()">📄 Pendientes ACOND → DEV</button>
         <button class="menu-item" onclick="exportarPendientesAcondDevExcel();cerrarMenusImprimir()">📊 Pendientes ACOND → DEV (Excel)</button>
+        <button class="menu-item" onclick="abrirReporteDevPorDia();cerrarMenusImprimir()">📅 Reporte por día (fechas / todo)</button>
       </div>
     </div>
     <button onclick="abrirModalDevolucion()" style="background:#fff;color:var(--tl);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">+ Nuevo folio</button>
@@ -7213,6 +7214,148 @@ function exportarPendientesAcondDevExcel(){
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+// ===== Reporte de devoluciones POR DÍA =====
+// "dd/mm/aaaa" (como se guardan los folios) -> "aaaa-mm-dd" (como entrega
+// <input type="date">), para poder comparar rangos como texto.
+function fechaDevISO_(fechaTxt){
+  const p=String(fechaTxt||'').split(',')[0].trim().split('/');
+  if(p.length!==3)return '';
+  return p[2].padStart(4,'0')+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0');
+}
+// Arma el reporte: una sección por día (más antiguo primero) con todas las
+// líneas de los folios capturados ese día. desdeISO/hastaISO vacíos = sin
+// límite (todo). Incluye TODOS los tipos (no utilizado, destrucción, a
+// proveedor) -- cada línea trae su tipo para poder filtrar en Excel.
+function calcularReporteDevPorDia_(desdeISO,hastaISO){
+  const TIPO_TXT={no_utilizado:'No utilizado',destruccion:'Destrucción',proveedor:'A Proveedor'};
+  const dias={};
+  (DEV_LOADED||[]).forEach(function(f){
+    const iso=fechaDevISO_(f.fecha);
+    if(!iso)return;
+    if(desdeISO&&iso<desdeISO)return;
+    if(hastaISO&&iso>hastaISO)return;
+    const fcm=folioCuadraMov_(f);
+    let movEstado='Sin capturar';
+    if((f.numMovimiento||'').trim()){
+      movEstado=!fcm.movMatch?'No encontrado en SAI':(fcm.cuadraMov?'Cuadra':'No cuadra');
+    }
+    if(!dias[iso])dias[iso]={iso:iso,fecha:f.fecha,folios:{},lineas:[]};
+    dias[iso].folios[f.folio]=true;
+    (f.lineas||[]).forEach(function(l){
+      dias[iso].lineas.push({
+        folio:f.folio,tipo:TIPO_TXT[f.tipo]||f.tipo,tipoKey:f.tipo,op:f.op||'',
+        codigo:l.codigo,descripcion:l.descripcion,lote:l.lote,cantidad:parseFloat(l.cantidad)||0,
+        movimiento:f.numMovimiento||'',movEstado:movEstado,
+        hecho:l.fechaTraspaso?((f.tipo==='destruccion'?'Destruido ':'Traspasado ')+l.fechaTraspaso):'',
+        registrado:f.registrado||''
+      });
+    });
+  });
+  return Object.keys(dias).sort().map(function(k){return dias[k];});
+}
+
+function abrirReporteDevPorDia(){
+  const old=document.getElementById('rep-dev-dia-modal');
+  if(old)old.remove();
+  const ov=document.createElement('div');
+  ov.id='rep-dev-dia-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:380px;width:100%">'
+    +'<div style="font-size:16px;font-weight:800;margin-bottom:4px">📅 Reporte de devoluciones por día</div>'
+    +'<div style="font-size:11.5px;color:#666;margin-bottom:12px">Elige un rango de fechas, o déjalo vacío para sacar todo lo capturado.</div>'
+    +'<label style="font-size:12px;font-weight:700">Desde</label>'
+    +'<input type="date" id="rep-dev-desde" style="width:100%;padding:8px;margin:3px 0 10px;border:1px solid #ccc;border-radius:8px;font-size:14px">'
+    +'<label style="font-size:12px;font-weight:700">Hasta</label>'
+    +'<input type="date" id="rep-dev-hasta" style="width:100%;padding:8px;margin:3px 0 14px;border:1px solid #ccc;border-radius:8px;font-size:14px">'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+      +'<button onclick="reporteDevPorDiaAccion_(\'imprimir\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:#006B5B;color:#fff;font-weight:700;cursor:pointer">🖨️ Imprimir</button>'
+      +'<button onclick="reporteDevPorDiaAccion_(\'excel\')" style="flex:1;padding:10px;border:none;border-radius:8px;background:#1D6F42;color:#fff;font-weight:700;cursor:pointer">📊 Excel</button>'
+      +'<button onclick="document.getElementById(\'rep-dev-dia-modal\').remove()" style="padding:10px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer">Cancelar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+}
+
+function reporteDevPorDiaAccion_(modo){
+  const desde=(document.getElementById('rep-dev-desde')||{}).value||'';
+  const hasta=(document.getElementById('rep-dev-hasta')||{}).value||'';
+  if(desde&&hasta&&desde>hasta){ alert('La fecha "Desde" no puede ser posterior a "Hasta".'); return; }
+  const dias=calcularReporteDevPorDia_(desde,hasta);
+  if(!dias.length){ alert('No hay devoluciones capturadas en ese rango de fechas.'); return; }
+  const m=document.getElementById('rep-dev-dia-modal'); if(m)m.remove();
+  if(modo==='excel')exportarReporteDevPorDiaExcel_(dias);
+  else imprimirReporteDevPorDia_(dias,desde,hasta);
+}
+
+function exportarReporteDevPorDiaExcel_(dias){
+  const escCsv=function(v){
+    const s=String(v==null?'':v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+  const enc=['Fecha','Folio','Tipo','OP','Código','Descripción','Lote','Cantidad','Movimiento','Estatus movimiento','Traspasado/Destruido','Registró'];
+  const filas=[];
+  dias.forEach(function(d){
+    d.lineas.forEach(function(r){
+      filas.push([d.fecha,r.folio,r.tipo,r.op,r.codigo,r.descripcion,r.lote,r.cantidad,r.movimiento,r.movEstado,r.hecho,r.registrado].map(escCsv).join(','));
+    });
+  });
+  const csv='﻿'+enc.join(',')+'\r\n'+filas.join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='Devoluciones_por_dia_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function imprimirReporteDevPorDia_(dias,desdeISO,hastaISO){
+  const rango=(desdeISO||hastaISO)?((desdeISO?fechaISOaTxt_(desdeISO):'inicio')+' al '+(hastaISO?fechaISOaTxt_(hastaISO):'hoy')):'Todas las fechas';
+  let totFolios=0,totPz=0,totLineas=0;
+  const porTipo={};
+  const secciones=dias.map(function(d){
+    const nFol=Object.keys(d.folios).length;
+    const pz=d.lineas.reduce(function(s,r){return s+r.cantidad;},0);
+    totFolios+=nFol; totPz+=pz; totLineas+=d.lineas.length;
+    d.lineas.forEach(function(r){porTipo[r.tipo]=(porTipo[r.tipo]||0)+r.cantidad;});
+    const filas=d.lineas.map(function(r,i){
+      return '<tr style="'+(i%2?'background:#fafafa;':'')+'">'
+        +'<td style="padding:4px 6px;font-weight:700">'+escAttr(r.folio)+'</td>'
+        +'<td style="padding:4px 6px">'+escAttr(r.tipo)+'</td>'
+        +'<td style="padding:4px 6px;font-family:monospace;color:#E8671A;font-weight:700">'+escAttr(r.codigo)+'</td>'
+        +'<td style="padding:4px 6px">'+escAttr(r.descripcion)+'</td>'
+        +'<td style="padding:4px 6px;font-family:monospace;text-align:center">'+escAttr(r.lote)+'</td>'
+        +'<td style="padding:4px 6px;text-align:right;font-weight:700">'+fmt(r.cantidad)+'</td>'
+        +'<td style="padding:4px 6px;text-align:center">'+escAttr(r.movimiento||'—')+'<div style="font-size:8px;color:#888">'+escAttr(r.movEstado)+'</div></td>'
+      +'</tr>';
+    }).join('');
+    return '<div style="background:#006B5B;color:#fff;padding:5px 10px;font-size:11px;font-weight:700;margin-top:12px;display:flex;justify-content:space-between"><span>📅 '+escAttr(d.fecha)+'</span><span>'+nFol+' folio'+(nFol===1?'':'s')+' · '+fmt(pz)+' pz</span></div>'
+      +'<table><thead><tr><th>Folio</th><th>Tipo</th><th>Código</th><th>Descripción</th><th>Lote</th><th style="text-align:right">Cant.</th><th>Mov. SAI</th></tr></thead><tbody>'+filas+'</tbody></table>';
+  }).join('');
+  const resTipo=Object.keys(porTipo).map(function(t){return '<div class="res-item"><strong>'+fmt(porTipo[t])+'</strong>'+escAttr(t)+' (pz)</div>';}).join('');
+  const win=window.open('','_blank');
+  if(!win||!win.document){alert('No se pudo abrir el reporte. Permite ventanas emergentes para este sitio e inténtalo de nuevo.');return;}
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reporte de devoluciones por día</title><style>'
+    +'@page{size:letter;margin:12mm}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:10.5px;color:#333}'
+    +'.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #E8671A;padding-bottom:8px;margin-bottom:8px}'
+    +'table{width:100%;border-collapse:collapse;font-size:10px}th{background:#4A4A4A;color:#fff;padding:4px 6px;text-align:left;font-size:8.5px;text-transform:uppercase}'
+    +'.resumen{background:#f5f5f5;border-left:4px solid #E8671A;padding:8px 12px;margin-top:14px;display:flex;gap:20px;flex-wrap:wrap}'
+    +'.res-item strong{display:block;font-size:15px;color:#E8671A}'
+    +'</style></head><body>'
+    +'<div class="header"><div><img src="'+LOGO_ANTEII_B64+'" style="height:60px;display:block" alt="Anteii"><div style="font-size:13px;font-weight:800;margin-top:3px">Reporte de devoluciones por día</div></div>'
+    +'<div style="text-align:right;font-size:10px;color:#666">Rango: <b>'+escAttr(rango)+'</b><br>Generado '+new Date().toLocaleString('es-MX')+'</div></div>'
+    +secciones
+    +'<div class="resumen"><div class="res-item"><strong>'+dias.length+'</strong>Días</div><div class="res-item"><strong>'+totFolios+'</strong>Folios</div><div class="res-item"><strong>'+totLineas+'</strong>Líneas</div><div class="res-item"><strong>'+fmt(totPz)+'</strong>Piezas totales</div>'+resTipo+'</div>'
+    +'<script>window.onload=function(){window.print();}<\/script></body></html>');
+  win.document.close();
+  win.focus();
+}
+function fechaISOaTxt_(iso){
+  const p=String(iso||'').split('-');
+  return p.length===3?(p[2]+'/'+p[1]+'/'+p[0]):iso;
 }
 
 function generarReportePendientesAcondDev(){
