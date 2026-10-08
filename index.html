@@ -760,8 +760,11 @@ header.h-dev{background:var(--tl)}
     <button class="clr" id="clr-dev" onclick="document.getElementById('search-dev').value='';sDev='';renderDev();">✕</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-    <select id="filtro-mes-dev" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333;flex:1;min-width:130px"><option value="">Todos los meses</option></select>
-    <select id="filtro-semana-dev" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333;flex:1;min-width:130px"><option value="">Todas las semanas</option></select>
+    <label style="color:#fff;font-size:11px;font-weight:700">Desde</label>
+    <input type="date" id="filtro-desde-dev" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333;flex:1;min-width:130px">
+    <label style="color:#fff;font-size:11px;font-weight:700">Hasta</label>
+    <input type="date" id="filtro-hasta-dev" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:600;color:#333;flex:1;min-width:130px">
+    <button id="filtro-fechas-limpiar-dev" style="padding:7px 10px;border-radius:8px;border:none;font-size:12px;font-weight:700;color:#006B5B;background:#fff;cursor:pointer">✕ Todas</button>
   </div>
   <div class="filters" id="fi-dev" style="margin-top:14px">
     <div class="chip a-dev" data-f="TODOS">Todos</div>
@@ -6873,7 +6876,7 @@ if(carEyeCantChk) carEyeCantChk.addEventListener('change',function(){
 // Cada folio (papeleta) se guarda en la hoja "Devoluciones" como varias
 // filas (una por material devuelto), todas con el mismo Id -- aquí se
 // vuelven a agrupar por Id para mostrarlas como tarjetas de folio.
-let DEV_LOADED=[],devLoaded=false,sDev='',mDev='',semDev='';
+let DEV_LOADED=[],devLoaded=false,sDev='',dDesde='',dHasta='';
 // Set de chips activos en #fi-dev -- multi-selección (ver getFiltDev). Se
 // mantiene fDev como alias de compatibilidad hacia atrás (algunos scripts
 // de prueba/código viejo lo leen/escriben como string) -- ver el getter más
@@ -7156,6 +7159,7 @@ function calcularPendientesAcondDev_(){
       else{movEstado='No cuadra';movColor='#C62828';movBg='#FFEBEE';}
     }else{movColor='#E65100';movBg='#FFF3E0';}
     (f.lineas||[]).forEach(function(l){
+      if(l.fechaTraspaso)return; // ya traspasada: no queda nada pendiente de llegar a DEV
       const key=String(l.codigo||'').trim().toUpperCase()+'|'+String(l.lote||'').trim().toUpperCase();
       if(!grupos[key])grupos[key]={codigo:l.codigo,descripcion:l.descripcion,lote:l.lote,cantidadTotal:0,folios:[]};
       grupos[key].cantidadTotal+=parseFloat(l.cantidad)||0;
@@ -7599,8 +7603,13 @@ function getFiltDev(){
       if(tiposSel.length&&tiposSel.indexOf(f.tipo)===-1)return false;
       if(estadosSel.some(function(e){return !folioPasaFiltroEstado_(f,e);}))return false;
     }
-    if(!fechaDevEnMes_(f.fecha,mDev))return false;
-    if(!fechaDevEnSemana_(f.fecha,semDev))return false;
+    // Rango de fechas del calendario (Desde / Hasta, ambos opcionales).
+    if(dDesde||dHasta){
+      const iso=fechaDevISO_(f.fecha);
+      if(!iso)return false;
+      if(dDesde&&iso<dDesde)return false;
+      if(dHasta&&iso>dHasta)return false;
+    }
     if(!q)return true;
     if(folioExactoExiste)return norm_(f.folio)===normQ;
     if(smartMatch(f.folio,sDev)||smartMatch(f.op,sDev)||smartMatch(f.codigoPT,sDev)||smartMatch(f.productoPT,sDev)||smartMatch(f.lotePT,sDev)||smartMatch(f.numMovimiento,sDev))return true;
@@ -7608,34 +7617,7 @@ function getFiltDev(){
   });
 }
 
-// Arma las opciones de los selects de mes/semana con lo que de verdad hay
-// en DEV_LOADED (nunca una lista fija) -- simple: solo el número de semana
-// y el nombre del mes, nada de calendario. Se reconstruye cada vez que se
-// pinta la pestaña, pero conserva la selección actual (mDev/semDev) para
-// no perder el filtro puesto nomás por volver a renderizar.
-function actualizarSelectsFechaDev_(){
-  const selMes=document.getElementById('filtro-mes-dev');
-  const selSem=document.getElementById('filtro-semana-dev');
-  if(!selMes||!selSem)return;
-  const meses=new Set(), semanas=new Set();
-  (DEV_LOADED||[]).forEach(function(f){
-    const m=mesDeFecha_(f.fecha); if(m)meses.add(m);
-    const s=semanaDeFecha_(f.fecha); if(s)semanas.add(s);
-  });
-  const mesesOrd=Array.from(meses).sort().reverse();
-  selMes.innerHTML='<option value="">Todos los meses</option>'+mesesOrd.map(function(m){
-    const partes=m.split('-');
-    const nombre=MESES_NOMBRE_[parseInt(partes[1],10)-1]||partes[1];
-    return '<option value="'+m+'"'+(m===mDev?' selected':'')+'>'+nombre+' '+partes[0]+'</option>';
-  }).join('');
-  const semanasOrd=Array.from(semanas).sort().reverse();
-  selSem.innerHTML='<option value="">Todas las semanas</option>'+semanasOrd.map(function(s){
-    const partes=s.split('-W');
-    return '<option value="'+s+'"'+(s===semDev?' selected':'')+'>Semana '+parseInt(partes[1],10)+' ('+partes[0]+')</option>';
-  }).join('');
-}
 function renderDev(){
-  actualizarSelectsFechaDev_();
   const folios=getFiltDev();
   const kF=document.getElementById('k-dev-folios'); if(kF)kF.textContent=folios.length.toLocaleString('en-US');
   const kN=document.getElementById('k-dev-nu'); if(kN)kN.textContent=folios.filter(function(f){return f.tipo==='no_utilizado';}).length.toLocaleString('en-US');
@@ -7811,7 +7793,7 @@ function renderDev(){
       // (ver nota en devFaltantes/listoTraspaso arriba).
       const devInfo=esDest?null:devListoParaTraspasoLinea_(l.codigo,l.lote,l.cantidad,almacen);
       const devHtml=(devInfo&&devInfo.devQty>0)?
-        '<div class="dev-ref-linea">📦 En '+almacen+': '+fmt(devInfo.devQty)+' pz'+(devInfo.listo?' <span class="dev-linea-ok-tag">✔ suficiente para traspaso</span>':' <span class="dev-linea-warn-tag">⚠️ faltan '+fmt(Math.max(0,(parseFloat(l.cantidad)||0)-devInfo.devQty))+' pz por llegar a '+almacen+'</span>')+'</div>'
+        '<div class="dev-ref-linea">📦 En '+almacen+': '+fmt(devInfo.devQty)+' pz'+(l.fechaTraspaso?'':devInfo.listo?' <span class="dev-linea-ok-tag">✔ suficiente para traspaso</span>':' <span class="dev-linea-warn-tag">⚠️ faltan '+fmt(Math.max(0,(parseFloat(l.cantidad)||0)-devInfo.devQty))+' pz por llegar a '+almacen+'</span>')+'</div>'
         :'';
       // Estado de marcado de ESTA línea -- ya se puede marcar en cuanto
       // cuadra contra MOVREP, sin esperar al resto del folio. Solo aplica a
@@ -8405,8 +8387,9 @@ document.querySelectorAll('#fi-salida .chip').forEach(function(c){c.addEventList
 document.querySelectorAll('#fi-car-cat .chip').forEach(function(c){c.addEventListener('click',function(){fCarCat=this.dataset.cat;document.querySelectorAll('#fi-car-cat .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.querySelectorAll('#fi-car-ubic .chip').forEach(function(c){c.addEventListener('click',function(){fCarUbic=this.dataset.ubic;document.querySelectorAll('#fi-car-ubic .chip').forEach(function(x){x.classList.remove('cat-active');});this.classList.add('cat-active');renderCar();});});
 document.getElementById('search-dev').addEventListener('input',function(){sDev=this.value;renderDev();});
-document.getElementById('filtro-mes-dev').addEventListener('change',function(){mDev=this.value;renderDev();});
-document.getElementById('filtro-semana-dev').addEventListener('change',function(){semDev=this.value;renderDev();});
+document.getElementById('filtro-desde-dev').addEventListener('change',function(){dDesde=this.value;renderDev();});
+document.getElementById('filtro-hasta-dev').addEventListener('change',function(){dHasta=this.value;renderDev();});
+document.getElementById('filtro-fechas-limpiar-dev').addEventListener('click',function(){dDesde='';dHasta='';document.getElementById('filtro-desde-dev').value='';document.getElementById('filtro-hasta-dev').value='';renderDev();});
 document.getElementById('filtro-mes-dash').addEventListener('change',function(){dashMesSel=this.value;renderDash();});
 document.getElementById('filtro-semana-dash').addEventListener('change',function(){dashSemCalSel=this.value;renderDash();});
 // Multi-selección: "Todos" siempre limpia el resto (es el estado neutro);
