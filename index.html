@@ -622,7 +622,8 @@ header.h-dev{background:var(--tl)}
       <div id="cic-imprimir-menu" class="print-menu hidden">
         <button id="btn-imprimir" class="menu-item" onclick="imprimirSemanaActual();cerrarMenusImprimir()">🖨️ Imprimir semana</button>
         <button id="btn-reporte" class="menu-item" onclick="generarReporteActual();cerrarMenusImprimir()">📄 Reporte F-AL-018</button>
-        <button id="btn-verif-ajustes" class="menu-item" onclick="generarReporteVerificacionAjustesActual();cerrarMenusImprimir()">🔎 Verificación de ajustes pendientes</button>
+        <button id="btn-reporte-excel" class="menu-item" onclick="exportarReporteExcelActual();cerrarMenusImprimir()">📊 Reporte F-AL-018 (Excel)</button>
+        <button id="btn-verif-ajustes"class="menu-item" onclick="generarReporteVerificacionAjustesActual();cerrarMenusImprimir()">🔎 Verificación de ajustes pendientes</button>
         <button id="btn-atrasados-print" class="menu-item hidden" style="color:#C62828" onclick="imprimirAtrasados();cerrarMenusImprimir()">🔴 Atrasados</button>
       </div>
     </div>
@@ -3524,6 +3525,60 @@ function marcarAjustado(btn){
 function generarReporteActual(){
   const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
   generarReporte(semana);
+}
+
+// Mismos datos del F-AL-018 (todos los lotes asignados a la semana, con su
+// último conteo, diferencia y % sobre la existencia SAI total de la clave)
+// pero como CSV para abrir en Excel. Los lotes que aún no se cuentan salen
+// con conteo/diferencia vacíos.
+function exportarReporteExcel(semana){
+  const items=getSchedForSemana(semana);
+  if(!items.length){alert('No hay claves asignadas para la semana '+semana);return;}
+  const histMap={};
+  cicHist.forEach(function(h){
+    const k=h.clave+'|'+h.lote;
+    if(!histMap[k])histMap[k]=[];
+    histMap[k].push(h);
+  });
+  Object.values(histMap).forEach(function(arr){
+    arr.sort(function(a,b){
+      var pd=function(s){try{var p=s.split(',')[0].trim().split('/');return new Date(parseInt(p[2]),parseInt(p[1])-1,parseInt(p[0]));}catch(e){return new Date(0);}};
+      return pd(b.fecha)-pd(a.fecha);
+    });
+  });
+  const clavesSem=new Set(items.map(function(s){return s.clave;}));
+  const lotesSem=ordenarPorClave_(cicData.filter(function(p){return clavesSem.has(p.clave);}));
+  const saiTotal={};
+  cicData.forEach(function(p){saiTotal[p.clave]=(saiTotal[p.clave]||0)+(p.existSAI||0);});
+  const escCsv=function(v){
+    const s=String(v==null?'':v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  };
+  const folio='CC-'+semana+'-'+new Date().getFullYear();
+  const enc=['Folio','Semana','Clave','Descripción','Lote','Unidad','Exist. SAI','Conteo físico','Diferencia','% Diferencia','Fecha de conteo','Contado por','Causa'];
+  const filas=lotesSem.map(function(p){
+    const h=histMap[p.clave+'|'+p.lote];
+    const u=h&&h.length?h[0]:null;
+    const conteo=u?parseFloat(u.cantidad):null;
+    const diff=conteo!==null?conteo-p.existSAI:null;
+    const tot=saiTotal[p.clave]||0;
+    const pct=(diff!==null&&tot)?(diff/tot*100).toFixed(1)+'%':'';
+    return [folio,semana,p.clave,p.desc,p.lote,p.unidad,p.existSAI,conteo===null?'':conteo,diff===null?'':diff,pct,u?(u.fecha||'').split(',')[0]:'',u?(u.registrado||''):'',u?(u.causa||''):''].map(escCsv).join(',');
+  });
+  const csv='﻿'+enc.join(',')+'\r\n'+filas.join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='F-AL-018_Semana_'+semana+'_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function exportarReporteExcelActual(){
+  const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
+  exportarReporteExcel(semana);
 }
 
 
