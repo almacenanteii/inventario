@@ -7263,7 +7263,19 @@ function exportarPendientesAcondDevExcel(){
   const cuerpo=filas.map(function(r){
     return [r.folios,r.tipoTxt,r.codigo,r.descripcion,r.lote,r.cantidad,r.devQty,r.falta,r.enAcond,r.movEstado].map(escCsv).join(',');
   });
-  const csv='﻿'+encabezado.join(',')+'\r\n'+cuerpo.join('\r\n');
+  const R=function(arr){return arr.map(escCsv).join(',');};
+  const cnt=function(e){return filas.filter(function(r){return r.movEstado===e;}).length;};
+  const stats=['','',R(['ESTADÍSTICAS']),
+    R(['Códigos+lote pendientes',filas.length]),
+    R(['Piezas solicitadas',filas.reduce(function(s,r){return s+r.cantidad;},0)]),
+    R(['Piezas que faltan por traspasar',filas.reduce(function(s,r){return s+r.falta;},0)]),
+    R(['Líneas con ACOND insuficiente (problema de origen)',filas.filter(function(r){return r.acondInsuficiente;}).length]),
+    '',R(['MOVIMIENTO SAI','Líneas']),
+    R(['Sin capturar (falta movimiento)',cnt('Sin capturar')]),
+    R(['No encontrado en SAI',cnt('No encontrado en SAI')]),
+    R(['No cuadra',cnt('No cuadra')]),
+    R(['Cuadra ✓',cnt('Cuadra ✓')])];
+  const csv='﻿'+encabezado.join(',')+'\r\n'+cuerpo.join('\r\n')+'\r\n'+stats.join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
@@ -7347,6 +7359,70 @@ function reporteDevPorDiaAccion_(modo){
   else imprimirReporteDevPorDia_(dias,desde,hasta);
 }
 
+// Bloque de estadísticas que se pega al final del Excel de devoluciones por
+// día (después de las papeletas). Devuelve líneas de CSV ya escapadas.
+function estadisticasDevPorDiaCsv_(dias,esc){
+  const R=function(arr){return arr.map(esc).join(',');};
+  const out=['','',R(['ESTADÍSTICAS'])];
+  const folios={}; // folio -> {tipo,movEstado,registrado,lineas,pz}
+  const claves={};
+  let lineas=0,pz=0,lHechas=0,pzHechas=0,lPend=0,pzPend=0;
+  dias.forEach(function(d){
+    d.lineas.forEach(function(r){
+      if(!folios[r.folio])folios[r.folio]={tipo:r.tipo,movEstado:r.movEstado,registrado:r.registrado,lineas:0,pz:0,pend:0};
+      const f=folios[r.folio]; f.lineas++; f.pz+=r.cantidad;
+      lineas++; pz+=r.cantidad;
+      if(r.hecho){lHechas++;pzHechas+=r.cantidad;}else{lPend++;pzPend+=r.cantidad;f.pend++;}
+      const k=String(r.codigo||'').trim().toUpperCase();
+      if(!claves[k])claves[k]={desc:r.descripcion,pz:0,veces:0};
+      claves[k].pz+=r.cantidad; claves[k].veces++;
+    });
+  });
+  const nFol=Object.keys(folios).length;
+  const pct=function(a,b){return b?(a/b*100).toFixed(1)+'%':'0%';};
+  out.push(R(['Días con devoluciones',dias.length]));
+  out.push(R(['Folios (papeletas)',nFol]));
+  out.push(R(['Líneas (materiales)',lineas]));
+  out.push(R(['Piezas totales',pz]));
+  out.push(R(['Claves distintas',Object.keys(claves).length]));
+  out.push(R(['Promedio de folios por día',dias.length?(nFol/dias.length).toFixed(1):0]));
+
+  out.push('',R(['MOVIMIENTO SAI (por folio)','Folios','% del total']));
+  ['Sin capturar','No encontrado en SAI','No cuadra','Cuadra'].forEach(function(e){
+    const n=Object.keys(folios).filter(function(k){return folios[k].movEstado===e;}).length;
+    out.push(R([e==='Sin capturar'?'Sin capturar (les falta movimiento)':e,n,pct(n,nFol)]));
+  });
+  const sinOk=Object.keys(folios).filter(function(k){return folios[k].movEstado!=='Cuadra';}).length;
+  out.push(R(['Total que requiere atención de movimiento',sinOk,pct(sinOk,nFol)]));
+
+  out.push('',R(['TRASPASO / DESTRUCCIÓN (por línea)','Líneas','Piezas','% de líneas']));
+  out.push(R(['Realizado',lHechas,pzHechas,pct(lHechas,lineas)]));
+  out.push(R(['Pendiente',lPend,pzPend,pct(lPend,lineas)]));
+  const foliosPend=Object.keys(folios).filter(function(k){return folios[k].pend>0;}).length;
+  out.push(R(['Folios con al menos una línea pendiente',foliosPend]));
+
+  out.push('',R(['POR TIPO','Folios','Líneas','Piezas']));
+  const tipos={};
+  Object.keys(folios).forEach(function(k){const f=folios[k];if(!tipos[f.tipo])tipos[f.tipo]={fol:0,l:0,pz:0};tipos[f.tipo].fol++;tipos[f.tipo].l+=f.lineas;tipos[f.tipo].pz+=f.pz;});
+  Object.keys(tipos).forEach(function(t){out.push(R([t,tipos[t].fol,tipos[t].l,tipos[t].pz]));});
+
+  out.push('',R(['POR DÍA','Folios','Líneas','Piezas']));
+  dias.forEach(function(d){
+    out.push(R([d.fecha,Object.keys(d.folios).length,d.lineas.length,d.lineas.reduce(function(s,r){return s+r.cantidad;},0)]));
+  });
+
+  out.push('',R(['QUIÉN REGISTRÓ','Folios','Piezas']));
+  const reg={};
+  Object.keys(folios).forEach(function(k){const f=folios[k];const n=f.registrado||'(sin nombre)';if(!reg[n])reg[n]={fol:0,pz:0};reg[n].fol++;reg[n].pz+=f.pz;});
+  Object.keys(reg).sort(function(a,b){return reg[b].fol-reg[a].fol;}).forEach(function(n){out.push(R([n,reg[n].fol,reg[n].pz]));});
+
+  out.push('',R(['TOP 10 CLAVES MÁS DEVUELTAS','Descripción','Veces','Piezas']));
+  Object.keys(claves).sort(function(a,b){return claves[b].pz-claves[a].pz;}).slice(0,10).forEach(function(k){
+    out.push(R([k,claves[k].desc,claves[k].veces,claves[k].pz]));
+  });
+  return out;
+}
+
 function exportarReporteDevPorDiaExcel_(dias){
   const escCsv=function(v){
     const s=String(v==null?'':v);
@@ -7359,7 +7435,7 @@ function exportarReporteDevPorDiaExcel_(dias){
       filas.push([d.fecha,r.folio,r.tipo,r.op,r.codigo,r.descripcion,r.lote,r.cantidad,r.movimiento,r.movEstado,r.hecho,r.registrado].map(escCsv).join(','));
     });
   });
-  const csv='﻿'+enc.join(',')+'\r\n'+filas.join('\r\n');
+  const csv='﻿'+enc.join(',')+'\r\n'+filas.join('\r\n')+'\r\n'+estadisticasDevPorDiaCsv_(dias,escCsv).join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
