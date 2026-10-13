@@ -7348,6 +7348,25 @@ function abrirReporteDevPorDia(){
   document.body.appendChild(ov);
 }
 
+// Mismas estadísticas pero como HTML para la hoja impresa.
+function estadisticasDevPorDiaHtml_(dias){
+  const SEP='\u0002';
+  const rows=estadisticasDevPorDiaCsv_(dias,function(v){return String(v==null?'':v).replace(/,/g,SEP);});
+  let html='<div style="margin-top:16px;page-break-inside:avoid"><div style="background:#E8671A;color:#fff;padding:5px 10px;font-size:12px;font-weight:800">📊 ESTADÍSTICAS</div>';
+  let abierta=false;
+  rows.forEach(function(line){
+    if(!line){ if(abierta){html+='</table>';abierta=false;} return; }
+    const c=line.split(',').map(function(x){return escAttr(x.split(SEP).join(','));});
+    if(c.length===1&&c[0]==='ESTADÍSTICAS')return;
+    const raw=c[0].replace(/&[^;]+;/g,'x');
+    const esHdr=raw===raw.toUpperCase()&&/[A-ZÁÉÍÓÚ]/.test(raw);
+    if(!abierta){html+='<table style="margin-bottom:6px">';abierta=true;}
+    html+='<tr style="'+(esHdr?'background:#4A4A4A;color:#fff;font-weight:700;':'')+'">'+c.map(function(x,i){return '<td style="padding:3px 6px;border-bottom:1px solid #eee;'+(i?'text-align:right;':'')+'">'+x+'</td>';}).join('')+'</tr>';
+  });
+  if(abierta)html+='</table>';
+  return html+'</div>';
+}
+
 function reporteDevPorDiaAccion_(modo){
   const desde=(document.getElementById('rep-dev-desde')||{}).value||'';
   const hasta=(document.getElementById('rep-dev-hasta')||{}).value||'';
@@ -7483,6 +7502,7 @@ function imprimirReporteDevPorDia_(dias,desdeISO,hastaISO){
     +'<div class="header"><div><img src="'+LOGO_ANTEII_B64+'" style="height:60px;display:block" alt="Anteii"><div style="font-size:13px;font-weight:800;margin-top:3px">Reporte de devoluciones por día</div></div>'
     +'<div style="text-align:right;font-size:10px;color:#666">Rango: <b>'+escAttr(rango)+'</b><br>Generado '+new Date().toLocaleString('es-MX')+'</div></div>'
     +secciones
+    +estadisticasDevPorDiaHtml_(dias)
     +'<div class="resumen"><div class="res-item"><strong>'+dias.length+'</strong>Días</div><div class="res-item"><strong>'+totFolios+'</strong>Folios</div><div class="res-item"><strong>'+totLineas+'</strong>Líneas</div><div class="res-item"><strong>'+fmt(totPz)+'</strong>Piezas totales</div>'+resTipo+'</div>'
     +'<script>window.onload=function(){window.print();}<\/script></body></html>');
   win.document.close();
