@@ -7185,7 +7185,12 @@ function calcularSalidasEyejal_(){
   (MOVREP_DEV_LOADED||[]).forEach(function(m){
     const tipo=norm(m.tipo);
     if(tipo==='E'){
-      (m.lineasDetalle||[]).forEach(function(d){entradas[norm(d.clave)+'|'+norm(d.lote)]=true;});
+      const isoE=fechaDevISO_(m.fecha);
+      (m.lineasDetalle||[]).forEach(function(d){
+        const kE=norm(d.clave)+'|'+norm(d.lote);
+        if(!entradas[kE])entradas[kE]=[];
+        entradas[kE].push({iso:isoE,cant:parseFloat(d.cantidad)||0,mov:m.movimiento,fecha:m.fecha});
+      });
       return;
     }
     if(tipo!=='S')return;
@@ -7230,7 +7235,15 @@ function calcularSalidasEyejal_(){
       else estado='NO_LLEGA';
       const movs=disp.map(function(s){return s.mov;}).filter(function(v,i2,a){return a.indexOf(v)===i2;});
       const ultima=disp.reduce(function(mx,s){return (!mx||s.iso>mx.iso)?s:mx;},null);
-      map[x.f.id+'#'+x.i]={estado:estado,cant:cant,salido:salido,falta:Math.max(0,cant-salido),devQty:devQty,movs:movs,ultimaFecha:ultima?ultima.fecha:''};
+      // Movimiento(s) de ENTRADA a DEV de este código+lote: los del mismo día
+      // de la papeleta o posteriores; si no hay, todos los que existan.
+      const entAll=entradas[k]||[];
+      let ent=entAll.filter(function(s){return !s.iso||s.iso>=x.iso;});
+      if(!ent.length)ent=entAll;
+      const entMovs=ent.map(function(s){return s.mov;}).filter(function(v,i2,a){return a.indexOf(v)===i2;});
+      const entUlt=ent.reduce(function(mx,s){return (!mx||s.iso>mx.iso)?s:mx;},null);
+      map[x.f.id+'#'+x.i]={estado:estado,cant:cant,salido:salido,falta:Math.max(0,cant-salido),devQty:devQty,movs:movs,ultimaFecha:ultima?ultima.fecha:'',
+        entMovs:entMovs,entCant:ent.reduce(function(s,y){return s+y.cant;},0),entFecha:entUlt?entUlt.fecha:''};
     });
   });
   return {map:map,hayDatos:nSal>0,nSalidas:nSal,nMovs:nMov,nOtroDestino:nOtroDestino,
@@ -7244,6 +7257,10 @@ const SAL_TXT_={OK:'Traspasada a EYEJAL',PARCIAL:'Traspaso parcial',SIN_SALIDA:'
 function salidaEyejalHtml_(info){
   if(!info||!DEV_SAL_||!DEV_SAL_.hayDatos)return '';
   const e=info.estado;
+  const entTxt=info.entMovs&&info.entMovs.length?('<div class="dev-eyejal-linea" style="color:#1F4E79">⬇️ Entrada a DEV: mov. '+escAttr(info.entMovs.join(', '))+(info.entFecha?' · '+escAttr(info.entFecha):'')+' · '+fmt(info.entCant)+' pz</div>'):'';
+  return entTxt+salidaEyejalHtml2_(info,e);
+}
+function salidaEyejalHtml2_(info,e){
   if(e==='OK')return '<div class="dev-eyejal-linea" style="color:#2E7D32;font-weight:700">✅ Salió a EYEJAL: '+fmt(info.salido)+' pz'+(info.ultimaFecha?' · '+escAttr(info.ultimaFecha):'')+(info.movs.length?' · mov. '+escAttr(info.movs.join(', ')):'')+'</div>';
   if(e==='PARCIAL')return '<div class="dev-eyejal-linea" style="color:#E65100;font-weight:700">🟡 Salió a EYEJAL '+fmt(info.salido)+' de '+fmt(info.cant)+' pz · faltan '+fmt(info.falta)+' pz por traspasar</div>';
   if(e==='SIN_SALIDA')return '<div class="dev-eyejal-linea" style="color:#C62828;font-weight:700">🔴 Falta traspasar a EYEJAL: '+fmt(info.cant)+' pz (en DEV hay '+fmt(info.devQty)+')</div>';
@@ -7265,6 +7282,7 @@ function calcularReporteSalidasEyejal_(){
       filas.push({folio:f.folio,fecha:f.fecha,iso:fechaDevISO_(f.fecha),tipoTxt:TIPO_TXT[f.tipo]||f.tipo,
         codigo:l.codigo,descripcion:l.descripcion,lote:l.lote,cant:s.cant,salido:s.salido,falta:s.falta,devQty:s.devQty,
         estado:s.estado,estadoTxt:SAL_TXT_[s.estado],movs:s.movs.join(' / '),ultima:s.ultimaFecha,
+        entMovs:s.entMovs.join(' / '),entFecha:s.entFecha,entCant:s.entCant,
         ubic:ubicTexto_(l.codigo,l.lote)||'',marcada:l.fechaTraspaso||''});
     });
   });
@@ -7302,8 +7320,8 @@ function exportarSalidasEyejalExcel(){
   const aviso=avisoSinSalidasEyejal_(r.info);
   if(aviso){alert(aviso);return;}
   const esc=function(v){const s=String(v==null?'':v);return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;};
-  const enc=['Estatus','Folio','Fecha papeleta','Tipo','Código','Descripción','Lote','Solicitado','Salió a EYEJAL','Falta traspasar','En DEV ahora','Última salida','Mov. de salida','Ubicación','Marcada traspasada'];
-  const cuerpo=r.filas.map(function(x){return [x.estadoTxt,x.folio,x.fecha,x.tipoTxt,x.codigo,x.descripcion,x.lote,x.cant,x.salido,x.falta,x.devQty,x.ultima,x.movs,x.ubic,x.marcada].map(esc).join(',');});
+  const enc=['Estatus','Folio','Fecha papeleta','Tipo','Código','Descripción','Lote','Solicitado','Salió a EYEJAL','Falta traspasar','En DEV ahora','Mov. de entrada a DEV','Fecha de entrada','Piezas de entrada','Última salida','Mov. de salida','Ubicación','Marcada traspasada'];
+  const cuerpo=r.filas.map(function(x){return [x.estadoTxt,x.folio,x.fecha,x.tipoTxt,x.codigo,x.descripcion,x.lote,x.cant,x.salido,x.falta,x.devQty,x.entMovs,x.entFecha,x.entCant,x.ultima,x.movs,x.ubic,x.marcada].map(esc).join(',');});
   const stats=estadisticasSalidasEyejal_(r.filas).map(function(row){return row.map(esc).join(',');});
   const csv='﻿'+enc.join(',')+'\r\n'+cuerpo.join('\r\n')+'\r\n\r\n'+stats.join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
@@ -7327,6 +7345,7 @@ function generarReporteSalidasEyejal(){
       +'<td style="text-align:right">'+fmt(x.cant)+'</td><td style="text-align:right">'+fmt(x.salido)+'</td>'
       +'<td style="text-align:right;font-weight:800;color:'+COLOR[x.estado]+'">'+fmt(x.falta)+'</td>'
       +'<td style="text-align:right">'+fmt(x.devQty)+'</td>'
+      +'<td style="font-size:9px">'+escAttr(x.entMovs||'—')+'<div style="font-size:8px;color:#888">'+escAttr(x.entFecha||'')+'</div></td>'
       +'<td style="font-size:8.5px;color:'+COLOR[x.estado]+';font-weight:700">'+escAttr(x.estadoTxt)+'</td>'
       +'<td style="font-size:9px">'+escAttr(x.ubic||'—')+'</td></tr>';
   }).join('');
@@ -7341,7 +7360,7 @@ function generarReporteSalidasEyejal(){
     +'</style></head><body>'
     +'<div class="header"><div><img src="'+LOGO_ANTEII_B64+'" style="height:55px;display:block" alt="Anteii"><div style="font-size:13px;font-weight:800;margin-top:3px">Pendientes de traspaso DEV → EYEJAL</div></div>'
     +'<div style="text-align:right;font-size:10px;color:#666">Generado '+new Date().toLocaleString('es-MX')+'<br>Salidas de DEV encontradas en MOVREP: '+r.info.nMovs+' movimientos</div></div>'
-    +'<table><thead><tr><th>#</th><th>Folio</th><th>Código</th><th>Descripción</th><th>Lote</th><th style="text-align:right">Solicitado</th><th style="text-align:right">Ya salió</th><th style="text-align:right">Falta</th><th style="text-align:right">En DEV</th><th>Estatus</th><th>Ubicación</th></tr></thead><tbody>'+filasHtml+'</tbody></table>'
+    +'<table><thead><tr><th>#</th><th>Folio</th><th>Código</th><th>Descripción</th><th>Lote</th><th style="text-align:right">Solicitado</th><th style="text-align:right">Ya salió</th><th style="text-align:right">Falta</th><th style="text-align:right">En DEV</th><th>Mov. entrada a DEV</th><th>Estatus</th><th>Ubicación</th></tr></thead><tbody>'+filasHtml+'</tbody></table>'
     +'<div class="resumen"><div><strong>'+pend.length+'</strong>Líneas pendientes</div><div><strong>'+fmt(totFalta)+'</strong>Piezas por traspasar</div><div><strong>'+pend.map(function(x){return x.folio;}).filter(function(v,i,a){return a.indexOf(v)===i;}).length+'</strong>Folios</div></div>'
     +'<script>window.onload=function(){window.print();}<\/script></body></html>');
   win.document.close();win.focus();
