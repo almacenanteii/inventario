@@ -1842,8 +1842,8 @@ function verUbicacionesHuerfanas(){
       const btnDel=document.createElement('button');
       btnDel.textContent='✕ Borrar';
       btnDel.style.cssText='background:#FFEBEE;color:#C62828;border:none;border-radius:6px;padding:7px 11px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0';
-      btnDel.onclick=function(){
-        if(!confirm('¿Borrar la ubicación "'+u.ubicacion+'" de '+u.clave+' · lote '+u.lote+'? Esto no se puede deshacer.'))return;
+      btnDel.onclick=async function(){
+        if(!(await pedirClaveBorrarUbicacion_('la ubicación "'+u.ubicacion+'" de '+u.clave+' · lote '+u.lote)))return;
         borrarUbicacionPorId_(u.id);
         row.remove();
       };
@@ -2279,9 +2279,40 @@ function guardarUbicacion(clave,lote,ubicacion,almacen){
   setTimeout(function(){recargarUbicaciones();},1500);
 }
 
-function borrarUbicacion(el){
+// Pide la contraseña de borrado (distinta de la clave de acceso a la app) y
+// la valida en el servidor -- la clave nunca vive en el navegador. Si el
+// servidor todavía no tiene contraseña configurada o no responde, NO se
+// borra (falla cerrado). Devuelve true solo si la contraseña es correcta.
+async function pedirClaveBorrarUbicacion_(detalle){
+  const clave=prompt('🔒 Para borrar '+detalle+' escribe la contraseña de borrado.\n\nEsto no se puede deshacer.');
+  if(clave===null)return false;
+  if(!String(clave).trim()){alert('Escribe la contraseña.');return false;}
+  try{
+    const r=await fetch(APPS_URL+'?accion=verificar_clave_borrado&clave='+encodeURIComponent(String(clave).trim())+'&t='+Date.now());
+    const j=await r.json();
+    if(j&&j.ok)return true;
+    if(j&&j.configurada===false){alert('Todavía no hay una contraseña de borrado configurada en el servidor. Pide que corran establecerClaveBorrarUbicacion() en Apps Script.');return false;}
+    alert('Contraseña incorrecta. No se borró nada.');
+    return false;
+  }catch(e){
+    alert('No se pudo verificar la contraseña (¿sin conexión o servidor sin actualizar?). No se borró nada.');
+    return false;
+  }
+}
+function detalleUbicacionPorId_(id){
+  let ubic=null;
+  Object.keys(ubicMap).forEach(function(key){
+    (ubicMap[key]||[]).forEach(function(u){if(u.id===id)ubic=u;});
+  });
+  return ubic?('la ubicación "'+ubic.ubicacion+'" de '+ubic.clave+' · lote '+ubic.lote):'esta ubicación';
+}
+async function borrarUbicacion(el){
   const id=el.dataset.id;
   if(!id)return;
+  // La ✕ está pegada al chip de la ubicación y se borraba con un toque
+  // accidental. Aplica en todas las pestañas porque todas usan este mismo
+  // chip (ubicRowHtml_).
+  if(!(await pedirClaveBorrarUbicacion_(detalleUbicacionPorId_(id))))return;
   borrarUbicacionPorId_(id);
 }
 // Misma lógica de borrado, separada del botón de la tarjeta para poder
