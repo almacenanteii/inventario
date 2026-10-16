@@ -623,6 +623,7 @@ header.h-dev{background:var(--tl)}
         <button id="btn-imprimir" class="menu-item" onclick="imprimirSemanaActual();cerrarMenusImprimir()">🖨️ Imprimir semana</button>
         <button id="btn-reporte" class="menu-item" onclick="generarReporteActual();cerrarMenusImprimir()">📄 Reporte F-AL-018</button>
         <button id="btn-reporte-excel" class="menu-item" onclick="exportarReporteExcelActual();cerrarMenusImprimir()">📊 Reporte F-AL-018 (Excel)</button>
+        <button id="btn-etiquetas-semana" class="menu-item" onclick="abrirEtiquetasConteo();cerrarMenusImprimir()">🏷️ Etiquetas de conteo (Zebra)</button>
         <button id="btn-verif-ajustes"class="menu-item" onclick="generarReporteVerificacionAjustesActual();cerrarMenusImprimir()">🔎 Verificación de ajustes pendientes</button>
         <button id="btn-atrasados-print" class="menu-item hidden" style="color:#C62828" onclick="imprimirAtrasados();cerrarMenusImprimir()">🔴 Atrasados</button>
       </div>
@@ -3532,6 +3533,181 @@ function generarReporteVerificacionAjustesActual(){
   generarReporteVerificacionAjustes(semana);
 }
 
+// ===== Etiqueta física de conteo cíclico (Zebra ZT410 300 dpi, 104 x 75.8 mm,
+// etiquetas con espacios -- medidas de "Propiedades de ZDesigner ZT410-300dpi
+// ZPL"). Se pega en el lote ya contado para que el conteo no sea solo
+// digital. Lleva: fecha del conteo, clave, descripción, clase (ABC), lote,
+// ubicación y el título "CONTEO CÍCLICO". Se imprime desde el diálogo de
+// impresión del navegador eligiendo la impresora Zebra: el @page ya fija el
+// tamaño exacto de la etiqueta, una etiqueta por página.
+function ultimoConteoLote_(clave,lote){
+  let mejor=null,mejorT=-1;
+  (cicHist||[]).forEach(function(h){
+    if(h.clave!==clave||h.lote!==lote)return;
+    const p=String(h.fecha||'').split(',')[0].trim().split('/');
+    const t=p.length===3?new Date(parseInt(p[2],10),parseInt(p[1],10)-1,parseInt(p[0],10)).getTime():0;
+    if(t>=mejorT){mejorT=t;mejor=h;}
+  });
+  return mejor;
+}
+function fechaHoyTxt_(){
+  const d=new Date();
+  return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
+}
+// Las etiquetas se imprimen ANTES de contar (la persona que cuenta escribe la
+// cantidad a mano), así que no necesitan un conteo previo. La fecha impresa es
+// la de HOY; solo si el lote ya tiene conteo se usa la fecha de ese conteo.
+function datosEtiquetaConteo_(clave,lote){
+  const p=(cicData||[]).find(function(x){return x.clave===clave&&x.lote===lote;});
+  if(!p)return null;
+  const uc=ultimoConteoLote_(clave,lote);
+  const sc=(SCHED||[]).find(function(s){return s.clave===clave;});
+  return {
+    fecha:uc?String(uc.fecha||'').split(',')[0].trim():fechaHoyTxt_(),
+    clave:clave,
+    desc:p.desc||'',
+    clase:(sc&&sc.abc)||p.abc||'',
+    lote:lote,
+    unidad:p.unidad||'',
+    ubic:ubicTexto_(clave,lote,p.almacen)||''
+  };
+}
+function htmlEtiquetaConteo_(d){
+  const fsClave=d.clave.length<=14?26:(d.clave.length<=18?22:18);
+  const fsLote=d.lote.length<=12?24:19;
+  return '<div class="etq">'
+    +'<div class="top"><span class="tit">CONTEO CÍCLICO</span><span class="cls">CLASE '+escAttr(d.clase||'—')+'</span></div>'
+    +'<div class="clave" style="font-size:'+fsClave+'pt">'+escAttr(d.clave)+'</div>'
+    +'<div class="desc">'+escAttr(d.desc)+'</div>'
+    +'<div class="lotefila"><span class="lbl">LOTE</span><span class="lote" style="font-size:'+fsLote+'pt">'+escAttr(d.lote)+'</span></div>'
+    +'<div class="pie"><span class="ub">UBIC: '+escAttr(d.ubic||'—')+'</span><span class="fe">'+escAttr(d.fecha)+'</span></div>'
+    +'<div class="cant"><span class="clbl">CANTIDAD CONTADA'+(d.unidad?' ('+escAttr(String(d.unidad).toUpperCase())+')':'')+'</span></div>'
+  +'</div>';
+}
+function imprimirEtiquetasConteo_(lista){
+  if(!lista.length){alert('No hay lotes contados para etiquetar.');return;}
+  const win=window.open('','_blank');
+  if(!win||!win.document){alert('No se pudo abrir la etiqueta. Permite ventanas emergentes para este sitio e inténtalo de nuevo.');return;}
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Etiqueta de conteo cíclico</title><style>'
+    +'@page{size:104mm 75.8mm;margin:0}'
+    +'*{box-sizing:border-box;margin:0;padding:0}html,body{width:104mm;background:#fff}'
+    +'body{font-family:Arial,Helvetica,sans-serif;color:#000}'
+    +'.etq{width:104mm;height:75.8mm;padding:2.5mm 4mm;page-break-after:always;overflow:hidden;display:flex;flex-direction:column}'
+    +'.etq:last-child{page-break-after:auto}'
+    +'.top{display:flex;justify-content:space-between;align-items:center;background:#000;color:#fff;padding:0.8mm 2.5mm;font-weight:900;font-size:12pt;letter-spacing:.5pt}'
+    +'.cls{border:1.2pt solid #fff;padding:0 2mm;font-size:12pt}'
+    +'.clave{font-weight:900;margin-top:1.5mm;line-height:1.05;word-break:break-all}'
+    +'.desc{font-size:10pt;font-weight:700;margin-top:0.8mm;line-height:1.1;max-height:9mm;overflow:hidden}'
+    +'.lotefila{display:flex;align-items:baseline;gap:2.5mm;margin-top:1.2mm}'
+    +'.lbl{font-size:9pt;font-weight:700;color:#333}'
+    +'.lote{font-weight:900;line-height:1.05;word-break:break-all}'
+    +'.pie{display:flex;justify-content:space-between;align-items:flex-end;border-top:1.2pt solid #000;margin-top:1.2mm;padding-top:1mm;font-size:11pt;font-weight:800}'
+    +'.ub{max-width:64mm;line-height:1.1}.fe{font-size:12pt;font-weight:900}'
+    +'.cant{flex:1;border:1.6pt solid #000;margin-top:1.5mm;padding:0.8mm 2mm;min-height:17mm}'
+    +'.clbl{font-size:8pt;font-weight:800;letter-spacing:.3pt}'
+    +'</style></head><body>'
+    +lista.map(htmlEtiquetaConteo_).join('')
+    +'<script>window.onload=function(){window.print();}<\/script></body></html>');
+  win.document.close();
+  win.focus();
+}
+// Botón "🏷️ Etiqueta" de cada lote (contado o no).
+function imprimirEtiquetaConteo(el){
+  const d=datosEtiquetaConteo_(el.dataset.clave,el.dataset.lote);
+  if(!d){alert('No se encontró este lote.');return;}
+  imprimirEtiquetasConteo_([d]);
+}
+
+// Lotes de la semana en curso (todos los lotes de las claves programadas esa
+// semana). soloPendientes=true deja fuera los que ya tienen conteo. Los
+// Agotados no se etiquetan (no hay nada físico que contar).
+function lotesSemanaParaEtiqueta_(semana,soloPendientes){
+  const claves=new Set(getSchedForSemana(semana).map(function(s){return s.clave;}));
+  const histKeys={};
+  (cicHist||[]).forEach(function(h){histKeys[h.clave+'|'+h.lote]=true;});
+  return ordenarPorClave_((cicData||[]).filter(function(p){
+    if(!claves.has(p.clave)||p.estatus==='Agotado')return false;
+    return soloPendientes?!histKeys[p.clave+'|'+p.lote]:true;
+  }));
+}
+// Atrasados: misma regla de imprimirAtrasados() -- ya venció su semana, nunca
+// se ha contado y no está excluido. Orden de conteo recomendado: clase A
+// primero y luego más días de atraso.
+function lotesAtrasadosParaEtiqueta_(){
+  const hoy=new Date(); hoy.setHours(0,0,0,0);
+  const histKeys={};
+  (cicHist||[]).forEach(function(h){histKeys[h.clave+'|'+h.lote]=true;});
+  const peso={'A':3,'B':2,'C':1};
+  const out=[];
+  (cicData||[]).forEach(function(p){
+    if(p.estatus==='Agotado')return;
+    const k=p.clave+'|'+p.lote;
+    if(histKeys[k]||atrasadosExcluidos[k])return;
+    const si=(SCHED||[]).find(function(s){return s.clave===p.clave;});
+    const fin=si?parseFechaSimple(si.fecha_fin):null;
+    if(!(fin&&fin<hoy))return;
+    out.push({p:p,abc:si.abc,dias:Math.round((hoy-fin)/864e5)});
+  });
+  out.sort(function(a,b){return (peso[b.abc]||0)-(peso[a.abc]||0)||b.dias-a.dias||String(a.p.clave).localeCompare(String(b.p.clave));});
+  return out.map(function(x){return x.p;});
+}
+// Arma la lista de etiquetas según lo elegido (sin duplicar un lote si cae en
+// semana en curso y también en atrasados).
+function listaEtiquetasConteo_(modo,soloPendientes){
+  const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
+  let lotes=[];
+  if(modo==='semana'||modo==='ambos')lotes=lotes.concat(lotesSemanaParaEtiqueta_(semana,soloPendientes));
+  if(modo==='atrasados'||modo==='ambos')lotes=lotes.concat(lotesAtrasadosParaEtiqueta_());
+  const vistos={};
+  const res=[];
+  lotes.forEach(function(p){
+    const k=p.clave+'|'+p.lote;
+    if(vistos[k])return;vistos[k]=true;
+    const d=datosEtiquetaConteo_(p.clave,p.lote);
+    if(d)res.push(d);
+  });
+  return res;
+}
+// Menú Imprimir ▾ -> ventana para elegir qué etiquetas sacar.
+function abrirEtiquetasConteo(){
+  const old=document.getElementById('etq-conteo-modal');if(old)old.remove();
+  const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
+  const nSem=lotesSemanaParaEtiqueta_(semana,true).length;
+  const nAtr=lotesAtrasadosParaEtiqueta_().length;
+  const ov=document.createElement('div');
+  ov.id='etq-conteo-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:400px;width:100%">'
+    +'<div style="font-size:16px;font-weight:800;margin-bottom:4px">🏷️ Etiquetas de conteo (Zebra)</div>'
+    +'<div style="font-size:11.5px;color:#666;margin-bottom:12px">Una etiqueta por lote, con espacio para anotar la cantidad contada a mano.</div>'
+    +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="semana" checked> Semana en curso (sem. '+semana+')</label>'
+    +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="atrasados"> Atrasados</label>'
+    +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="ambos"> Semana en curso + atrasados</label>'
+    +'<label style="display:block;font-size:12.5px;margin:12px 0 4px;padding-top:10px;border-top:1px solid #eee"><input type="checkbox" id="etq-solo-pend" checked> Solo los que faltan por contar</label>'
+    +'<div id="etq-resumen" style="font-size:12px;color:#1F4E79;font-weight:700;margin:6px 0 12px"></div>'
+    +'<div style="display:flex;gap:8px">'
+      +'<button id="etq-btn-imprimir" style="flex:1;padding:10px;border:none;border-radius:8px;background:#1F4E79;color:#fff;font-weight:700;cursor:pointer">🖨️ Imprimir</button>'
+      +'<button id="etq-btn-cancelar" style="padding:10px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer">Cancelar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  const modo=function(){const r=ov.querySelector('input[name="etq-modo"]:checked');return r?r.value:'semana';};
+  const solo=function(){return ov.querySelector('#etq-solo-pend').checked;};
+  const actualizar=function(){
+    const n=listaEtiquetasConteo_(modo(),solo()).length;
+    ov.querySelector('#etq-resumen').textContent=n+' etiqueta'+(n===1?'':'s')+' por imprimir';
+  };
+  ov.querySelectorAll('input').forEach(function(i){i.addEventListener('change',actualizar);});
+  ov.querySelector('#etq-btn-cancelar').onclick=function(){ov.remove();};
+  ov.querySelector('#etq-btn-imprimir').onclick=function(){
+    const lista=listaEtiquetasConteo_(modo(),solo());
+    if(!lista.length){alert('No hay lotes para etiquetar con esa selección.');return;}
+    if(lista.length>1&&!confirm('Se van a imprimir '+lista.length+' etiquetas. ¿Continuar?'))return;
+    ov.remove();
+    imprimirEtiquetasConteo_(lista);
+  };
+  actualizar();
+}
+
 function marcarAjustado(btn){
   const wrap=btn.closest('[data-clave]')||btn.parentElement;
   const clave=btn.dataset.clave;
@@ -5038,6 +5214,7 @@ function _renderCicData(){
             (contado?' &nbsp;<span class="'+diffCls+'">→ '+cantNum.toLocaleString('en-US')+(diffStr?' ('+diffStr+')':'')+'</span>':'')+
           '</div>'+
           (contado?'<div style="font-size:10px;color:#b0b0b0;margin-top:2px">'+ultimo.fecha+(ultimo.registrado?' · '+ultimo.registrado:'')+'</div>':'')+
+          (!agotado?'<div class="etq-btn" data-clave="'+escAttr(p.clave)+'" data-lote="'+escAttr(p.lote)+'" onclick="imprimirEtiquetaConteo(this)" style="display:inline-block;margin-top:4px;padding:3px 9px;border:1.5px solid #1F4E79;border-radius:6px;color:#1F4E79;font-size:11px;font-weight:700;cursor:pointer">🏷️ Etiqueta</div>':'')+
           (bloqueoAjuste&&!agotado?'<div style="font-size:10px;color:#C62828;margin-top:2px">🔒 Ya se ajustó — bloqueado para recontar hasta '+bloqueoTxt+'</div>':'')+
           (numAjustes>=2&&!agotado?'<div style="font-size:10px;color:#E65100;font-weight:700;margin-top:2px">⚠️ '+numAjustes+'º ajuste en este lote — repórtalo a jefe de almacén</div>':'')+
         '</div>'+
