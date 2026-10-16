@@ -3437,6 +3437,7 @@ function generarReporteVerificacionAjustes(semana){
       '<td style="padding:5px 6px;font-size:9px;text-align:center;color:#666">'+escAttr(fechaConteo)+'</td>'+
       '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:700">'+fnum(existActual)+'</td>'+
       '<td style="padding:5px 6px;font-size:10px;text-align:right;color:'+((tieneSnap&&Math.abs(movido)>0.01)?'#C62828':'#666')+'">'+(tieneSnap?fsig(movido):'—')+'</td>'+
+      '<td style="padding:5px 6px;font-size:10px;text-align:right;font-weight:800;color:#1F4E79">'+(tieneSnap?fnum(Math.round((existActual+ajuste)*1000)/1000):'—')+'</td>'+
       '<td style="padding:5px 6px;text-align:center"><span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:9px;font-weight:800;color:'+estadoColor+';background:'+estadoBg+'">'+estadoTxt+'</span></td>'+
       '</tr>';
     num++;
@@ -3494,12 +3495,14 @@ function generarReporteVerificacionAjustes(semana){
         <th style="width:65px;text-align:center">Fecha Conteo</th>
         <th style="width:65px;text-align:right">SAI actual</th>
         <th style="width:65px;text-align:right">Mov. desde conteo</th>
+        <th style="width:75px;text-align:right">SAI actual + ajuste</th>
         <th style="width:105px;text-align:center">Estado</th>
       </tr></thead>
       <tbody>${filasHtml}</tbody>
     </table>
     <div style="font-size:9px;color:#666;margin:-4px 0 8px;line-height:1.5">
       <b>Ajuste pendiente</b> = Cant. Contada − SAI al contar. <b>Mov. desde conteo</b> = SAI actual − SAI al contar (lo que se movió después de contar).
+      <b>SAI actual + ajuste</b> = SAI actual + Ajuste pendiente: la existencia que quedaría en SAI si se aplica el mismo ajuste sobre la existencia de hoy (equivale a Cant. Contada + Mov. desde conteo).
       <b>Vigente</b>: SAI sigue igual que al contar, el ajuste se puede aplicar. <b>Ya no vigente</b>: SAI se movió, recontar antes de ajustar.
       <b>Ya ajustado</b>: SAI actual ya es igual a lo contado. <b>Sin dato</b>: conteo anterior al registro de "SAI al contar".
     </div>
