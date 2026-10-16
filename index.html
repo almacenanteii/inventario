@@ -624,7 +624,8 @@ header.h-dev{background:var(--tl)}
         <button id="btn-reporte" class="menu-item" onclick="generarReporteActual();cerrarMenusImprimir()">📄 Reporte F-AL-018</button>
         <button id="btn-reporte-excel" class="menu-item" onclick="exportarReporteExcelActual();cerrarMenusImprimir()">📊 Reporte F-AL-018 (Excel)</button>
         <button id="btn-etiquetas-semana" class="menu-item" onclick="abrirEtiquetasConteo();cerrarMenusImprimir()">🏷️ Etiquetas de conteo (Zebra)</button>
-        <button id="btn-precierre-fmt" class="menu-item" onclick="generarFormatoPrecierre();cerrarMenusImprimir()">🎯 Formato Pre-cierre clase C</button>
+        <button id="btn-precierre-fmt" class="menu-item" onclick="abrirPrecierre_('formato');cerrarMenusImprimir()">🎯 Formato Pre-cierre clase C</button>
+        <button id="btn-precierre-etq" class="menu-item" onclick="abrirPrecierre_('etiquetas');cerrarMenusImprimir()">🏷️ Etiquetas Pre-cierre clase C (Zebra)</button>
         <button id="btn-precierre-xls" class="menu-item" onclick="exportarPrecierreExcel();cerrarMenusImprimir()">📊 Pre-cierre clase C (Excel)</button>
         <button id="btn-verif-ajustes"class="menu-item" onclick="generarReporteVerificacionAjustesActual();cerrarMenusImprimir()">🔎 Verificación de ajustes pendientes</button>
         <button id="btn-atrasados-print" class="menu-item hidden" style="color:#C62828" onclick="imprimirAtrasados();cerrarMenusImprimir()">🔴 Atrasados</button>
@@ -3569,13 +3570,81 @@ function claseLote_(p){
   const sc=(SCHED||[]).find(function(s){return s.clave===p.clave;});
   return String((sc&&sc.abc)||p.abc||'').toUpperCase();
 }
-function lotesPrecierre_(soloPendientes){
+// Rack de un lote = número al inicio de su (primera) ubicación, ej. "05C08" -> 5.
+// 0 = sin ubicación. Un lote con varias ubicaciones cae en el rack de la primera,
+// así no sale repetido en dos tandas.
+function rackDeLote_(p){
+  const t=String(ubicTexto_(p.clave,p.lote,p.almacen)||'').split(',')[0].trim();
+  const m=t.match(/^0*(\d+)/);
+  return m?parseInt(m[1],10):0;
+}
+// racks: arreglo de números de rack (0 = sin ubicación); undefined = todos.
+// Con racks, se ordena por ubicación (recorrido del almacén).
+function lotesPrecierre_(soloPendientes,racks){
   const histKeys={};
   (cicHist||[]).forEach(function(h){histKeys[h.clave+'|'+h.lote]=true;});
-  return ordenarPorClave_((cicData||[]).filter(function(p){
+  const lista=(cicData||[]).filter(function(p){
     if(claseLote_(p)!=='C'||p.estatus==='Agotado')return false;
-    return soloPendientes?!histKeys[p.clave+'|'+p.lote]:true;
-  }));
+    if(soloPendientes&&histKeys[p.clave+'|'+p.lote])return false;
+    if(racks&&racks.indexOf(rackDeLote_(p))<0)return false;
+    return true;
+  });
+  if(!racks)return ordenarPorClave_(lista);
+  const u=function(p){return String(ubicTexto_(p.clave,p.lote,p.almacen)||'').split(',')[0].trim();};
+  return lista.sort(function(a,b){
+    const ra=rackDeLote_(a)||99,rb=rackDeLote_(b)||99;
+    return ra-rb||u(a).localeCompare(u(b))||String(a.clave).localeCompare(String(b.clave))||String(a.lote).localeCompare(String(b.lote));
+  });
+}
+// Ventana para elegir qué racks sacar (formato o etiquetas del pre-cierre).
+function abrirPrecierre_(accion){
+  const old=document.getElementById('precierre-modal');if(old)old.remove();
+  const pend=lotesPrecierre_(true);
+  const cuenta={};
+  pend.forEach(function(p){const r=rackDeLote_(p);cuenta[r]=(cuenta[r]||0)+1;});
+  const racks=Object.keys(cuenta).map(Number).filter(function(r){return r>0;}).sort(function(a,b){return a-b;});
+  const ov=document.createElement('div');
+  ov.id='precierre-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+  const fila=function(r,txt){
+    return '<label style="display:flex;justify-content:space-between;font-size:13px;margin:5px 0"><span><input type="checkbox" class="pc-rack" value="'+r+'"> '+txt+'</span><b>'+cuenta[r]+'</b></label>';
+  };
+  ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:400px;width:100%;max-height:90vh;overflow:auto">'
+    +'<div style="font-size:16px;font-weight:800;margin-bottom:4px">🎯 Pre-cierre clase C · '+(accion==='etiquetas'?'Etiquetas (Zebra)':'Formato')+'</div>'
+    +'<div style="font-size:11.5px;color:#666;margin-bottom:10px">Elige los racks a sacar. Lotes pendientes por rack:</div>'
+    +(racks.map(function(r){return fila(r,'Rack '+String(r).padStart(2,'0'));}).join('')||'')
+    +(cuenta[0]?fila(0,'Sin ubicación'):'')
+    +(!racks.length&&!cuenta[0]?'<div style="font-size:13px;color:#2E7D32;font-weight:700">No quedan lotes clase C por contar.</div>':'')
+    +'<label style="display:block;font-size:12.5px;margin:10px 0 4px;padding-top:8px;border-top:1px solid #eee"><input type="checkbox" id="pc-solo" checked> Solo los que faltan por contar</label>'
+    +'<div style="margin:4px 0"><a href="#" id="pc-todos" style="font-size:12px">Seleccionar todos</a></div>'
+    +'<div id="pc-resumen" style="font-size:12px;color:#1F4E79;font-weight:700;margin:6px 0 12px"></div>'
+    +'<div style="display:flex;gap:8px">'
+      +'<button id="pc-btn-imprimir" style="flex:1;padding:10px;border:none;border-radius:8px;background:#1F4E79;color:#fff;font-weight:700;cursor:pointer">🖨️ Imprimir</button>'
+      +'<button id="pc-btn-cancelar" style="padding:10px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer">Cancelar</button>'
+    +'</div></div>';
+  document.body.appendChild(ov);
+  const sel=function(){return Array.from(ov.querySelectorAll('.pc-rack')).filter(function(c){return c.checked;}).map(function(c){return parseInt(c.value,10);});};
+  const solo=function(){return ov.querySelector('#pc-solo').checked;};
+  const actualizar=function(){
+    const r=sel();const n=r.length?lotesPrecierre_(solo(),r).length:0;
+    ov.querySelector('#pc-resumen').textContent=n+' lote'+(n===1?'':'s')+' por imprimir';
+  };
+  ov.querySelectorAll('input').forEach(function(i){i.addEventListener('change',actualizar);});
+  ov.querySelector('#pc-todos').onclick=function(e){e.preventDefault();ov.querySelectorAll('.pc-rack').forEach(function(c){c.checked=true;});actualizar();};
+  ov.querySelector('#pc-btn-cancelar').onclick=function(){ov.remove();};
+  ov.querySelector('#pc-btn-imprimir').onclick=function(){
+    const r=sel();
+    if(!r.length){alert('Selecciona al menos un rack.');return;}
+    const n=lotesPrecierre_(solo(),r).length;
+    if(!n){alert('No hay lotes para imprimir con esa selección.');return;}
+    ov.remove();
+    if(accion==='etiquetas'){
+      const lista=listaEtiquetasConteo_('precierre',solo(),r);
+      if(lista.length>1&&!confirm('Se van a imprimir '+lista.length+' etiquetas. ¿Continuar?'))return;
+      imprimirEtiquetasConteo_(lista);
+    }else generarFormatoPrecierre(r,solo());
+  };
+  actualizar();
 }
 function statsPrecierre_(){
   const todos=lotesPrecierre_(false),pend=lotesPrecierre_(true);
@@ -3589,13 +3658,14 @@ function actualizarChipPrecierre_(){
   const st=statsPrecierre_();
   c.textContent='🎯 Pre-cierre C ('+st.lotesPend+' por contar de '+st.lotes+')';
 }
-function generarFormatoPrecierre(){
+function generarFormatoPrecierre(racks,soloPend){
   // Mismo formato que "Imprimir semana" (logo, tabla SAI / Conteo físico /
   // Observaciones, pie de firmas); solo cambia el título y los lotes (todos
   // los de clase C). Los ya contados salen sombreados con cantidad y fecha.
-  const lotes=lotesPrecierre_(false);
+  const lotes=lotesPrecierre_(!!soloPend,racks);
   if(!lotes.length){alert('No hay lotes clase C para el pre-cierre.');return;}
-  const st=statsPrecierre_();
+  const st={lotesCont:lotes.filter(function(p){return !!ultimoConteoLote_(p.clave,p.lote);}).length};
+  const racksTxt=racks?racks.map(function(r){return r?'Rack '+String(r).padStart(2,'0'):'Sin ubicación';}).join(', '):'';
   const rows=lotes.map(function(p){
     const ultimo=ultimoConteoLote_(p.clave,p.lote);
     const ubicTxt=ubicTexto_(p.clave,p.lote,p.almacen);
@@ -3636,7 +3706,7 @@ function generarFormatoPrecierre(){
       <div class="meta">
         <div style="font-weight:700;font-size:13px;color:#E8671A">Conteo Pre-cierre · Clase C</div>
         <div>Fecha impresión: ${new Date().toLocaleDateString('es-MX')}</div>
-        <div>${lotes.length} registros · Clase C</div>
+        <div>${lotes.length} registros · Clase C${racksTxt?' · '+racksTxt:''}</div>
         <div style="font-weight:800;margin-top:2px;color:${st.lotesCont>0?'#2E7D32':'#666'}">${st.lotesCont} de ${lotes.length} lotes ya capturados</div>
       </div>
     </div>
@@ -3704,7 +3774,7 @@ function htmlEtiquetaConteo_(d){
     +'<div class="lotefila"><span class="lbl">LOTE</span><span class="lote" style="font-size:'+fsLote+'pt">'+escAttr(d.lote)+'</span></div>'
     +'<div class="pie"><span class="ub">UBIC: '+escAttr(d.ubic||'—')+'</span><span class="fe">'+escAttr(d.fecha)+'</span></div>'
     +'<div class="cant"><span class="clbl">CANTIDAD CONTADA'+(d.unidad?' ('+escAttr(String(d.unidad).toUpperCase())+')':'')+'</span></div>'
-    +'<div class="firma"><span class="clbl">FIRMA:</span></div>'
+    +'<div class="firmas"><div class="firma"><span class="clbl">FIRMA:</span></div><div class="firma"><span class="clbl">REVISÓ:</span></div></div>'
   +'</div>';
 }
 function imprimirEtiquetasConteo_(lista){
@@ -3727,7 +3797,7 @@ function imprimirEtiquetasConteo_(lista){
     +'.pie{display:flex;justify-content:space-between;align-items:flex-end;border-top:1.2pt solid #000;margin-top:1.2mm;padding-top:1mm;font-size:11pt;font-weight:800}'
     +'.ub{max-width:64mm;line-height:1.1}.fe{font-size:12pt;font-weight:900}'
     +'.cant{flex:1;border:1.6pt solid #000;margin-top:1.5mm;padding:0.8mm 2mm;min-height:11mm}'
-    +'.firma{height:8mm;border-bottom:1.2pt solid #000;margin-top:1.5mm;padding-top:0.5mm}'
+    +'.firmas{display:flex;gap:4mm;margin-top:1.5mm}.firma{flex:1;height:8mm;border-bottom:1.2pt solid #000;padding-top:0.5mm}'
     +'.clbl{font-size:8pt;font-weight:800;letter-spacing:.3pt}'
     +'</style></head><body>'
     +lista.map(htmlEtiquetaConteo_).join('')
@@ -3778,12 +3848,12 @@ function lotesAtrasadosParaEtiqueta_(){
 }
 // Arma la lista de etiquetas según lo elegido (sin duplicar un lote si cae en
 // semana en curso y también en atrasados).
-function listaEtiquetasConteo_(modo,soloPendientes){
+function listaEtiquetasConteo_(modo,soloPendientes,racks){
   const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
   let lotes=[];
   if(modo==='semana'||modo==='ambos')lotes=lotes.concat(lotesSemanaParaEtiqueta_(semana,soloPendientes));
   if(modo==='atrasados'||modo==='ambos')lotes=lotes.concat(lotesAtrasadosParaEtiqueta_());
-  if(modo==='precierre')lotes=lotesPrecierre_(soloPendientes);
+  if(modo==='precierre')lotes=lotesPrecierre_(soloPendientes,racks);
   const vistos={};
   const res=[];
   lotes.forEach(function(p){
@@ -3806,10 +3876,9 @@ function abrirEtiquetasConteo(){
   ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:400px;width:100%">'
     +'<div style="font-size:16px;font-weight:800;margin-bottom:4px">🏷️ Etiquetas de conteo (Zebra)</div>'
     +'<div style="font-size:11.5px;color:#666;margin-bottom:12px">Una etiqueta por lote, con espacio para anotar la cantidad contada a mano.</div>'
-    +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="semana"'+(fCic==='PRECIERRE'?'':' checked')+'> Semana en curso (sem. '+semana+')</label>'
+    +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="semana" checked> Semana en curso (sem. '+semana+')</label>'
     +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="atrasados"> Atrasados</label>'
     +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="ambos"> Semana en curso + atrasados</label>'
-    +'<label style="display:block;font-size:13px;margin:6px 0;color:#6A1B9A;font-weight:700"><input type="radio" name="etq-modo" value="precierre"'+(fCic==='PRECIERRE'?' checked':'')+'> 🎯 Pre-cierre clase C (cierre de diciembre)</label>'
     +'<label style="display:block;font-size:12.5px;margin:12px 0 4px;padding-top:10px;border-top:1px solid #eee"><input type="checkbox" id="etq-solo-pend" checked> Solo los que faltan por contar</label>'
     +'<div id="etq-resumen" style="font-size:12px;color:#1F4E79;font-weight:700;margin:6px 0 12px"></div>'
     +'<div style="display:flex;gap:8px">'
