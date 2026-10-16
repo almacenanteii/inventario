@@ -627,6 +627,7 @@ header.h-dev{background:var(--tl)}
         <button id="btn-imprimir" class="menu-item" onclick="imprimirSemanaActual();cerrarMenusImprimir()">🖨️ Imprimir semana</button>
         <button id="btn-reporte" class="menu-item" onclick="generarReporteActual();cerrarMenusImprimir()">📄 Reporte F-AL-018</button>
         <button id="btn-reporte-excel" class="menu-item" onclick="exportarReporteExcelActual();cerrarMenusImprimir()">📊 Reporte F-AL-018 (Excel)</button>
+        <button id="btn-txt-sai" class="menu-item" onclick="exportarTxtSaiActual();cerrarMenusImprimir()">📤 TXT para SAI (cantidades contadas de la semana)</button>
         <button id="btn-etiquetas-semana" class="menu-item" onclick="abrirEtiquetasConteo();cerrarMenusImprimir()">🏷️ Etiquetas de conteo (Zebra)</button>
         <button id="btn-precierre-fmt" class="menu-item" onclick="abrirPrecierre_('formato');cerrarMenusImprimir()">🎯 Formato Pre-cierre clase C</button>
         <button id="btn-precierre-etq" class="menu-item" onclick="abrirPrecierre_('etiquetas');cerrarMenusImprimir()">🏷️ Etiquetas Pre-cierre clase C (Zebra)</button>
@@ -4160,6 +4161,42 @@ function exportarReporteExcel(semana){
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+// ===== TXT para cargar a SAI =====
+// Formato de ancho fijo (mismo que INVENTARIOSENTRADAS2024.txt): almacén en 10
+// columnas, clave en 20, y lote + cantidad en las 48 siguientes con la cantidad
+// pegada a la derecha (línea de 78 caracteres), cantidad con 4 decimales y
+// fin de línea CRLF. La cantidad es la CONTADA físicamente (nunca negativa).
+const TXT_SAI_ANCHO_=75; // columna donde termina la cantidad (ancho total de la línea)
+function lineaTxtSai_(almacen,clave,lote,cantidad){
+  const alm=String(almacen||'EYEJAL').replace(/\s+/g,'');
+  const q=Math.max(0,Number(cantidad)||0).toFixed(4);
+  const cl=String(clave).trim(),lo=String(lote).trim();
+  const medio=Math.max(1,(TXT_SAI_ANCHO_-30)-lo.length-q.length);
+  return alm.padEnd(10)+cl.padEnd(20)+lo+' '.repeat(medio)+q;
+}
+function exportarTxtSai(semana){
+  const items=getSchedForSemana(semana);
+  if(!items.length){alert('No hay claves asignadas para la semana '+semana);return;}
+  const clavesSem=new Set(items.map(function(s){return s.clave;}));
+  const lotesSem=ordenarPorClave_(cicData.filter(function(p){return clavesSem.has(p.clave);}));
+  const lineas=[],largos=[];let sinConteo=0;
+  lotesSem.forEach(function(p){
+    const u=ultimoConteoLote_(p.clave,p.lote);
+    if(!u||isNaN(parseFloat(u.cantidad))){sinConteo++;return;}
+    if(String(p.clave).trim().length>19||String(p.lote).trim().length>30)largos.push(p.clave+' · '+p.lote);
+    lineas.push(lineaTxtSai_(p.almacen,p.clave,p.lote,parseFloat(u.cantidad)));
+  });
+  if(!lineas.length){alert('Ningún lote de la semana '+semana+' tiene conteo todavía.');return;}
+  if(largos.length&&!confirm('Estas claves/lotes son más largos que el ancho de columna y quedarían pegados: '+largos.join(', ')+'. ¿Generar el TXT de todos modos?'))return;
+  if(sinConteo&&!confirm(lineas.length+' lotes con conteo van en el TXT; '+sinConteo+' lote(s) de la semana aún sin contar NO se incluyen. ¿Continuar?'))return;
+  const blob=new Blob([lineas.join('\r\n')+'\r\n'],{type:'text/plain;charset=us-ascii'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='INVENTARIOS_SEM'+semana+'_'+new Date().toISOString().slice(0,10)+'.txt';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+function exportarTxtSaiActual(){
+  exportarTxtSai(fCicSemana===0?getCurrentSemana():fCicSemana);
 }
 function exportarReporteExcelActual(){
   const semana=fCicSemana===0?getCurrentSemana():fCicSemana;
