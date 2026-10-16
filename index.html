@@ -552,9 +552,12 @@ header.h-dev{background:var(--tl)}
       <button id="btn-inv-imprimir-toggle" onclick="toggleImprimirMenuInv(event)" style="background:#fff;color:var(--or);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Imprimir ▾ <span id="inv-print-clave-lbl"></span></button>
       <div id="inv-imprimir-menu" class="print-menu hidden">
         <button class="menu-item" onclick="imprimirFormatoConteoSel();cerrarMenusImprimir()">🖨️ Formato de conteo (clave seleccionada)</button>
+        <button class="menu-item" id="btn-inv-etiquetas" onclick="imprimirEtiquetasConteoSel();cerrarMenusImprimir()">🏷️ Etiquetas de conteo (Zebra) de lo seleccionado</button>
         <button class="menu-item" onclick="imprimirClaveCompletaSel();cerrarMenusImprimir()">🖨️ Imprimir clave completa (lotes + ubicaciones)</button>
         <button class="menu-item" onclick="imprimirCaratulasLotesSel();cerrarMenusImprimir()">🖨️ Imprimir carátula(s) de lote(s) seleccionados</button>
         <button class="menu-item" onclick="imprimirBitacoraUbicaciones();cerrarMenusImprimir()">🖨️ Bitácora de ubicaciones</button>
+        <button class="menu-item" id="btn-sinubic-fmt" onclick="imprimirLotesSinUbicacion();cerrarMenusImprimir()">📍 Lotes sin ubicación (imprimir)</button>
+        <button class="menu-item" id="btn-sinubic-xls" onclick="exportarLotesSinUbicacion();cerrarMenusImprimir()">📊 Lotes sin ubicación (Excel)</button>
         <button class="menu-item" onclick="verUbicacionesHuerfanas();cerrarMenusImprimir()">🗑️ Ubicaciones huérfanas (limpiar)</button>
         <button class="menu-item" style="color:#999" onclick="limpiarSeleccionInv()">✕ Quitar selección</button>
       </div>
@@ -576,6 +579,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="40PT">40 PT</div>
     <div class="chip" data-f="REPROJAL">REPROJAL</div>
     <div class="chip" data-f="DEV" title="Claves con algo en DEV -- pendiente de traspaso a EYEJAL">📦 DEV</div>
+    <div class="chip chip-tog" id="chip-sinubic" title="Lotes con existencia que no tienen ubicación asignada (se puede combinar con el almacén)">📍 Sin ubicación</div>
   </div>
 </header>
 
@@ -1037,6 +1041,29 @@ header.h-dev{background:var(--tl)}
 
 
 <script>
+// Numeración de páginas ("Página X de Y") en TODOS los formatos que se imprimen
+// desde una ventana nueva. Se inyecta al escribir el documento, así los
+// formatos actuales y futuros la traen sin repetir código. Se omiten las
+// etiquetas Zebra (una por página, sin margen) y las carátulas (class="linea").
+const PG_NUM_STYLE_='<style>@page{@bottom-right{content:"Página " counter(page) " de " counter(pages);font-family:Arial,sans-serif;font-size:9px;color:#555}}</style>';
+function agregarNumPagina_(h){
+  if(typeof h!=='string'||h.indexOf('<html')<0)return h;
+  if(h.indexOf('104mm 75.8mm')>=0||h.indexOf('class="linea"')>=0||h.indexOf('PG_NUM_OFF')>=0)return h;
+  return h.indexOf('</head>')>=0?h.replace('</head>',PG_NUM_STYLE_+'</head>'):h.replace(/<html[^>]*>/,function(m){return m+'<head>'+PG_NUM_STYLE_+'</head>';});
+}
+(function(){
+  const _open=window.open;
+  window.open=function(){
+    const w=_open.apply(window,arguments);
+    try{
+      if(w&&w.document&&typeof w.document.write==='function'){
+        const dw=w.document.write.bind(w.document);
+        w.document.write=function(h){return dw(agregarNumPagina_(h));};
+      }
+    }catch(e){}
+    return w;
+  };
+})();
 const ACTUAL=[];
 let ACTUAL_LOADED=[];
 let ubicMap={};
@@ -1070,6 +1097,7 @@ ACTUAL.forEach(r=>{
 });
 // ALL_A built dynamically in buildAllA()
 
+let fInvSinUbic=false;
 let tab='inv',fInv='TODOS',fAbc='TODOS',fEmb='TODOS',sInv='',sAbc='',sEmb='';
 // Ubicaciones bloqueadas (ocupadas por otro departamento, no por tu
 // inventario) -- se cargan aparte de ubicMap, nunca se mezclan con las
@@ -1159,6 +1187,51 @@ function toggleImprimirMenuInv(e){
   const abrir=m.classList.contains('hidden');
   cerrarMenusImprimir();
   if(abrir)m.classList.remove('hidden');
+}
+// Misma etiqueta Zebra de Cíclicos (una por lote), para las claves/lotes que
+// estén seleccionados en Inventario. Si se marcó una clave completa salen
+// todos sus lotes con existencia; si se marcaron lotes sueltos, solo esos.
+async function imprimirEtiquetasConteoSel(){
+  const ALL_A=window._ALL_A||[];
+  const vistos={},lista=[];
+  const agregar=function(p,l){
+    if(!l||l.esSoloDev)return;
+    const almU=(l.almacen||'').toUpperCase();
+    const k=p.clave+'|'+l.lote+'|'+almU;
+    if(vistos[k])return;vistos[k]=true;
+    lista.push({p:p,l:l});
+  };
+  Array.from(invLoteSel).forEach(function(key){
+    try{
+      const par=JSON.parse(key);
+      const p=ALL_A.find(function(x){return x.clave===par[0];});
+      if(!p)return;
+      agregar(p,p.lotes.find(function(x){return x.lote===par[1]&&(x.almacen||'').toUpperCase()===(par[2]||'');}));
+    }catch(e){}
+  });
+  Array.from(invClaveSel).forEach(function(clave){
+    const p=ALL_A.find(function(x){return x.clave===clave;});
+    if(!p)return;
+    p.lotes.forEach(function(l){if(Number(l.exist)>0)agregar(p,l);});
+  });
+  if(!lista.length){alert('Selecciona una o más claves (o lotes) en Inventario para imprimir sus etiquetas de conteo.');return;}
+  // La clase (ABC) sale de Cíclicos; si aún no se ha cargado, se carga antes.
+  if(!cicLoaded){try{await loadCic();}catch(e){}}
+  const datos=lista.map(function(x){
+    const clave=x.p.clave,lote=x.l.lote,almU=(x.l.almacen||'').toUpperCase();
+    const sc=(SCHED||[]).find(function(s){return s.clave===clave;});
+    const ci=(cicData||[]).find(function(c){return c.clave===clave;});
+    const uc=ultimoConteoLote_(clave,lote);
+    return {
+      fecha:uc?String(String(uc.fecha||'').split(',')[0].trim()).split('/').map(function(v,i){return i<2?v.padStart(2,'0'):v;}).join('/'):fechaHoyTxt_(),
+      clave:clave,desc:x.p.desc||'',
+      clase:(sc&&sc.abc)||(ci&&ci.abc)||'',
+      lote:lote,unidad:x.l.unidad||'',
+      ubic:ubicTexto_(clave,lote,almU)||''
+    };
+  });
+  if(datos.length>1&&!confirm('Se van a imprimir '+datos.length+' etiquetas. ¿Continuar?'))return;
+  imprimirEtiquetasConteo_(datos);
 }
 function imprimirFormatoConteoSel(){
   // Bug reportado: si seleccionas lotes tocando el chip del LOTE (invLoteSel)
@@ -1577,6 +1650,95 @@ function smartMatch(text, query){
   });
 }
 
+// Lote con existencia real y sin ninguna ubicación asignada (para ese almacén).
+function loteSinUbic_(clave,l){
+  if(!l||l.esSoloDev||!(Number(l.exist)>0))return false;
+  return !ubicTexto_(clave,l.lote,(l.almacen||'').toUpperCase());
+}
+// Lista plana de lotes sin ubicación; respeta el chip de almacén (si hay uno).
+function lotesSinUbicacion_(){
+  const ALMS=['EYEJAL','40EYE','PANALAB','40PT','PTJAL','PTFGUAD','REPROJAL'];
+  const out=[];
+  (window._ALL_A||[]).forEach(function(p){
+    p.lotes.forEach(function(l){
+      if(ALMS.includes(fInv)&&String(l.almacen||'').replace(/\s+/g,'')!==fInv)return;
+      if(loteSinUbic_(p.clave,l))out.push({p:p,l:l});
+    });
+  });
+  out.sort(function(a,b){return String(a.p.clave).localeCompare(String(b.p.clave))||String(a.l.lote).localeCompare(String(b.l.lote));});
+  return out;
+}
+function imprimirLotesSinUbicacion(){
+  const lista=lotesSinUbicacion_();
+  if(!lista.length){alert('No hay lotes con existencia sin ubicación'+(fInv!=='TODOS'?' en este filtro':'')+'.');return;}
+  const claves=new Set(lista.map(function(x){return x.p.clave;}));
+  const rows=lista.map(function(x){
+    return '<tr><td style="font-family:monospace;font-size:11px;font-weight:700;color:#E8671A">'+escAttr(x.p.clave)+'</td>'
+      +'<td style="font-size:11px">'+escAttr(x.p.desc||'')+'</td>'
+      +'<td style="font-family:monospace;font-size:11px;text-align:center">'+escAttr(x.l.lote)+'</td>'
+      +'<td style="font-size:11px;text-align:center">'+escAttr(x.l.almacen||'')+'</td>'
+      +'<td style="text-align:right;font-size:11px">'+fmt(x.l.exist)+' '+escAttr(x.l.unidad||'')+'</td>'
+      +'<td style="border-bottom:1px solid #ccc;min-width:90px"></td>'
+      +'<td style="border-bottom:1px solid #ccc;min-width:90px"></td></tr>';
+  }).join('');
+  const win=window.open('','_blank');
+  if(!win||!win.document){alert('Permite ventanas emergentes para este sitio e inténtalo de nuevo.');return;}
+  win.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Lotes sin ubicación</title>
+    <style>
+      body{font-family:Arial,sans-serif;margin:20px;color:#333}
+      .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:3px solid #E8671A}
+      .meta{text-align:right;font-size:11px;color:#666}
+      table{width:100%;border-collapse:collapse;font-size:11px}
+      th{background:#4A4A4A;color:#fff;padding:7px 8px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.4px}
+      td{padding:8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+      tr:nth-child(even) td{background:#fafafa}
+      thead{display:table-header-group}tr{page-break-inside:avoid}
+      .footer{margin-top:20px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#999;display:flex;justify-content:space-between}
+      @page{size:letter landscape;margin:10mm}
+    </style>
+  </head><body>
+    <div class="header">
+      <img src="${LOGO_ANTEII_B64}" style="height:110px;width:auto;display:block" alt="Anteii Laboratorios">
+      <div class="meta">
+        <div style="font-weight:700;font-size:13px;color:#E8671A">Lotes sin ubicación</div>
+        <div>Fecha impresión: ${new Date().toLocaleDateString('es-MX')}</div>
+        <div>${lista.length} lotes · ${claves.size} claves${fInv!=='TODOS'?' · '+escAttr(fInv):''}</div>
+      </div>
+    </div>
+    <table>
+      <thead><tr>
+        <th style="width:130px">Clave</th><th>Descripción</th>
+        <th style="width:110px;text-align:center">Lote</th>
+        <th style="width:80px;text-align:center">Almacén</th>
+        <th style="width:100px;text-align:right">Existencia</th>
+        <th style="width:100px;text-align:center">Ubicación</th>
+        <th style="width:100px;text-align:center">Observaciones</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="footer">
+      <span>Ubicó: _______________________</span>
+      <span>Firma: _______________________</span>
+      <span>Fecha: _______________________</span>
+    </div>
+  </body></html>`);
+  win.document.close();win.focus();
+  setTimeout(function(){win.print();},500);
+}
+function exportarLotesSinUbicacion(){
+  const lista=lotesSinUbicacion_();
+  if(!lista.length){alert('No hay lotes con existencia sin ubicación'+(fInv!=='TODOS'?' en este filtro':'')+'.');return;}
+  const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
+  const filas=[['Clase','Clave','Descripción','Lote','Almacén','Existencia','Unidad','Ubicación (anotar)'].map(q).join(',')];
+  lista.forEach(function(x){filas.push([x.p.clase,x.p.clave,x.p.desc||'',x.l.lote,x.l.almacen||'',x.l.exist,x.l.unidad||'',''].map(q).join(','));});
+  const blob=new Blob(['\uFEFF'+filas.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Lotes_sin_ubicacion_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
+
 function getFiltA(){
   const q=sInv.toLowerCase().trim();
   // "Todos" ya no es nomás EYE -- incluye también los almacenes de PT
@@ -1588,6 +1750,7 @@ function getFiltA(){
     // DEV no es un almacén "real" dentro de p.alms (esos lotes no cuentan
     // como existencia) -- se filtra aparte, por si tiene algo en DEV.
     if(fInv==='DEV'&&existeEnDev_(p.clave)<=0)return false;
+    if(fInvSinUbic&&!p.lotes.some(function(l){return loteSinUbic_(p.clave,l)&&(!ALMS.includes(fInv)||String(l.almacen||'').replace(/\s+/g,'')===fInv);}))return false;
     if(['EYE','GRA','MAQ','PT','GTO'].includes(fInv)&&p.clase!==fInv)return false;
     if(q&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!smartMatch(p.loc||'',sInv)&&!p.lotes.some(function(l){return smartMatch(l.lote,sInv)||(ubicMap[p.clave+'|'+l.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sInv);});}))return false;
     return true;
@@ -2534,7 +2697,9 @@ function enviarAgregarLote(overlay,btnOk,msg,inpClave,inpLote,inpDesc,inpSai,sel
 
 function renderInv(){
   const items=getFiltA();
-  const lotes=items.reduce((s,p)=>s+p.lotes.length,0);
+  const lotes=items.reduce((s,p)=>s+(fInvSinUbic?p.lotes.filter(function(l){return loteSinUbic_(p.clave,l);}).length:p.lotes.length),0);
+  const chSU=document.getElementById('chip-sinubic');
+  if(chSU)chSU.textContent='📍 Sin ubicación'+(fInvSinUbic?' ('+lotes+' lotes)':'');
   document.getElementById('k-exist').textContent=fmt(items.reduce((s,p)=>s+p.totalExist,0));
   document.getElementById('k-lotes').textContent=lotes.toLocaleString('en-US');
   document.getElementById('k-claves').textContent=items.length.toLocaleString('en-US');
@@ -2561,9 +2726,10 @@ function renderInv(){
       // siempre.
       const qInv=sInv.trim();
       const esBusquedaSoloUbic=!!qInv&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!p.lotes.some(function(l){return smartMatch(l.lote,sInv);});
-      const lotesAMostrar=esBusquedaSoloUbic?
+      let lotesAMostrar=esBusquedaSoloUbic?
         p.lotes.filter(function(l){return (ubicMap[p.clave+'|'+l.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sInv);});}):
         p.lotes;
+      if(fInvSinUbic)lotesAMostrar=lotesAMostrar.filter(function(l){return loteSinUbic_(p.clave,l);});
       const lots=lotesAMostrar.map(l=>{
         // Lote que YA NO existe en EYEJAL/PT pero sigue en DEV (Producción
         // lo mandó de ACOND a DEV, pendiente de confirmar contra MOVREP y
@@ -3755,7 +3921,7 @@ function datosEtiquetaConteo_(clave,lote){
   const uc=ultimoConteoLote_(clave,lote);
   const sc=(SCHED||[]).find(function(s){return s.clave===clave;});
   return {
-    fecha:uc?String(uc.fecha||'').split(',')[0].trim():fechaHoyTxt_(),
+    fecha:uc?String(String(uc.fecha||'').split(',')[0].trim()).split('/').map(function(x,i){return i<2?x.padStart(2,'0'):x;}).join('/'):fechaHoyTxt_(),
     clave:clave,
     desc:p.desc||'',
     clase:(sc&&sc.abc)||p.abc||'',
@@ -9162,7 +9328,8 @@ document.getElementById('search-inv').addEventListener('input',function(){sInv=t
 document.getElementById('search-cic').addEventListener('input',function(){sCic=this.value;cicLoaded=false;loadCic();});
 
 // Chip filters
-document.querySelectorAll('#fi-inv .chip').forEach(function(c){c.addEventListener('click',function(){fInv=this.dataset.f;document.querySelectorAll('#fi-inv .chip').forEach(function(x){x.classList.remove('active','a-inv');});this.classList.add('active');renderInv();});});
+document.querySelectorAll('#fi-inv .chip:not(.chip-tog)').forEach(function(c){c.addEventListener('click',function(){fInv=this.dataset.f;document.querySelectorAll('#fi-inv .chip:not(.chip-tog)').forEach(function(x){x.classList.remove('active','a-inv');});this.classList.add('active');renderInv();});});
+const _chSU=document.getElementById('chip-sinubic');if(_chSU)_chSU.addEventListener('click',function(){fInvSinUbic=!fInvSinUbic;this.classList.toggle('active',fInvSinUbic);renderInv();});
 document.querySelectorAll('#fi-cic .chip').forEach(function(c){c.addEventListener('click',function(){fCic=this.dataset.f||this.dataset.v;document.querySelectorAll('#fi-cic .chip').forEach(function(x){x.classList.remove('active','a-cic');});this.classList.add('active');if(cicData.length){_renderCicData();}else{loadCic();}});});
 
 document.getElementById('search-emb').addEventListener('input',function(){sEmb=this.value;renderEmb();});
