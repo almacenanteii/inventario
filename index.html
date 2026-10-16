@@ -624,6 +624,8 @@ header.h-dev{background:var(--tl)}
         <button id="btn-reporte" class="menu-item" onclick="generarReporteActual();cerrarMenusImprimir()">📄 Reporte F-AL-018</button>
         <button id="btn-reporte-excel" class="menu-item" onclick="exportarReporteExcelActual();cerrarMenusImprimir()">📊 Reporte F-AL-018 (Excel)</button>
         <button id="btn-etiquetas-semana" class="menu-item" onclick="abrirEtiquetasConteo();cerrarMenusImprimir()">🏷️ Etiquetas de conteo (Zebra)</button>
+        <button id="btn-precierre-fmt" class="menu-item" onclick="generarFormatoPrecierre();cerrarMenusImprimir()">🎯 Formato Pre-cierre clase C</button>
+        <button id="btn-precierre-xls" class="menu-item" onclick="exportarPrecierreExcel();cerrarMenusImprimir()">📊 Pre-cierre clase C (Excel)</button>
         <button id="btn-verif-ajustes"class="menu-item" onclick="generarReporteVerificacionAjustesActual();cerrarMenusImprimir()">🔎 Verificación de ajustes pendientes</button>
         <button id="btn-atrasados-print" class="menu-item hidden" style="color:#C62828" onclick="imprimirAtrasados();cerrarMenusImprimir()">🔴 Atrasados</button>
       </div>
@@ -644,6 +646,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="ATRASADO">🔴 Atrasados</div>
     <div class="chip" data-f="NUEVO">🆕 Sin clasificar</div>
     <div class="chip" data-f="INCIDENCIA">⚠️ Incidencias</div>
+    <div class="chip" data-f="PRECIERRE" id="chip-precierre">🎯 Pre-cierre C</div>
   </div>
 </header>
 
@@ -3557,6 +3560,72 @@ function fechaHoyTxt_(){
 // Las etiquetas se imprimen ANTES de contar (la persona que cuenta escribe la
 // cantidad a mano), así que no necesitan un conteo previo. La fecha impresa es
 // la de HOY; solo si el lote ya tiene conteo se usa la fecha de ese conteo.
+// ===== PRE-CIERRE CLASE C =====
+// Conteo anticipado de todas las claves clase C para adelantar el cierre de
+// diciembre. Se cuenta con el mismo flujo de Cíclicos (queda en Historial, así
+// que también cuenta como conteo cíclico), pero con vista, formato y etiqueta
+// propios ("PRE-CIERRE") para no confundirlo con la programación semanal.
+function claseLote_(p){
+  const sc=(SCHED||[]).find(function(s){return s.clave===p.clave;});
+  return String((sc&&sc.abc)||p.abc||'').toUpperCase();
+}
+function lotesPrecierre_(soloPendientes){
+  const histKeys={};
+  (cicHist||[]).forEach(function(h){histKeys[h.clave+'|'+h.lote]=true;});
+  return ordenarPorClave_((cicData||[]).filter(function(p){
+    if(claseLote_(p)!=='C'||p.estatus==='Agotado')return false;
+    return soloPendientes?!histKeys[p.clave+'|'+p.lote]:true;
+  }));
+}
+function statsPrecierre_(){
+  const todos=lotesPrecierre_(false),pend=lotesPrecierre_(true);
+  const claves=new Set(todos.map(function(p){return p.clave;}));
+  const clavesPend=new Set(pend.map(function(p){return p.clave;}));
+  return {lotes:todos.length,lotesPend:pend.length,lotesCont:todos.length-pend.length,claves:claves.size,clavesPend:clavesPend.size,
+    pct:todos.length?Math.round((todos.length-pend.length)/todos.length*100):0};
+}
+function actualizarChipPrecierre_(){
+  const c=document.getElementById('chip-precierre');if(!c)return;
+  const st=statsPrecierre_();
+  c.textContent='🎯 Pre-cierre C ('+st.lotesPend+' por contar de '+st.lotes+')';
+}
+function generarFormatoPrecierre(){
+  const lotes=lotesPrecierre_(true);
+  if(!lotes.length){alert('No hay lotes clase C pendientes de contar.');return;}
+  const st=statsPrecierre_();
+  const filas=lotes.map(function(p,i){
+    return '<tr><td>'+(i+1)+'</td><td><b>'+escAttr(p.clave)+'</b></td><td>'+escAttr(p.desc||'')+'</td><td><b>'+escAttr(p.lote)+'</b></td><td>'+escAttr(ubicTexto_(p.clave,p.lote,p.almacen)||'—')+'</td><td>'+escAttr(p.unidad||'')+'</td><td class="w"></td><td class="w"></td><td class="w"></td></tr>';
+  }).join('');
+  const win=window.open('','_blank');
+  if(!win||!win.document){alert('Permite ventanas emergentes para este sitio e inténtalo de nuevo.');return;}
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Pre-cierre clase C</title><style>'
+    +'@page{size:letter landscape;margin:10mm}body{font-family:Arial,sans-serif;font-size:10px;color:#000}'
+    +'h1{font-size:15px;margin-bottom:2px}.sub{font-size:11px;color:#444;margin-bottom:8px}'
+    +'table{width:100%;border-collapse:collapse}th,td{border:1px solid #444;padding:3px 4px;text-align:left}'
+    +'th{background:#222;color:#fff;font-size:9.5px}td.w{height:20px}tr{page-break-inside:avoid}thead{display:table-header-group}'
+    +'</style></head><body><h1>Pre-cierre de inventario · Claves clase C</h1>'
+    +'<div class="sub">Fecha: '+fechaHoyTxt_()+' · Pendientes: '+st.lotesPend+' lotes ('+st.clavesPend+' claves) de '+st.lotes+' · Avance: '+st.pct+'%</div>'
+    +'<table><thead><tr><th>#</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Ubicación</th><th>Unidad</th><th style="width:70px">Cant. contada</th><th style="width:60px">Fecha</th><th style="width:70px">Contó</th></tr></thead><tbody>'+filas+'</tbody></table>'
+    +'<script>window.onload=function(){window.print();}<\/script></body></html>');
+  win.document.close();win.focus();
+}
+function exportarPrecierreExcel(){
+  const todos=lotesPrecierre_(false);
+  if(!todos.length){alert('No hay lotes clase C.');return;}
+  const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
+  const filas=[['Clave','Descripción','Lote','Ubicación','Unidad','Existencia SAI','Estado','Cant. contada','Fecha conteo','Diferencia'].map(q).join(',')];
+  todos.forEach(function(p){
+    const uc=ultimoConteoLote_(p.clave,p.lote);
+    const cant=uc?parseFloat(uc.cantidad):null;
+    filas.push([p.clave,p.desc||'',p.lote,ubicTexto_(p.clave,p.lote,p.almacen)||'',p.unidad||'',p.existSAI,uc?'Contado':'Pendiente',uc?uc.cantidad:'',uc?String(uc.fecha||'').split(',')[0].trim():'',(cant!=null&&!isNaN(cant))?Math.round((cant-p.existSAI)*1000)/1000:''].map(q).join(','));
+  });
+  const st=statsPrecierre_();
+  filas.push('');filas.push(['Resumen','Lotes C',st.lotes,'Contados',st.lotesCont,'Pendientes',st.lotesPend,'Avance %',st.pct].map(q).join(','));
+  const blob=new Blob(['\uFEFF'+filas.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Precierre_clase_C_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
 function datosEtiquetaConteo_(clave,lote){
   const p=(cicData||[]).find(function(x){return x.clave===clave&&x.lote===lote;});
   if(!p)return null;
@@ -3576,7 +3645,7 @@ function htmlEtiquetaConteo_(d){
   const fsClave=d.clave.length<=14?26:(d.clave.length<=18?22:18);
   const fsLote=d.lote.length<=12?24:19;
   return '<div class="etq">'
-    +'<div class="top"><span class="tit">CONTEO CÍCLICO</span><span class="cls">CLASE '+escAttr(d.clase||'—')+'</span></div>'
+    +'<div class="top"><span class="tit">'+escAttr(d.titulo||'CONTEO CÍCLICO')+'</span><span class="cls">CLASE '+escAttr(d.clase||'—')+'</span></div>'
     +'<div class="clave" style="font-size:'+fsClave+'pt">'+escAttr(d.clave)+'</div>'
     +'<div class="desc">'+escAttr(d.desc)+'</div>'
     +'<div class="lotefila"><span class="lbl">LOTE</span><span class="lote" style="font-size:'+fsLote+'pt">'+escAttr(d.lote)+'</span></div>'
@@ -3615,6 +3684,7 @@ function imprimirEtiquetasConteo_(lista){
 function imprimirEtiquetaConteo(el){
   const d=datosEtiquetaConteo_(el.dataset.clave,el.dataset.lote);
   if(!d){alert('No se encontró este lote.');return;}
+  if(fCic==='PRECIERRE')d.titulo='PRE-CIERRE';
   imprimirEtiquetasConteo_([d]);
 }
 
@@ -3658,13 +3728,14 @@ function listaEtiquetasConteo_(modo,soloPendientes){
   let lotes=[];
   if(modo==='semana'||modo==='ambos')lotes=lotes.concat(lotesSemanaParaEtiqueta_(semana,soloPendientes));
   if(modo==='atrasados'||modo==='ambos')lotes=lotes.concat(lotesAtrasadosParaEtiqueta_());
+  if(modo==='precierre')lotes=lotesPrecierre_(soloPendientes);
   const vistos={};
   const res=[];
   lotes.forEach(function(p){
     const k=p.clave+'|'+p.lote;
     if(vistos[k])return;vistos[k]=true;
     const d=datosEtiquetaConteo_(p.clave,p.lote);
-    if(d)res.push(d);
+    if(d){if(modo==='precierre')d.titulo='PRE-CIERRE';res.push(d);}
   });
   return res;
 }
@@ -3680,9 +3751,10 @@ function abrirEtiquetasConteo(){
   ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:400px;width:100%">'
     +'<div style="font-size:16px;font-weight:800;margin-bottom:4px">🏷️ Etiquetas de conteo (Zebra)</div>'
     +'<div style="font-size:11.5px;color:#666;margin-bottom:12px">Una etiqueta por lote, con espacio para anotar la cantidad contada a mano.</div>'
-    +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="semana" checked> Semana en curso (sem. '+semana+')</label>'
+    +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="semana"'+(fCic==='PRECIERRE'?'':' checked')+'> Semana en curso (sem. '+semana+')</label>'
     +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="atrasados"> Atrasados</label>'
     +'<label style="display:block;font-size:13px;margin:6px 0"><input type="radio" name="etq-modo" value="ambos"> Semana en curso + atrasados</label>'
+    +'<label style="display:block;font-size:13px;margin:6px 0;color:#6A1B9A;font-weight:700"><input type="radio" name="etq-modo" value="precierre"'+(fCic==='PRECIERRE'?' checked':'')+'> 🎯 Pre-cierre clase C (cierre de diciembre)</label>'
     +'<label style="display:block;font-size:12.5px;margin:12px 0 4px;padding-top:10px;border-top:1px solid #eee"><input type="checkbox" id="etq-solo-pend" checked> Solo los que faltan por contar</label>'
     +'<div id="etq-resumen" style="font-size:12px;color:#1F4E79;font-weight:700;margin:6px 0 12px"></div>'
     +'<div style="display:flex;gap:8px">'
@@ -4378,7 +4450,7 @@ function getFiltCic(){
   cicHist.forEach(function(h){const k=h.clave+'|'+h.lote;if(!histMap[k])histMap[k]=[];histMap[k].push(h);});
   const semActual=fCicSemana===0?getCurrentSemana():fCicSemana;
   const semClaves=new Set(getSchedForSemana(semActual).map(function(s){return s.clave;}));
-  const spanTodasSemanas=fCic==='ATRASADO'||fCic==='NUEVO'||fCic==='INCIDENCIA';
+  const spanTodasSemanas=fCic==='ATRASADO'||fCic==='NUEVO'||fCic==='INCIDENCIA'||fCic==='PRECIERRE';
   const hoy=new Date(); hoy.setHours(0,0,0,0);
   const parseDMY=function(s){
     if(!s)return null;
@@ -4426,6 +4498,7 @@ function getFiltCic(){
     if(fCic==='PENDIENTE'&&contado)return false;
     if(fCic==='DIFERENCIA'&&(diff===null||diff===0))return false;
     if(fCic==='NUEVO'&&schedInfo)return false;
+    if(fCic==='PRECIERRE'&&(claseLote_(p)!=='C'||p.estatus==='Agotado'))return false;
     if(fCic==='ATRASADO'&&!calificaAtrasado)return false;
     if(fCic==='INCIDENCIA'&&contarAjustes(p.clave,p.lote)<2)return false;
     if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic)&&!smartMatch(p.lote,sCic)&&!(ubicMap[k]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sCic);}))return false;
@@ -4959,6 +5032,7 @@ function renderDash(){
 }
 
 function _renderCicData(){
+  actualizarChipPrecierre_();
   const semActual=fCicSemana===0?getCurrentSemana():fCicSemana;
   const maxSem=Math.max.apply(null,SCHED.map(function(s){return s.semana_cal;}));
   const items=getFiltCic();
