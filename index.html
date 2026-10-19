@@ -1046,6 +1046,27 @@ header.h-dev{background:var(--tl)}
 // desde una ventana nueva. Se inyecta al escribir el documento, así los
 // formatos actuales y futuros la traen sin repetir código. Se omiten las
 // etiquetas Zebra (una por página, sin margen) y las carátulas (class="linea").
+// Documentos que se abren como archivo aparte (Blob) para imprimir (carátulas,
+// clave completa...). En Android no se podía hacer zoom: (1) el documento no
+// declaraba viewport, (2) se lanzaba la impresión sola al cargar, sin chance
+// de ajustar nada. Aquí se agrega un viewport que SÍ permite zoom y una barra
+// A− / A+ (agranda o achica el contenido, y eso también se imprime) con botón
+// de imprimir. La barra no sale en el papel. En Android ya no se imprime solo;
+// en iOS y escritorio sigue igual que antes (imprime al abrir).
+function zoomCaratula_(h){
+  if(typeof h!=='string'||h.indexOf('<body>')<0||h.indexOf('id="zc"')>=0)return h;
+  const css='<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=0.5,maximum-scale=5,user-scalable=yes">'
+    +'<style>.zbar{position:sticky;top:0;z-index:99;display:flex;gap:8px;align-items:center;background:#222;color:#fff;padding:8px;font-family:Arial,sans-serif;font-size:16px}'
+    +'.zbar button{font-size:18px;font-weight:700;padding:8px 14px;border:none;border-radius:8px;background:#fff;color:#222}'
+    +'@media print{.zbar{display:none!important}}</style>';
+  const bar='<div class="zbar"><button type="button" onclick="zc(-0.1)">A−</button><span id="zv">100%</span><button type="button" onclick="zc(0.1)">A+</button><button type="button" onclick="window.print()" style="margin-left:auto">🖨️ Imprimir</button></div><div id="zc">';
+  const js='<script>var zz=1;function zc(d){zz=Math.max(0.3,Math.min(3,Math.round((zz+d)*10)/10));document.getElementById("zc").style.zoom=zz;document.getElementById("zv").textContent=Math.round(zz*100)+"%";}<\/script>';
+  h=h.indexOf('</head>')>=0?h.replace('</head>',css+'</head>'):h.replace('<body>',css+'<body>');
+  h=h.replace('<body>','<body>'+bar);
+  h=h.replace(/<script>window\.onload=function\(\)\{window\.print\(\);\}<\/script>/,'<script>window.onload=function(){if(!/Android/i.test(navigator.userAgent))window.print();};<\/script>');
+  const i=h.lastIndexOf('</body>');
+  return i>=0?h.slice(0,i)+'</div>'+js+h.slice(i):h+'</div>'+js;
+}
 const PG_NUM_STYLE_='<style>@page{@bottom-right{content:"Página " counter(page) " de " counter(pages);font-family:Arial,sans-serif;font-size:9px;color:#555}}</style>';
 function agregarNumPagina_(h){
   if(typeof h!=='string'||h.indexOf('<html')<0)return h;
@@ -1363,7 +1384,7 @@ function imprimirCaratulasLotesSel(){
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
   try{
-    const blob=new Blob([html],{type:'text/html'});
+    const blob=new Blob([zoomCaratula_(html)],{type:'text/html'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
@@ -2971,7 +2992,7 @@ async function imprimirFormatoConteo(claveOClaves){
     win.focus();
   }else{
     try{
-      const blob=new Blob([html],{type:'text/html'});
+      const blob=new Blob([zoomCaratula_(html)],{type:'text/html'});
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');
       a.href=url;
@@ -7292,7 +7313,7 @@ function imprimirCaratula(btnOrData,cantidadDato){
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
   try{
-    const blob=new Blob([html],{type:'text/html'});
+    const blob=new Blob([zoomCaratula_(html)],{type:'text/html'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
@@ -7412,7 +7433,7 @@ function imprimirCaratulaEye(btnOrData){
     '<script>window.onload=function(){window.print();}<\/script>'+
     '</body></html>';
   try{
-    const blob=new Blob([html],{type:'text/html'});
+    const blob=new Blob([zoomCaratula_(html)],{type:'text/html'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
@@ -7505,7 +7526,7 @@ function imprimirClaveCompleta(claveOBtn){
     '</body></html>';
 
   try{
-    const blob=new Blob([html],{type:'text/html'});
+    const blob=new Blob([zoomCaratula_(html)],{type:'text/html'});
     const url=URL.createObjectURL(blob);
     const a=document.createElement('a');
     a.href=url;
