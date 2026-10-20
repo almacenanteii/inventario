@@ -349,6 +349,24 @@ header.h-dash{background:var(--bl)}
 .dash-gauge-sub{flex:1;font-size:11.5px;color:var(--gr2)}
 .dash-gauge-sub b{color:var(--gr);font-weight:800}
 
+/* ===== Entradas tab ===== */
+header.h-ent{background:#00838F}
+.nav-btn.a-ent{color:#00838F}
+.chip.a-ent{background:#fff;color:#00838F}
+.ent-card{background:#fff;border-radius:12px;padding:10px 12px;margin:8px 12px;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.ent-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ent-clave{font-family:monospace;font-weight:800;font-size:13px;color:#00838F}
+.ent-tipo{font-size:10px;font-weight:800;border-radius:6px;padding:1px 6px;background:#E0F2F1;color:#00695C}
+.ent-tipo.mp{background:#FFF3E0;color:#E65100}
+.ent-fecha{margin-left:auto;font-size:11px;font-weight:700;color:var(--gr2)}
+.ent-desc{font-size:12px;margin:2px 0 4px}
+.ent-row{font-size:11.5px;color:#444;margin:1px 0}
+.ent-row b{color:#222}
+.ent-est{display:inline-block;font-size:10.5px;font-weight:800;border-radius:6px;padding:2px 8px;margin:4px 6px 2px 0}
+.ent-est.ok{background:#E8F5E9;color:#2E7D32}
+.ent-est.sin{background:#FFF3E0;color:#E65100}
+.ent-est.noinv{background:#ECEFF1;color:#546E7A}
+.lot-ent{font-size:10.5px;font-weight:700;color:#00695C;background:#E0F2F1;border-radius:6px;padding:2px 7px;display:inline-block;margin:3px 0}
 /* ===== Ubicaciones tab ===== */
 header.h-ubi{background:#6D4C41}
 .nav-btn.a-ubi{color:#6D4C41}
@@ -537,6 +555,7 @@ header.h-dev{background:var(--tl)}
   <button class="nav-btn" id="nb-emb" onclick="switchTab('emb')"><span class="nav-ico">🚚</span>Embarques</button>
   <button class="nav-btn" id="nb-dash" onclick="switchTab('dash')"><span class="nav-ico">📈</span>Dashboard</button>
   <button class="nav-btn" id="nb-ubi" onclick="switchTab('ubi')"><span class="nav-ico">📍</span>Ubicaciones</button>
+  <button class="nav-btn" id="nb-ent" onclick="switchTab('ent')"><span class="nav-ico">📥</span>Entradas</button>
 </nav>
 
 <!-- Carátulas ya no es pestaña ni sub-modo aparte: todo (EYE + PT) vive
@@ -853,6 +872,41 @@ header.h-dev{background:var(--tl)}
 <div class="bar hidden" id="bar-ubi"></div>
 <div class="list hidden" id="list-ubi"></div>
 <div class="empty hidden" id="empty-ubi"><div class="empty-ico">🔍</div><p>Sin resultados para "<span id="eq-ubi"></span>"</p></div>
+
+<header class="h-ent hidden" id="hdr-ent">
+  <div class="hdr-top">
+    <h1>📥 Entradas</h1>
+    <button onclick="exportarEntradasExcel()" style="background:#fff;color:#00838F;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">📊 Excel</button>
+  </div>
+  <div class="update-bar" id="ent-update-bar">📅 Cargando entradas...</div>
+  <div class="search-box">
+    <svg class="s-icon" width="20" height="20" fill="none" stroke="rgba(0,0,0,.4)" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="search" id="search-ent" placeholder="Buscar clave, lote, proveedor, factura…" autocomplete="off" autocorrect="off" spellcheck="false">
+    <button class="clr" id="clr-ent" onclick="document.getElementById('search-ent').value='';sEnt='';renderEnt();">✕</button>
+  </div>
+  <div class="filters" id="fi-ent">
+    <div class="chip a-ent" data-f="TODAS">Todas</div>
+    <div class="chip" data-f="EYE">EYE</div>
+    <div class="chip" data-f="MP">MP</div>
+    <div class="chip" data-f="SINUBIC">📍 Sin ubicación</div>
+    <div class="chip" data-f="NOINV">❓ No está en inventario</div>
+    <div class="chip" data-f="SINETIQ">🏷️ Sin etiqueta</div>
+  </div>
+  <div class="filters" id="fi-ent-per">
+    <div class="chip" data-p="7">Últimos 7 días</div>
+    <div class="chip a-ent" data-p="30">Últimos 30 días</div>
+    <div class="chip" data-p="90">Últimos 90 días</div>
+    <div class="chip" data-p="0">Todo el año</div>
+  </div>
+</header>
+<div class="kpis hidden" id="kpis-ent">
+  <div class="kpi"><div class="kpi-lbl">Entradas</div><div class="kpi-val" style="color:#00838F" id="k-ent-total">—</div><div class="kpi-sub" id="k-ent-total-sub">en el periodo</div></div>
+  <div class="kpi"><div class="kpi-lbl">Sin ubicación</div><div class="kpi-val" style="color:#E65100" id="k-ent-sinubic">—</div><div class="kpi-sub">con existencia</div></div>
+  <div class="kpi"><div class="kpi-lbl">No en inventario</div><div class="kpi-val" style="color:#546E7A" id="k-ent-noinv">—</div><div class="kpi-sub">lote sin existencia en SAI</div></div>
+</div>
+<div class="bar hidden" id="bar-ent"></div>
+<div class="list hidden" id="list-ent"></div>
+<div class="empty hidden" id="empty-ent"><div class="empty-ico">🔍</div><p>Sin entradas para "<span id="eq-ent"></span>"</p></div>
 
 <datalist id="dev-clave-list"></datalist>
 
@@ -1590,20 +1644,21 @@ function renderActiveTab_(){
   else if(tab==='dash')renderDash();
   else if(tab==='dev')renderDev();
   else if(tab==='ubi')renderUbi();
+  else if(tab==='ent')renderEnt();
 }
 
 function switchTab(t){
   tab=t;
-  const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)',dev:'var(--tl)',ubi:'#6D4C41'};
+  const cols={inv:'var(--or)',cic:'var(--pu)',emb:'var(--gn)',car:'var(--rd)',dash:'var(--bl)',dev:'var(--tl)',ubi:'#6D4C41',ent:'#00838F'};
   // Show/hide standard sections
-  ['inv','emb','car','dash','dev','ubi'].forEach(function(x){
+  ['inv','emb','car','dash','dev','ubi','ent'].forEach(function(x){
     ['hdr-','kpis-','bar-','list-','empty-'].forEach(function(p){
       document.getElementById(p+x)?.classList.toggle('hidden',x!==t);
     });
   });
   // 'car' ya no tiene botón propio en el nav ni sub-modo: Carátulas se
   // fusionó por completo dentro de Inventario (ver buildAllA()).
-  ['inv','emb','dash','dev','cic','ubi'].forEach(function(x){
+  ['inv','emb','dash','dev','cic','ubi','ent'].forEach(function(x){
     const btn=document.getElementById('nb-'+x);
     if(btn)btn.className='nav-btn'+(x===t?' a-'+x:'');
   });
@@ -1653,6 +1708,7 @@ function switchTab(t){
   }
   else if(t==='dev')loadDevoluciones();
   else if(t==='ubi')renderUbi();
+  else if(t==='ent'){renderEnt();if(!entLoaded)cargarEntradas_();}
 }
 
 
@@ -2084,6 +2140,138 @@ function estadoUbicaciones_(){
     else if(ocupantes.length)estado='OCUPADA';
     return {codigo:cod,rack:m?m[1]:'??',nivel:m?m[2]:'',pos:m?m[3]:'',estado:estado,ocupantes:ocupantes,bloqueada:bloqueada};
   });
+}
+
+// ===== Entradas (bitácoras F-AL-011 EYE y F-AL-012 MP) =====
+// Los datos los llena actualizarEntradasDesdeDrive() (Apps Script) leyendo los
+// Excel de recepción; aquí solo se leen (?accion=entradas) y se cruzan con
+// Inventario por clave + lote interno (ME.../MP...).
+let ENTRADAS_LOADED=[],entLoaded=false,fEnt='TODAS',fEntPer='30',sEnt='';
+let entPorLote={};
+async function cargarEntradas_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=entradas&t='+Date.now());
+    const rows=await r.json();
+    ENTRADAS_LOADED=Array.isArray(rows)?rows:[];
+    entLoaded=true;
+  }catch(e){console.warn('No se pudieron cargar las entradas:',e);}
+  indexarEntradas_();
+  if(tab==='ent')renderEnt();
+  else if(tab==='inv')renderInv();
+}
+function indexarEntradas_(){
+  entPorLote={};
+  (ENTRADAS_LOADED||[]).forEach(function(e){
+    const k=String(e.clave).toUpperCase()+'|'+String(e.lote).toUpperCase();
+    (entPorLote[k]=entPorLote[k]||[]).push(e);
+  });
+}
+function fechaEntTxt_(iso){
+  const m=String(iso||'').match(/^(\d{4})-(\d\d)-(\d\d)/);
+  return m?m[3]+'/'+m[2]+'/'+m[1]:String(iso||'');
+}
+// Etiqueta corta que sale en cada lote de Inventario: "📥 Entró 05/10/2026 · 1,938 PZ".
+function entBadgeHtml_(clave,lote){
+  const arr=entPorLote[String(clave).toUpperCase()+'|'+String(lote).toUpperCase()];
+  if(!arr||!arr.length)return '';
+  const e=arr.slice().sort(function(a,b){return String(b.fecha).localeCompare(String(a.fecha));})[0];
+  return '<div class="lot-ent" title="'+escAttr('Bitácora '+e.tipo+(e.proveedor?' · '+e.proveedor:'')+(e.factura?' · Factura '+e.factura:''))+'">📥 Entró '+escAttr(fechaEntTxt_(e.fecha))+' · '+fmt(e.cantidad)+(e.unidad?' '+escAttr(e.unidad):'')+(arr.length>1?' (+'+(arr.length-1)+')':'')+'</div>';
+}
+// Estado de una entrada contra el inventario actual.
+function entEstado_(e,idx){
+  const hits=idx[String(e.clave).toUpperCase()+'|'+String(e.lote).toUpperCase()]||[];
+  const vivos=hits.filter(function(h){return Number(h.l.exist)>0;});
+  if(vivos.length){
+    const h=vivos[0];
+    const almU=(h.l.almacen||'').toUpperCase();
+    const ub=ubicTexto_(e.clave,e.lote,almU)||ubicTexto_(h.p.clave,h.l.lote,almU);
+    return {est:ub?'OK':'SINUBIC',ubic:ub,almU:almU,exist:vivos.reduce(function(s,x){return s+Number(x.l.exist);},0),unidad:h.l.unidad||''};
+  }
+  return {est:'NOINV',ubic:'',almU:'',exist:0,unidad:''};
+}
+function entIdxInventario_(){
+  const idx={};
+  (window._ALL_A||[]).forEach(function(p){
+    p.lotes.forEach(function(l){
+      if(l.esSoloDev)return;
+      const k=String(p.clave).toUpperCase()+'|'+String(l.lote).toUpperCase();
+      (idx[k]=idx[k]||[]).push({p:p,l:l});
+    });
+  });
+  return idx;
+}
+function getFiltEnt_(){
+  const idx=entIdxInventario_();
+  const q=sEnt.trim();
+  let desde='';
+  if(fEntPer!=='0'){
+    const d=new Date();d.setDate(d.getDate()-parseInt(fEntPer,10));
+    desde=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  const lista=[];
+  (ENTRADAS_LOADED||[]).forEach(function(e){
+    if(desde&&String(e.fecha)<desde)return;
+    if(fEnt==='EYE'&&e.tipo!=='EYE')return;
+    if(fEnt==='MP'&&e.tipo!=='MP')return;
+    if(fEnt==='SINETIQ'&&e.etiqueta==='X')return;
+    const st=entEstado_(e,idx);
+    if(fEnt==='SINUBIC'&&st.est!=='SINUBIC')return;
+    if(fEnt==='NOINV'&&st.est!=='NOINV')return;
+    if(q&&![e.clave,e.desc,e.lote,e.lotePro,e.proveedor,e.factura,e.oc,e.mov].some(function(t){return smartMatch(String(t||''),q);}))return;
+    lista.push({e:e,st:st});
+  });
+  lista.sort(function(a,b){return String(b.e.fecha).localeCompare(String(a.e.fecha))||String(b.e.lote).localeCompare(String(a.e.lote));});
+  return lista;
+}
+function renderEnt(){
+  const list=document.getElementById('list-ent'),empty=document.getElementById('empty-ent');
+  if(!list)return;
+  const bar=document.getElementById('ent-update-bar');
+  if(!entLoaded){
+    if(bar)bar.textContent='📅 Cargando entradas...';
+    list.innerHTML='';empty.classList.add('hidden');
+    document.getElementById('bar-ent').textContent='';
+    return;
+  }
+  const lista=getFiltEnt_();
+  const ult=(ENTRADAS_LOADED||[]).reduce(function(m,e){return String(e.fecha)>m?String(e.fecha):m;},'');
+  if(bar)bar.textContent='📅 '+ENTRADAS_LOADED.length+' entradas en bitácoras'+(ult?' · última: '+fechaEntTxt_(ult):'');
+  document.getElementById('k-ent-total').textContent=lista.length.toLocaleString('en-US');
+  document.getElementById('k-ent-sinubic').textContent=lista.filter(function(x){return x.st.est==='SINUBIC';}).length;
+  document.getElementById('k-ent-noinv').textContent=lista.filter(function(x){return x.st.est==='NOINV';}).length;
+  document.getElementById('bar-ent').textContent=lista.length+' entradas';
+  if(!lista.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-ent').textContent=sEnt||'este filtro';return;}
+  empty.classList.add('hidden');
+  list.innerHTML=lista.slice(0,400).map(function(x){
+    const e=x.e,st=x.st;
+    const estHtml=st.est==='OK'?'<span class="ent-est ok">📍 Ubicado</span>':
+      (st.est==='SINUBIC'?'<span class="ent-est sin">⚠️ Sin ubicación</span>':'<span class="ent-est noinv">❓ No está en inventario</span>');
+    const ubHtml=st.est==='NOINV'?'':ubicRowHtml_(e.clave,e.lote,st.almU);
+    const extra=[e.caducidad?'Caduc. '+fechaEntTxt_(e.caducidad):'',e.mov?'Mov. SAI '+e.mov:'',e.factura?'Fact. '+e.factura:'',e.oc?'OC '+e.oc:''].filter(Boolean).join(' · ');
+    return '<div class="ent-card">'
+      +'<div class="ent-top"><span class="ent-clave">'+escAttr(e.clave)+'</span><span class="ent-tipo'+(e.tipo==='MP'?' mp':'')+'">'+escAttr(e.tipo)+'</span>'
+        +(e.etiqueta==='X'?'':'<span class="ent-tipo" style="background:#FFEBEE;color:#C62828">sin etiqueta</span>')
+        +'<span class="ent-fecha">'+escAttr(fechaEntTxt_(e.fecha))+'</span></div>'
+      +'<div class="ent-desc">'+escAttr(e.desc)+'</div>'
+      +'<div class="ent-row"><b>Lote '+escAttr(e.lote)+'</b> · <b>'+fmt(e.cantidad)+(e.unidad?' '+escAttr(e.unidad):'')+'</b>'+(e.proveedor?' · '+escAttr(e.proveedor):'')+'</div>'
+      +(extra?'<div class="ent-row">'+escAttr(extra)+'</div>':'')
+      +(e.obs?'<div class="ent-row" style="color:#777">'+escAttr(e.obs)+'</div>':'')
+      +'<div>'+estHtml+(st.est!=='NOINV'?'<span style="font-size:11px;color:#555">Existencia actual: '+fmt(st.exist)+' '+escAttr(st.unidad)+' ('+escAttr(st.almU)+')</span>':'')+'</div>'
+      +ubHtml
+    +'</div>';
+  }).join('')+(lista.length>400?'<div style="text-align:center;font-size:12px;color:#777;padding:10px">Mostrando 400 de '+lista.length+'. Usa el buscador o el periodo para acotar.</div>':'');
+}
+function exportarEntradasExcel(){
+  const lista=getFiltEnt_();
+  if(!lista.length){alert('No hay entradas con este filtro.');return;}
+  const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
+  const rows=[['Tipo','Fecha','Clave','Descripción','Cantidad','Unidad','Proveedor','Lote proveedor','Lote interno','Caducidad','Movimiento SAI','Factura','Orden de compra','Etiqueta','Estado','Ubicación','Existencia actual'].map(q).join(',')];
+  const txt={OK:'Ubicado',SINUBIC:'Sin ubicación',NOINV:'No está en inventario'};
+  lista.forEach(function(x){const e=x.e;rows.push([e.tipo,e.fecha,e.clave,e.desc,e.cantidad,e.unidad,e.proveedor,e.lotePro,e.lote,e.caducidad,e.mov,e.factura,e.oc,e.etiqueta==='X'?'Sí':'No',txt[x.st.est],x.st.ubic,x.st.exist].map(q).join(','));});
+  const blob=new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Entradas_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
 function renderUbi(){
@@ -2773,6 +2961,7 @@ function renderInv(){
         const devLoteHtml=devQtyLote>0?`<div class="dev-ref-linea" title="En DEV -- pendiente de confirmar contra MOVREP y traspasar a EYEJAL. No está sumado a la existencia.">📦 También en DEV: ${fmt(devQtyLote)} &nbsp;·&nbsp; Total con DEV: ${fmt(l.exist+devQtyLote)}</div>`:'';
         const key=p.clave+'|'+l.lote;
         const ubicBtn=ubicRowHtml_(p.clave,l.lote,almU);
+        const entHtml=entBadgeHtml_(p.clave,l.lote);
         const ultimoConteo=ultimoConteoMap[key];
         const conteoHtml=ultimoConteo?
           `<div class="lot-conteo">🕒 Último conteo: ${(ultimoConteo.fecha||'').split(',')[0]} · ${fmt(ultimoConteo.cantidad)} pz</div>`:
@@ -2804,14 +2993,14 @@ function renderInv(){
           return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-uempaque="${pzasInfo&&pzasInfo.pzasXCaja?pzasInfo.pzasXCaja:''}" data-origen="${escAttr(l.origen||'')}">`+
             `<div>${loteLoteHtml}<div class="lot-alm">${almTag(almU)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}`+
             manualBadge+cuarentenaHtml+
-            `${conteoHtml}${devHtml}${devLoteHtml}${ubicBtn}`+
+            `${conteoHtml}${entHtml}${devHtml}${devLoteHtml}${ubicBtn}`+
             `<div style="font-size:10.5px;color:#777;margin-top:2px">U. Empaque: ${uEmp}</div>`+
             `<label class="car-contado-chk" style="margin-top:6px;display:inline-flex"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
             `</div>`+
             `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
         }
         return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-unidad="${escAttr(l.unidad||'pzas')}">`+
-          `<div>${loteLoteHtml}<div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${devHtml}${devLoteHtml}${ubicBtn}`+
+          `<div>${loteLoteHtml}<div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${entHtml}${devHtml}${devLoteHtml}${ubicBtn}`+
           `<label class="car-contado-chk" style="margin-top:6px;display:inline-flex"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
           `</div>`+
           `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
@@ -3112,6 +3301,7 @@ async function cargarCatalogoUbicaciones_(){
     }
   }catch(e){console.warn('No se pudo cargar el catálogo de ubicaciones en vivo -- se usa la semilla local:',e);}
   if(tab==='ubi')renderUbi();
+  if(tab==='ent')renderEnt();
 }
 
 // Nombre opcional de cada rack (ej. "05" -> "Corrugados") -- se guarda en
@@ -3128,6 +3318,7 @@ async function cargarNombresRacks_(){
     }
   }catch(e){console.warn('No se pudo cargar los nombres de rack:',e);}
   if(tab==='ubi')renderUbi();
+  if(tab==='ent')renderEnt();
 }
 
 // Pide (o quita, si se deja vacío) el nombre de un rack -- se actualiza
@@ -3149,6 +3340,7 @@ async function cargarPendientesUbicaciones_(){
     if(Array.isArray(rows))pendientesUbic=rows;
   }catch(e){console.warn('No se pudo cargar los pendientes de ubicación:',e);}
   if(tab==='ubi')renderUbi();
+  if(tab==='ent')renderEnt();
   if(tab==='dash')renderDash();
 }
 
@@ -5955,6 +6147,7 @@ async function loadInventario(){
   // En cuanto llegan, se vuelve a pintar la lista para que aparezcan encima.
   cargarEnriquecimientosInventario_();
   cargarCatalogoUbicaciones_();
+  cargarEntradas_();
 }
 
 async function cargarEnriquecimientosInventario_(){
@@ -6046,6 +6239,7 @@ async function cargarEnriquecimientosInventario_(){
   if(carLoaded||carEyeLoaded)renderCar();
   // Mismo caso para Ubicaciones: recién aquí llegan ubicMap/ubicBloqueadas.
   if(tab==='ubi')renderUbi();
+  if(tab==='ent')renderEnt();
 }
 
 // ---- Sub-pestañas dentro de Embarques: "Armar Embarques" (lo de siempre)
@@ -9427,6 +9621,9 @@ document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListene
   renderDev();
 });});
 document.getElementById('search-ubi').addEventListener('input',function(){sUbi=this.value;renderUbi();});
+document.getElementById('search-ent').addEventListener('input',function(){sEnt=this.value;renderEnt();});
+document.querySelectorAll('#fi-ent .chip').forEach(function(c){c.addEventListener('click',function(){fEnt=this.dataset.f;document.querySelectorAll('#fi-ent .chip').forEach(function(x){x.classList.remove('active','a-ent');});this.classList.add('active');renderEnt();});});
+document.querySelectorAll('#fi-ent-per .chip').forEach(function(c){c.addEventListener('click',function(){fEntPer=this.dataset.p;document.querySelectorAll('#fi-ent-per .chip').forEach(function(x){x.classList.remove('active','a-ent');});this.classList.add('active');renderEnt();});});
 document.querySelectorAll('#fi-ubi .chip').forEach(function(c){c.addEventListener('click',function(){fUbi=this.dataset.f;document.querySelectorAll('#fi-ubi .chip').forEach(function(x){x.classList.remove('active','a-ubi');});this.classList.add('active');renderUbi();});});
 // Filtro por rack -- los chips se generan en vivo dentro de renderUbi(),
 // así que aquí se usa delegación de eventos (el listener va en el
