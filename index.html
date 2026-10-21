@@ -2207,7 +2207,34 @@ function entBadgeHtml_(clave,lote){
   const arr=entPorLote[String(clave).toUpperCase()+'|'+String(lote).toUpperCase()];
   if(!arr||!arr.length)return '';
   const e=arr.slice().sort(function(a,b){return String(b.fecha).localeCompare(String(a.fecha));})[0];
-  return '<div class="lot-ent" title="'+escAttr('Bitácora '+e.tipo+(e.proveedor?' · '+e.proveedor:'')+(e.factura?' · Factura '+e.factura:''))+'">📥 Entró '+escAttr(fechaEntTxt_(e.fecha))+' · '+fmt(e.cantidad)+(e.unidad?' '+escAttr(e.unidad):'')+(arr.length>1?' (+'+(arr.length-1)+')':'')+'</div>';
+  return '<div class="lot-ent" style="cursor:pointer;text-decoration:underline dotted" data-clave="'+escAttr(clave)+'" data-lote="'+escAttr(lote)+'" onclick="event.stopPropagation();verDetalleEntrada_(this.dataset.clave,this.dataset.lote)" title="'+escAttr('Bitácora '+e.tipo+(e.proveedor?' · '+e.proveedor:'')+(e.factura?' · Factura '+e.factura:''))+'">📥 Entró '+escAttr(fechaEntTxt_(e.fecha))+' · '+fmt(e.cantidad)+(e.unidad?' '+escAttr(e.unidad):'')+(arr.length>1?' (+'+(arr.length-1)+')':'')+'</div>';
+}
+// Ventanita con el detalle de las entradas de un lote (tap/clic en "📥 Entró…").
+function verDetalleEntrada_(clave,lote){
+  const arr=(entPorLote[String(clave).toUpperCase()+'|'+String(lote).toUpperCase()]||[]).slice()
+    .sort(function(a,b){return String(b.fecha).localeCompare(String(a.fecha));});
+  if(!arr.length)return;
+  const fila=function(k,v){return v?'<div style="display:flex;gap:8px;padding:3px 0;font-size:14px"><span style="color:#777;min-width:118px">'+k+'</span><b style="word-break:break-word">'+escAttr(String(v))+'</b></div>':'';};
+  const cuerpo=arr.map(function(e,i){
+    return '<div style="'+(i?'border-top:1px solid #ddd;margin-top:8px;padding-top:8px':'')+'">'
+      +'<div style="font-weight:800;color:#00838F;margin-bottom:2px">'+escAttr(e.tipo)+' · '+escAttr(fechaEntTxt_(e.fecha))+'</div>'
+      +fila('Cantidad',fmt(e.cantidad)+(e.unidad?' '+e.unidad:''))
+      +fila('Proveedor',e.proveedor)+fila('Factura',e.factura)+fila('Orden de compra',e.oc)
+      +fila('Movimiento SAI',e.mov)+fila('Lote proveedor',e.lotePro)+fila('Observaciones',e.obs)
+      +fila('Etiqueta',e.etiqueta==='X'?'Sí'+(e.fechaEtiqueta?' · '+e.fechaEtiqueta:''):'Sin etiqueta')
+      +'</div>';
+  }).join('');
+  let ov=document.getElementById('ov-ent-det');
+  if(!ov){
+    ov=document.createElement('div');ov.id='ov-ent-det';
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.onclick=function(ev){if(ev.target===ov)ov.remove();};
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:16px;max-width:420px;width:100%;max-height:80vh;overflow:auto">'
+    +'<div style="font-weight:900;font-size:16px">📥 '+escAttr(clave)+'</div><div style="font-size:13px;color:#555;margin-bottom:8px">Lote '+escAttr(lote)+(arr.length>1?' · '+arr.length+' entradas':'')+'</div>'
+    +cuerpo
+    +'<button onclick="document.getElementById(\'ov-ent-det\').remove()" style="margin-top:12px;width:100%;padding:10px;border:none;border-radius:10px;background:#00838F;color:#fff;font-weight:800;font-size:14px">Cerrar</button></div>';
 }
 // Estado de una entrada contra el inventario actual.
 function entEstado_(e,idx){
@@ -4252,6 +4279,101 @@ function exportarPrecierreExcel(){
   a.download='Precierre_clase_C_'+new Date().toISOString().slice(0,10)+'.csv';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
+// ===== Generador de QR (sin librerías): modo byte, corrección M, versiones 1-10 =====
+function qrMatriz_(texto){
+  var data=Array.prototype.slice.call(new TextEncoder().encode(String(texto)));
+  var EC=[-1,10,16,26,18,24,16,18,22,22,26],NB=[-1,1,1,2,2,4,4,4,5,5,5];
+  function rawMods(v){var r=(16*v+128)*v+64;if(v>=2){var na=Math.floor(v/7)+2;r-=(25*na-10)*na-55;if(v>=7)r-=36;}return r;}
+  function dataCw(v){return Math.floor(rawMods(v)/8)-EC[v]*NB[v];}
+  var ver,i,j,k;
+  for(ver=1;ver<=10;ver++){if(4+(ver<10?8:16)+data.length*8<=dataCw(ver)*8)break;}
+  if(ver>10)return null;
+  var bits=[];
+  function put(val,len){for(var n=len-1;n>=0;n--)bits.push((val>>>n)&1);}
+  put(4,4);put(data.length,ver<10?8:16);data.forEach(function(b){put(b,8);});
+  var cap=dataCw(ver)*8;
+  put(0,Math.min(4,cap-bits.length));put(0,(8-bits.length%8)%8);
+  for(var pad=0xEC;bits.length<cap;pad^=0xEC^0x11)put(pad,8);
+  var cw=[];for(i=0;i<bits.length;i+=8){var by=0;for(j=0;j<8;j++)by=(by<<1)|bits[i+j];cw.push(by);}
+  function mul(x,y){var z=0;for(var n=7;n>=0;n--){z=(z<<1)^((z>>>7)*0x11D);z^=((y>>>n)&1)*x;}return z;}
+  function rsDiv(deg){var r=[];for(var n=0;n<deg-1;n++)r.push(0);r.push(1);var root=1;for(var n=0;n<deg;n++){for(var m=0;m<r.length;m++){r[m]=mul(r[m],root);if(m+1<r.length)r[m]^=r[m+1];}root=mul(root,2);}return r;}
+  function rsRem(d,div){var r=div.map(function(){return 0;});d.forEach(function(b){var f=b^r.shift();r.push(0);div.forEach(function(c,n){r[n]^=mul(c,f);});});return r;}
+  var nb=NB[ver],ecl=EC[ver],raw=Math.floor(rawMods(ver)/8),nShort=nb-raw%nb,shortLen=Math.floor(raw/nb);
+  var blocks=[],div=rsDiv(ecl);
+  for(i=0,k=0;i<nb;i++){var dat=cw.slice(k,k+shortLen-ecl+(i<nShort?0:1));k+=dat.length;var ec=rsRem(dat,div);if(i<nShort)dat.push(0);blocks.push(dat.concat(ec));}
+  var result=[];
+  for(i=0;i<blocks[0].length;i++){blocks.forEach(function(b,jj){if(i!==shortLen-ecl||jj>=nShort)result.push(b[i]);});}
+  var size=ver*4+17,M=[],F=[];
+  for(i=0;i<size;i++){M.push(new Array(size).fill(false));F.push(new Array(size).fill(false));}
+  function setFn(x,y,v){M[y][x]=!!v;F[y][x]=true;}
+  for(i=0;i<size;i++){setFn(6,i,i%2===0);setFn(i,6,i%2===0);}
+  function finder(cx,cy){for(var dy=-4;dy<=4;dy++)for(var dx=-4;dx<=4;dx++){var d=Math.max(Math.abs(dx),Math.abs(dy)),xx=cx+dx,yy=cy+dy;if(xx>=0&&xx<size&&yy>=0&&yy<size)setFn(xx,yy,d!==2&&d!==4);}}
+  finder(3,3);finder(size-4,3);finder(3,size-4);
+  var ap=[];
+  if(ver>1){var na=Math.floor(ver/7)+2,step=Math.ceil((ver*4+4)/(na*2-2))*2;ap=[6];for(var pos=size-7;ap.length<na;pos-=step)ap.splice(1,0,pos);}
+  for(i=0;i<ap.length;i++)for(j=0;j<ap.length;j++){
+    if((i===0&&j===0)||(i===0&&j===ap.length-1)||(i===ap.length-1&&j===0))continue;
+    for(var dy=-2;dy<=2;dy++)for(var dx=-2;dx<=2;dx++)setFn(ap[i]+dx,ap[j]+dy,Math.max(Math.abs(dx),Math.abs(dy))!==1);
+  }
+  function bit(x,n){return((x>>>n)&1)!==0;}
+  function fmt(mask){
+    var d=mask,r=d;for(var n=0;n<10;n++)r=(r<<1)^((r>>>9)*0x537);
+    var b=((d<<10)|r)^0x5412;
+    for(var n=0;n<=5;n++)setFn(8,n,bit(b,n));
+    setFn(8,7,bit(b,6));setFn(8,8,bit(b,7));setFn(7,8,bit(b,8));
+    for(var n=9;n<15;n++)setFn(14-n,8,bit(b,n));
+    for(var n=0;n<8;n++)setFn(size-1-n,8,bit(b,n));
+    for(var n=8;n<15;n++)setFn(8,size-15+n,bit(b,n));
+    setFn(8,size-8,true);
+  }
+  fmt(0);
+  if(ver>=7){var rm=ver;for(var n=0;n<12;n++)rm=(rm<<1)^((rm>>>11)*0x1F25);var vb=(ver<<12)|rm;
+    for(var n=0;n<18;n++){var a=size-11+n%3,b2=Math.floor(n/3);setFn(a,b2,bit(vb,n));setFn(b2,a,bit(vb,n));}}
+  var idx=0;
+  for(var right=size-1;right>=1;right-=2){
+    if(right===6)right=5;
+    for(var vert=0;vert<size;vert++)for(j=0;j<2;j++){
+      var x=right-j,up=((right+1)&2)===0,y=up?size-1-vert:vert;
+      if(!F[y][x]&&idx<result.length*8){M[y][x]=bit(result[idx>>>3],7-(idx&7));idx++;}
+    }
+  }
+  function aplicar(mask){
+    for(var y=0;y<size;y++)for(var x=0;x<size;x++){
+      var inv;
+      switch(mask){
+        case 0:inv=(x+y)%2===0;break;case 1:inv=y%2===0;break;case 2:inv=x%3===0;break;case 3:inv=(x+y)%3===0;break;
+        case 4:inv=(Math.floor(x/3)+Math.floor(y/2))%2===0;break;case 5:inv=x*y%2+x*y%3===0;break;
+        case 6:inv=(x*y%2+x*y%3)%2===0;break;default:inv=((x+y)%2+x*y%3)%2===0;
+      }
+      if(!F[y][x]&&inv)M[y][x]=!M[y][x];
+    }
+  }
+  function penal(){
+    var p=0,y,x,run,col,dark=0;
+    for(y=0;y<size;y++){run=1;for(x=1;x<size;x++){if(M[y][x]===M[y][x-1]){run++;if(run===5)p+=3;else if(run>5)p++;}else run=1;}}
+    for(x=0;x<size;x++){run=1;for(y=1;y<size;y++){if(M[y][x]===M[y-1][x]){run++;if(run===5)p+=3;else if(run>5)p++;}else run=1;}}
+    for(y=0;y<size-1;y++)for(x=0;x<size-1;x++){var c=M[y][x];if(c===M[y][x+1]&&c===M[y+1][x]&&c===M[y+1][x+1])p+=3;}
+    for(y=0;y<size;y++)for(x=0;x<size;x++)if(M[y][x])dark++;
+    p+=Math.floor(Math.abs(dark*20-size*size*10)/(size*size))*10;
+    return p;
+  }
+  var best=0,bp=1e9;
+  for(var m=0;m<8;m++){aplicar(m);fmt(m);var pp=penal();if(pp<bp){bp=pp;best=m;}aplicar(m);}
+  aplicar(best);fmt(best);
+  return M;
+}
+// SVG del QR con borde (quiet zone) de 2 módulos; mm = lado en milímetros.
+function qrSvg_(texto,mm){
+  var M=qrMatriz_(texto);
+  if(!M)return '';
+  var n=M.length,q=2,d='';
+  for(var y=0;y<n;y++)for(var x=0;x<n;x++)if(M[y][x])d+='M'+(x+q)+' '+(y+q)+'h1v1h-1z';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+(n+2*q)+' '+(n+2*q)+'" width="'+mm+'mm" height="'+mm+'mm" shape-rendering="crispEdges"><rect width="100%" height="100%" fill="#fff"/><path d="'+d+'" fill="#000"/></svg>';
+}
+// Liga de la app que abre directo un lote (la lee arrancarApp_ con ?l=CLAVE|LOTE).
+function urlLoteApp_(clave,lote){
+  return location.origin+location.pathname+'?l='+encodeURIComponent(clave+'|'+lote);
+}
 function datosEtiquetaConteo_(clave,lote){
   const p=(cicData||[]).find(function(x){return x.clave===clave&&x.lote===lote;});
   if(!p)return null;
@@ -4275,7 +4397,7 @@ function htmlEtiquetaConteo_(d){
     +'<div class="clave" style="font-size:'+fsClave+'pt">'+escAttr(d.clave)+'</div>'
     +'<div class="desc">'+escAttr(d.desc)+'</div>'
     +'<div class="lotefila"><span class="lbl">LOTE</span><span class="lote" style="font-size:'+fsLote+'pt">'+escAttr(d.lote)+'</span></div>'
-    +'<div class="pie"><span class="ub">UBIC: '+escAttr(d.ubic||'—')+'</span><span class="fe">'+escAttr(d.fecha)+'</span></div>'
+    +'<div class="pie"><span class="ub">UBIC: '+escAttr(d.ubic||'—')+'</span><span class="fe">'+escAttr(d.fecha)+'</span><span class="qr">'+qrSvg_(urlLoteApp_(d.clave,d.lote),15)+'</span></div>'
     +'<div class="cant"><span class="clbl">CANTIDAD CONTADA'+(d.unidad?' ('+escAttr(String(d.unidad).toUpperCase())+')':'')+'</span></div>'
     +'<div class="firmas"><div class="firma"><span class="clbl">FIRMA:</span></div><div class="firma"><span class="clbl">REVISÓ:</span></div></div>'
   +'</div>';
@@ -4297,8 +4419,8 @@ function imprimirEtiquetasConteo_(lista){
     +'.lotefila{display:flex;align-items:baseline;gap:2.5mm;margin-top:1.2mm}'
     +'.lbl{font-size:9pt;font-weight:700;color:#333}'
     +'.lote{font-weight:900;line-height:1.05;word-break:break-all}'
-    +'.pie{display:flex;justify-content:space-between;align-items:flex-end;border-top:1.2pt solid #000;margin-top:1.2mm;padding-top:1mm;font-size:11pt;font-weight:800}'
-    +'.ub{max-width:64mm;line-height:1.1}.fe{font-size:12pt;font-weight:900}'
+    +'.pie{display:flex;justify-content:space-between;align-items:center;gap:2mm;border-top:1.2pt solid #000;margin-top:1.2mm;padding-top:1mm;font-size:11pt;font-weight:800}'
+    +'.ub{flex:1;max-width:52mm;line-height:1.1}.fe{font-size:12pt;font-weight:900}.qr svg{display:block}'
     +'.cant{flex:1;border:1.6pt solid #000;margin-top:1.5mm;padding:0.8mm 2mm;min-height:11mm}'
     +'.firmas{display:flex;gap:4mm;margin-top:1.5mm}.firma{flex:1;height:8mm;border-bottom:1.2pt solid #000;padding-top:0.5mm}'
     +'.clbl{font-size:8pt;font-weight:800;letter-spacing:.3pt}'
@@ -9894,6 +10016,25 @@ if(rackFiltroWrap)rackFiltroWrap.addEventListener('click',function(e){
 // (nunca la puso, o la clave se rotó desde que la puso), se le pide.
 // La clave real nunca viaja al navegador, solo su hash SHA-256.
 // ============================================================
+// Si la app se abrió desde el QR de una etiqueta (?l=CLAVE|LOTE), espera a que
+// cargue el inventario y salta al lote (ubicación, existencia y último conteo).
+function abrirLoteDeLiga_(){
+  let v='';
+  try{v=new URLSearchParams(location.search).get('l')||'';}catch(e){}
+  const m=v.split('|');
+  if(m.length<2||!m[0])return;
+  const clave=m[0],lote=m.slice(1).join('|');
+  let n=0;
+  const t=setInterval(function(){
+    n++;
+    const ok=(window._ALL_A||[]).some(function(p){return p.clave===clave;});
+    if(ok||n>60){
+      clearInterval(t);
+      if(ok){irAInventarioLote_(clave,lote);try{history.replaceState(null,'',location.pathname);}catch(e){}}
+      else alert('No se encontró la clave '+clave+' en el inventario.');
+    }
+  },500);
+}
 function arrancarApp_(){
   loadInventario();
   // PT (antes solo se cargaba al entrar a Carátulas) se carga desde el
@@ -9907,6 +10048,7 @@ function arrancarApp_(){
   cargarNombresRacks_();
   // Pendientes/comentarios de ubicación -- igual.
   cargarPendientesUbicaciones_();
+  abrirLoteDeLiga_();
 }
 
 function mostrarCandado_(){
