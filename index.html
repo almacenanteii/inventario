@@ -904,6 +904,8 @@ header.h-dev{background:var(--tl)}
   <div class="kpi"><div class="kpi-lbl">Entradas</div><div class="kpi-val" style="color:#00838F" id="k-ent-total">—</div><div class="kpi-sub" id="k-ent-total-sub">en el periodo</div></div>
   <div class="kpi"><div class="kpi-lbl">Sin ubicación</div><div class="kpi-val" style="color:#E65100" id="k-ent-sinubic">—</div><div class="kpi-sub">con existencia</div></div>
   <div class="kpi"><div class="kpi-lbl">No en inventario</div><div class="kpi-val" style="color:#546E7A" id="k-ent-noinv">—</div><div class="kpi-sub">lote sin existencia en SAI</div></div>
+  <div class="kpi"><div class="kpi-lbl">EYE</div><div class="kpi-val" style="color:#00695C" id="k-ent-eye">—</div><div class="kpi-sub">entradas</div></div>
+  <div class="kpi"><div class="kpi-lbl">MP</div><div class="kpi-val" style="color:#E65100" id="k-ent-mp">—</div><div class="kpi-sub">entradas</div></div>
 </div>
 <div class="bar hidden" id="bar-ent"></div>
 <div class="list hidden" id="list-ent"></div>
@@ -2272,6 +2274,8 @@ function renderEnt(){
   document.getElementById('k-ent-total').textContent=lista.length.toLocaleString('en-US');
   document.getElementById('k-ent-sinubic').textContent=lista.filter(function(x){return x.st.est==='SINUBIC';}).length;
   document.getElementById('k-ent-noinv').textContent=lista.filter(function(x){return x.st.est==='NOINV';}).length;
+  document.getElementById('k-ent-eye').textContent=lista.filter(function(x){return x.e.tipo==='EYE';}).length;
+  document.getElementById('k-ent-mp').textContent=lista.filter(function(x){return x.e.tipo==='MP';}).length;
   document.getElementById('bar-ent').textContent=lista.length+' entradas';
   if(!lista.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-ent').textContent=sEnt||'este filtro';return;}
   empty.classList.add('hidden');
@@ -2280,7 +2284,7 @@ function renderEnt(){
     const estHtml=st.est==='EXT'?'':st.est==='OK'?'<span class="ent-est ok">📍 Ubicado</span>':
       (st.est==='SINUBIC'?'<span class="ent-est sin">⚠️ Sin ubicación</span>':'<span class="ent-est noinv">❓ No está en inventario</span>');
     const ubHtml=(st.est==='NOINV'||st.est==='EXT')?'':ubicRowHtml_(e.clave,e.lote,st.almU);
-    const extra=[e.caducidad?'Caduc. '+fechaEntTxt_(e.caducidad):'',e.mov?'Mov. SAI '+e.mov:'',e.factura?'Fact. '+e.factura:'',e.oc?'OC '+e.oc:''].filter(Boolean).join(' · ');
+    const extra=[e.mov?'Mov. SAI '+e.mov:'',e.factura?'Fact. '+e.factura:'',e.oc?'OC '+e.oc:''].filter(Boolean).join(' · ');
     return '<div class="ent-card">'
       +'<div class="ent-top"><span class="ent-clave">'+escAttr(e.clave)+'</span><span class="ent-tipo'+(e.tipo==='MP'?' mp':'')+'">'+escAttr(e.tipo)+'</span>'
         +(e.etiqueta==='X'?'':'<span class="ent-tipo" style="background:#FFEBEE;color:#C62828">sin etiqueta</span>')
@@ -2986,7 +2990,8 @@ function renderInv(){
         }
         const almU=(l.almacen||'').toUpperCase();
         const esPT=['40PT','PTJAL','PTFGUAD','REPROJAL'].indexOf(almU)!==-1;
-        const cad=cadInfo(l.caducidad);
+        // La fecha de caducidad ya no se muestra en Inventario (no se usaba).
+        const cad={txt:'',cls:''};
         // Este mismo lote (código exacto) también tiene algo en DEV --
         // pendiente de confirmar contra MOVREP y traspasar a EYEJAL. Solo
         // informativo, nunca se suma a l.exist ni al total de la tarjeta.
