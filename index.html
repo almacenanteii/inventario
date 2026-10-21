@@ -7256,7 +7256,7 @@ function recalcEmbLetters(){
       counter++;
       const L=embLetter(counter);
       sum+=t.piezas;
-      assign.push({letter:L,clave:clave,desc:row.dataset.desc,lote:lote,almacen:almacen,piezas:t.piezas,origen:t.origen||''});
+      assign.push({letter:L,num:counter,clave:clave,desc:row.dataset.desc,lote:lote,almacen:almacen,piezas:t.piezas,origen:t.origen||''});
       chipsHtml+='<span class="emb-tar-chip">Tarima '+L+': '+fmt(t.piezas)+' pz<span class="x" onclick="removeEmbTarima(this)" data-id="'+escAttr(t.id)+'">✕</span></span>';
     });
     if(chipsEl) chipsEl.innerHTML=chipsHtml;
@@ -7500,9 +7500,9 @@ function exportarEmbTarimasExcel(){
     const s=String(v==null?'':v);
     return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
   };
-  const encabezado=['Tarima','Clave','Descripción','Lote','Piezas','Almacén','Origen'];
+  const encabezado=['Tarima','Clave','Descripción','Lote','Piezas','Almacén','Agregado manual'];
   const filas=assign.map(function(a){
-    return [a.letter,a.clave,a.desc,a.lote,a.piezas,a.almacen,a.origen==='MANUAL'?'Agregado a mano':''].map(escCsv).join(',');
+    return [a.num,a.clave,a.desc,a.lote,a.piezas,a.almacen,a.origen==='MANUAL'?'Sí':'No'].map(escCsv).join(',');
   });
   const csv='﻿'+encabezado.join(',')+'\r\n'+filas.join('\r\n');
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
