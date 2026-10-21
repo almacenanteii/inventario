@@ -652,6 +652,7 @@ header.h-dev{background:var(--tl)}
         <button id="btn-precierre-fmt" class="menu-item" onclick="abrirPrecierre_('formato');cerrarMenusImprimir()">🎯 Formato Pre-cierre clase C</button>
         <button id="btn-precierre-etq" class="menu-item" onclick="abrirPrecierre_('etiquetas');cerrarMenusImprimir()">🏷️ Etiquetas Pre-cierre clase C (Zebra)</button>
         <button id="btn-precierre-xls" class="menu-item" onclick="exportarPrecierreExcel();cerrarMenusImprimir()">📊 Pre-cierre clase C (Excel)</button>
+        <button id="btn-agotados-xls" class="menu-item" onclick="exportarAgotadosExcel();cerrarMenusImprimir()">📊 Lotes agotados (Excel)</button>
         <button id="btn-verif-ajustes"class="menu-item" onclick="generarReporteVerificacionAjustesActual();cerrarMenusImprimir()">🔎 Verificación de ajustes pendientes</button>
         <button id="btn-atrasados-print" class="menu-item hidden" style="color:#C62828" onclick="imprimirAtrasados();cerrarMenusImprimir()">🔴 Atrasados</button>
       </div>
@@ -4264,6 +4265,21 @@ function generarFormatoPrecierre(racks,soloPend){
   win.document.close();
   win.focus();
   setTimeout(function(){win.print();},500);
+}
+function exportarAgotadosExcel(){
+  const lista=(cicData||[]).filter(function(p){return p.estatus==='Agotado';});
+  if(!lista.length){alert('No hay lotes agotados.');return;}
+  const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
+  const filas=[['Clave','Descripción','Lote','Almacén','Unidad','Clase','Última existencia SAI','Último conteo (fecha)','Último conteo (cantidad)','Ubicación'].map(q).join(',')];
+  lista.sort(function(a,b){return String(a.clave).localeCompare(String(b.clave))||String(a.lote).localeCompare(String(b.lote));});
+  lista.forEach(function(p){
+    const uc=ultimoConteoLote_(p.clave,p.lote);
+    filas.push([p.clave,p.desc||'',p.lote,p.almacen||'',p.unidad||'',claseLote_(p)||'',p.existSAI,uc?String(uc.fecha||'').split(',')[0].trim():'',uc?uc.cantidad:'',ubicTexto_(p.clave,p.lote,p.almacen)||''].map(q).join(','));
+  });
+  const blob=new Blob(['\uFEFF'+filas.join('\r\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='Lotes_agotados_'+new Date().toISOString().slice(0,10)+'.csv';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 function exportarPrecierreExcel(){
   const todos=lotesPrecierre_(false);
