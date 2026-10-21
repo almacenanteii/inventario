@@ -897,6 +897,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip a-ent" data-p="30">Últimos 30 días</div>
     <div class="chip" data-p="90">Últimos 90 días</div>
     <div class="chip" data-p="0">Todo el año</div>
+    <select id="sel-ent-sem" style="border:none;border-radius:20px;padding:6px 10px;font-size:12px;font-weight:700;color:#00838F;background:rgba(255,255,255,.95)"><option value="">📆 Semana…</option></select>
   </div>
 </header>
 <div class="kpis hidden" id="kpis-ent">
@@ -2146,7 +2147,7 @@ function estadoUbicaciones_(){
 // Los datos los llena actualizarEntradasDesdeDrive() (Apps Script) leyendo los
 // Excel de recepción; aquí solo se leen (?accion=entradas) y se cruzan con
 // Inventario por clave + lote interno (ME.../MP...).
-let ENTRADAS_LOADED=[],entLoaded=false,fEnt='TODAS',fEntPer='30',sEnt='';
+let ENTRADAS_LOADED=[],entLoaded=false,fEnt='TODAS',fEntPer='30',sEnt='',fEntSem='';
 let entPorLote={};
 async function cargarEntradas_(){
   try{
@@ -2165,6 +2166,17 @@ function indexarEntradas_(){
     const k=String(e.clave).toUpperCase()+'|'+String(e.lote).toUpperCase();
     (entPorLote[k]=entPorLote[k]||[]).push(e);
   });
+}
+// Semana ISO (lunes a domingo) calculada de la fecha de llegada -- así ya no
+// depende de que alguien capture la columna Semana en el Excel (coincide con la
+// del Excel en las que sí la traen).
+function semanaIso_(iso){
+  const m=String(iso||'').match(/^(\d{4})-(\d\d)-(\d\d)/);
+  if(!m)return 0;
+  const d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3]));
+  d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));
+  const y0=new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return Math.ceil(((d-y0)/864e5+1)/7);
 }
 function fechaEntTxt_(iso){
   const m=String(iso||'').match(/^(\d{4})-(\d\d)-(\d\d)/);
@@ -2210,7 +2222,8 @@ function getFiltEnt_(){
   }
   const lista=[];
   (ENTRADAS_LOADED||[]).forEach(function(e){
-    if(desde&&String(e.fecha)<desde)return;
+    if(fEntSem){if(semanaIso_(e.fecha)!==parseInt(fEntSem,10))return;}
+    else if(desde&&String(e.fecha)<desde)return;
     if(fEnt==='EYE'&&e.tipo!=='EYE')return;
     if(fEnt==='MP'&&e.tipo!=='MP')return;
     if(fEnt==='SINETIQ'&&e.etiqueta==='X')return;
@@ -2223,6 +2236,21 @@ function getFiltEnt_(){
   lista.sort(function(a,b){return String(b.e.fecha).localeCompare(String(a.e.fecha))||String(b.e.lote).localeCompare(String(a.e.lote));});
   return lista;
 }
+function llenarSemanasEnt_(){
+  const sel=document.getElementById('sel-ent-sem');
+  if(!sel)return;
+  const cnt={};
+  (ENTRADAS_LOADED||[]).forEach(function(e){const w=semanaIso_(e.fecha);if(w)cnt[w]=(cnt[w]||0)+1;});
+  const ws=Object.keys(cnt).map(Number).sort(function(a,b){return b-a;});
+  const actual=semanaIso_(fechaHoyIso_());
+  const key=ws.join(',')+'|'+actual;
+  if(sel.dataset.key!==key){
+    sel.dataset.key=key;
+    sel.innerHTML='<option value="">📆 Semana…</option>'+ws.map(function(w){return '<option value="'+w+'">Semana '+w+(w===actual?' (actual)':'')+' · '+cnt[w]+'</option>';}).join('');
+  }
+  sel.value=fEntSem;
+}
+function fechaHoyIso_(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function renderEnt(){
   const list=document.getElementById('list-ent'),empty=document.getElementById('empty-ent');
   if(!list)return;
@@ -2233,6 +2261,7 @@ function renderEnt(){
     document.getElementById('bar-ent').textContent='';
     return;
   }
+  llenarSemanasEnt_();
   const lista=getFiltEnt_();
   const ult=(ENTRADAS_LOADED||[]).reduce(function(m,e){return String(e.fecha)>m?String(e.fecha):m;},'');
   if(bar)bar.textContent='📅 '+ENTRADAS_LOADED.length+' entradas en bitácoras'+(ult?' · última: '+fechaEntTxt_(ult):'');
@@ -2251,7 +2280,7 @@ function renderEnt(){
     return '<div class="ent-card">'
       +'<div class="ent-top"><span class="ent-clave">'+escAttr(e.clave)+'</span><span class="ent-tipo'+(e.tipo==='MP'?' mp':'')+'">'+escAttr(e.tipo)+'</span>'
         +(e.etiqueta==='X'?'':'<span class="ent-tipo" style="background:#FFEBEE;color:#C62828">sin etiqueta</span>')
-        +'<span class="ent-fecha">'+escAttr(fechaEntTxt_(e.fecha))+'</span></div>'
+        +'<span class="ent-fecha">Sem '+semanaIso_(e.fecha)+' · '+escAttr(fechaEntTxt_(e.fecha))+'</span></div>'
       +'<div class="ent-desc">'+escAttr(e.desc)+'</div>'
       +'<div class="ent-row"><b>Lote '+escAttr(e.lote)+'</b> · <b>'+fmt(e.cantidad)+(e.unidad?' '+escAttr(e.unidad):'')+'</b>'+(e.proveedor?' · '+escAttr(e.proveedor):'')+'</div>'
       +(extra?'<div class="ent-row">'+escAttr(extra)+'</div>':'')
@@ -2265,9 +2294,9 @@ function exportarEntradasExcel(){
   const lista=getFiltEnt_();
   if(!lista.length){alert('No hay entradas con este filtro.');return;}
   const q=function(v){return '"'+String(v==null?'':v).replace(/"/g,'""')+'"';};
-  const rows=[['Tipo','Fecha','Clave','Descripción','Cantidad','Unidad','Proveedor','Lote proveedor','Lote interno','Caducidad','Movimiento SAI','Factura','Orden de compra','Etiqueta','Estado','Ubicación','Existencia actual'].map(q).join(',')];
+  const rows=[['Tipo','Semana','Fecha','Clave','Descripción','Cantidad','Unidad','Proveedor','Lote proveedor','Lote interno','Caducidad','Movimiento SAI','Factura','Orden de compra','Etiqueta','Estado','Ubicación','Existencia actual'].map(q).join(',')];
   const txt={OK:'Ubicado',SINUBIC:'Sin ubicación',NOINV:'No está en inventario'};
-  lista.forEach(function(x){const e=x.e;rows.push([e.tipo,e.fecha,e.clave,e.desc,e.cantidad,e.unidad,e.proveedor,e.lotePro,e.lote,e.caducidad,e.mov,e.factura,e.oc,e.etiqueta==='X'?'Sí':'No',txt[x.st.est],x.st.ubic,x.st.exist].map(q).join(','));});
+  lista.forEach(function(x){const e=x.e;rows.push([e.tipo,semanaIso_(e.fecha),e.fecha,e.clave,e.desc,e.cantidad,e.unidad,e.proveedor,e.lotePro,e.lote,e.caducidad,e.mov,e.factura,e.oc,e.etiqueta==='X'?'Sí':'No',txt[x.st.est],x.st.ubic,x.st.exist].map(q).join(','));});
   const blob=new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8;'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);
   a.download='Entradas_'+new Date().toISOString().slice(0,10)+'.csv';
@@ -9623,7 +9652,8 @@ document.querySelectorAll('#fi-dev .chip').forEach(function(c){c.addEventListene
 document.getElementById('search-ubi').addEventListener('input',function(){sUbi=this.value;renderUbi();});
 document.getElementById('search-ent').addEventListener('input',function(){sEnt=this.value;renderEnt();});
 document.querySelectorAll('#fi-ent .chip').forEach(function(c){c.addEventListener('click',function(){fEnt=this.dataset.f;document.querySelectorAll('#fi-ent .chip').forEach(function(x){x.classList.remove('active','a-ent');});this.classList.add('active');renderEnt();});});
-document.querySelectorAll('#fi-ent-per .chip').forEach(function(c){c.addEventListener('click',function(){fEntPer=this.dataset.p;document.querySelectorAll('#fi-ent-per .chip').forEach(function(x){x.classList.remove('active','a-ent');});this.classList.add('active');renderEnt();});});
+document.getElementById('sel-ent-sem').addEventListener('change',function(){fEntSem=this.value;renderEnt();});
+document.querySelectorAll('#fi-ent-per .chip').forEach(function(c){c.addEventListener('click',function(){fEntPer=this.dataset.p;fEntSem='';document.querySelectorAll('#fi-ent-per .chip').forEach(function(x){x.classList.remove('active','a-ent');});this.classList.add('active');renderEnt();});});
 document.querySelectorAll('#fi-ubi .chip').forEach(function(c){c.addEventListener('click',function(){fUbi=this.dataset.f;document.querySelectorAll('#fi-ubi .chip').forEach(function(x){x.classList.remove('active','a-ubi');});this.classList.add('active');renderUbi();});});
 // Filtro por rack -- los chips se generan en vivo dentro de renderUbi(),
 // así que aquí se usa delegación de eventos (el listener va en el
