@@ -4390,8 +4390,8 @@ function datosEtiquetaConteo_(clave,lote){
   };
 }
 function htmlEtiquetaConteo_(d){
-  const fsClave=d.clave.length<=14?26:(d.clave.length<=18?22:18);
-  const fsLote=d.lote.length<=12?24:19;
+  const fsClave=Math.max(11,Math.min(26,Math.floor(68/(Math.max(1,d.clave.length)*0.265))));
+  const fsLote=Math.max(12,Math.min(24,Math.floor(52/(Math.max(1,d.lote.length)*0.265))));
   return '<div class="etq">'
     +'<span class="qr">'+qrSvg_(urlLoteApp_(d.clave,d.lote),27)+'</span>'
     +'<div class="top"><span class="tit">'+escAttr(d.titulo||'CONTEO CÍCLICO')+'</span><span class="cls">CLASE '+escAttr(d.clase||'—')+'</span></div>'
@@ -4400,7 +4400,7 @@ function htmlEtiquetaConteo_(d){
     +'<div class="lotefila"><span class="lbl">LOTE</span><span class="lote" style="font-size:'+fsLote+'pt">'+escAttr(d.lote)+'</span></div>'
     +'<div class="pie"><span class="ub">UBIC: '+escAttr(d.ubic||'—')+'</span><span class="fe">'+escAttr(d.fecha)+'</span></div>'
     +'<div class="cant"><span class="clbl">CANTIDAD CONTADA'+(d.unidad?' ('+escAttr(String(d.unidad).toUpperCase())+')':'')+'</span></div>'
-    +'<div class="firmas"><div class="firma"><span class="clbl">FIRMA:</span></div><div class="firma"><span class="clbl">REVISÓ:</span></div></div>'
+    +'<div class="firmas"><div class="firma"><span class="clbl">FIRMA:</span><i></i></div><div class="firma"><span class="clbl">REVISÓ:</span><i></i></div></div>'
   +'</div>';
 }
 function imprimirEtiquetasConteo_(lista){
@@ -4415,17 +4415,17 @@ function imprimirEtiquetasConteo_(lista){
     +'.etq:last-child{page-break-after:auto}'
     +'.top{display:flex;justify-content:space-between;align-items:center;background:#000;color:#fff;padding:0.8mm 2.5mm;font-weight:900;font-size:12pt;letter-spacing:.5pt}'
     +'.cls{border:1.2pt solid #fff;padding:0 2mm;font-size:12pt}'
-    +'.clave{font-weight:900;margin-top:1.5mm;line-height:1.05;word-break:break-all}'
-    +'.desc{font-size:10pt;font-weight:700;margin-top:0.8mm;line-height:1.1;max-height:9mm;overflow:hidden}'
+    +'.clave{font-weight:900;margin-top:1.5mm;line-height:1.05;white-space:nowrap}'
+    +'.desc{font-size:9pt;font-weight:700;margin-top:0.8mm;line-height:1.1;max-height:8mm;overflow:hidden}'
     +'.lotefila{display:flex;align-items:baseline;gap:2.5mm;margin-top:1.2mm}'
     +'.lbl{font-size:9pt;font-weight:700;color:#333}'
-    +'.lote{font-weight:900;line-height:1.05;word-break:break-all}'
+    +'.lote{font-weight:900;line-height:1.05;white-space:nowrap}'
     +'.pie{display:flex;justify-content:space-between;align-items:flex-end;border-top:1.2pt solid #000;margin-top:1.2mm;padding-top:1mm;font-size:11pt;font-weight:800}'
     +'.ub{max-width:64mm;line-height:1.1}.fe{font-size:12pt;font-weight:900}'
     +'.etq{position:relative}.qr{position:absolute;right:2mm;top:10.5mm}.qr svg{display:block}'
     +'.clave,.desc,.lotefila{padding-right:27mm}'
     +'.cant{flex:1;border:1.6pt solid #000;margin-top:1.5mm;padding:0.8mm 2mm;min-height:11mm}'
-    +'.firmas{display:flex;gap:4mm;margin-top:1.5mm}.firma{flex:1;height:8mm;border-bottom:1.2pt solid #000;padding-top:0.5mm}'
+    +'.firmas{display:flex;gap:6mm;margin-top:1.5mm}.firma{flex:1;height:6mm;display:flex;align-items:flex-end;gap:1.5mm}.firma i{flex:1;border-bottom:1.2pt solid #000;height:4mm}'
     +'.clbl{font-size:8pt;font-weight:800;letter-spacing:.3pt}'
     +'</style></head><body>'
     +lista.map(htmlEtiquetaConteo_).join('')
