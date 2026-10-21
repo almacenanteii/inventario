@@ -877,7 +877,11 @@ header.h-dev{background:var(--tl)}
 <header class="h-ent hidden" id="hdr-ent">
   <div class="hdr-top">
     <h1>📥 Entradas</h1>
+    <div style="display:flex;gap:6px">
+    <button id="btn-ent-etq" onclick="imprimirEtiquetasRecepcionFiltro(false)" style="background:#fff;color:#00838F;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🏷️ Etiquetas</button>
+    <button id="btn-ent-etq-sin" onclick="imprimirEtiquetasRecepcionFiltro(true)" style="background:#fff;color:#00838F;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🏷️ Sin etiqueta</button>
     <button onclick="exportarEntradasExcel()" style="background:#fff;color:#00838F;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">📊 Excel</button>
+    </div>
   </div>
   <div class="update-bar" id="ent-update-bar">📅 Cargando entradas...</div>
   <div class="search-box">
@@ -2291,7 +2295,8 @@ function renderEnt(){
   document.getElementById('bar-ent').textContent=lista.length+' entradas';
   if(!lista.length){list.innerHTML='';empty.classList.remove('hidden');document.getElementById('eq-ent').textContent=sEnt||'este filtro';return;}
   empty.classList.add('hidden');
-  list.innerHTML=lista.slice(0,400).map(function(x){
+  window._entListaVis=lista.slice(0,400).map(function(x){return x.e;});
+  list.innerHTML=lista.slice(0,400).map(function(x,i){
     const e=x.e,st=x.st;
     const estHtml=st.est==='EXT'?'':st.est==='OK'?'<span class="ent-est ok">📍 Ubicado</span>':
       (st.est==='SINUBIC'?'<span class="ent-est sin">⚠️ Sin ubicación</span>':'<span class="ent-est noinv">❓ No está en inventario</span>');
@@ -2307,8 +2312,78 @@ function renderEnt(){
       +(e.obs?'<div class="ent-row" style="color:#777">'+escAttr(e.obs)+'</div>':'')
       +'<div>'+estHtml+(st.est!=='NOINV'&&st.est!=='EXT'?'<span style="font-size:11px;color:#555">Existencia actual: '+fmt(st.exist)+' '+escAttr(st.unidad)+' ('+escAttr(st.almU)+')</span>':'')+'</div>'
       +ubHtml
+      +'<div style="text-align:right;margin-top:6px"><button class="btn-etq-rec" onclick="imprimirEtiquetaRecepcion('+i+')" style="background:#E0F7FA;color:#00838F;border:1px solid #00838F;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">🏷️ Etiqueta de recepción</button></div>'
     +'</div>';
   }).join('')+(lista.length>400?'<div style="text-align:center;font-size:12px;color:#777;padding:10px">Mostrando 400 de '+lista.length+'. Usa el buscador o el periodo para acotar.</div>':'');
+}
+// ===== Etiqueta de recepción (F-AL-005-3), Zebra 104 x 75.8 mm =====
+function fechaEtqRec_(iso){
+  const m=String(iso||'').match(/^(\d{4})-(\d\d)-(\d\d)/);
+  if(!m)return String(iso||'');
+  const meses=['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+  return m[3]+'-'+meses[+m[2]-1]+'-'+m[1].slice(2);
+}
+function htmlEtiquetaRecepcion_(e){
+  const mp=e.tipo==='MP';
+  const uni=String(e.unidad||'').trim().toUpperCase()||(mp?'':'PZS');
+  const cant=fmt(e.cantidad)+(uni?' '+uni:'');
+  const clave=String(e.clave||''),lote=String(e.lote||''),desc=String(e.desc||'');
+  const fsC=clave.length<=14?20:16, fsL=lote.length<=14?20:16;
+  const fsD=desc.length<=60?12:(desc.length<=100?10:8);
+  return '<div class="etq">'
+    +'<div class="cab"><img src="'+LOGO_ANTEII_B64+'" alt="ANTEII">'
+      +'<div class="tipos"><span class="tp"><i class="'+(mp?'':'on')+'"></i>EYE</span><span class="tp"><i class="'+(mp?'on':'')+'"></i>MP</span></div></div>'
+    +'<div class="cuerpo"><div class="campos">'
+      +'<div class="f"><span class="l">DESCRIPCIÓN:</span><span class="v" style="font-size:'+fsD+'pt">'+escAttr(desc)+'</span></div>'
+      +'<div class="f"><span class="l">CLAVE:</span><span class="v" style="font-size:'+fsC+'pt">'+escAttr(clave)+'</span></div>'
+      +'<div class="f"><span class="l">N° LOTE INTERNO:</span><span class="v" style="font-size:'+fsL+'pt">'+escAttr(lote)+'</span></div>'
+      +'<div class="f"><span class="l">CANTIDAD:</span><span class="v" style="font-size:16pt">'+escAttr(cant)+'</span></div>'
+      +'<div class="f"><span class="l">FECHA DE INGRESO:</span><span class="v" style="font-size:14pt">'+escAttr(fechaEtqRec_(e.fecha))+'</span></div>'
+      +'<div class="f"><span class="l">N. DE MOVIMIENTO SAI:</span><span class="v" style="font-size:14pt">'+escAttr(e.mov||'')+'</span></div>'
+    +'</div><div class="cuar">CUARENTENA</div></div>'
+    +'<div class="cod">F-AL-005-3</div>'
+  +'</div>';
+}
+function imprimirEtiquetasRecepcion_(lista){
+  if(!lista.length){alert('No hay entradas para etiquetar.');return;}
+  const win=window.open('','_blank');
+  if(!win||!win.document){alert('No se pudo abrir la etiqueta. Permite ventanas emergentes para este sitio e inténtalo de nuevo.');return;}
+  win.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Etiqueta de recepción</title><style>'
+    +'@page{size:104mm 75.8mm;margin:0}'
+    +'*{box-sizing:border-box;margin:0;padding:0}html,body{width:104mm;background:#fff}'
+    +'body{font-family:Arial,Helvetica,sans-serif;color:#000}'
+    +'.etq{width:104mm;height:75.8mm;padding:2mm 3mm;page-break-after:always;overflow:hidden;display:flex;flex-direction:column}'
+    +'.etq:last-child{page-break-after:auto}'
+    +'.cab{display:flex;justify-content:space-between;align-items:center;height:11mm}'
+    +'.cab img{height:10mm;width:auto}'
+    +'.tipos{display:flex;gap:5mm;font-weight:900;font-size:13pt}'
+    +'.tp{display:flex;align-items:center;gap:1.5mm}'
+    +'.tp i{display:inline-block;width:5mm;height:5mm;border:1.2pt solid #000;border-radius:50%}'
+    +'.tp i.on{background:#000}'
+    +'.cuerpo{flex:1;display:flex;gap:2mm;margin-top:1mm;min-height:0}'
+    +'.campos{flex:1;display:flex;flex-direction:column;justify-content:space-between;min-width:0}'
+    +'.f{display:flex;align-items:baseline;gap:2mm;border-bottom:1pt solid #000;padding-bottom:.6mm;min-height:7mm;overflow:hidden}'
+    +'.l{font-size:8pt;font-weight:800;white-space:nowrap}'
+    +'.v{font-weight:900;line-height:1.1;word-break:break-all}'
+    +'.cuar{width:11mm;border:1.4pt solid #000;writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;font-weight:900;font-size:15pt;letter-spacing:1.5pt;display:flex;align-items:center;justify-content:center}'
+    +'.cod{text-align:right;font-size:8pt;font-weight:700;margin-top:.8mm}'
+    +'</style></head><body>'
+    +lista.map(htmlEtiquetaRecepcion_).join('')
+    +'<script>window.onload=function(){window.print();}<\/script></body></html>');
+  win.document.close();
+  win.focus();
+}
+function imprimirEtiquetaRecepcion(i){
+  const e=(window._entListaVis||[])[i];
+  if(!e){alert('No se encontró la entrada.');return;}
+  imprimirEtiquetasRecepcion_([e]);
+}
+function imprimirEtiquetasRecepcionFiltro(soloSin){
+  let l=getFiltEnt_().map(function(x){return x.e;}).filter(function(e){return e.tipo==='EYE'||e.tipo==='MP';});
+  if(soloSin)l=l.filter(function(e){return e.etiqueta!=='X';});
+  if(!l.length){alert('No hay entradas para etiquetar con este filtro.');return;}
+  if(l.length>1&&!confirm('Se imprimirán '+l.length+' etiquetas (una por hoja). ¿Continuar?'))return;
+  imprimirEtiquetasRecepcion_(l);
 }
 function exportarEntradasExcel(){
   const lista=getFiltEnt_();
@@ -6269,6 +6344,11 @@ function parseInvCSV(text){
     if(!lines[i].trim())continue;
     const cols=parseCols(lines[i]);
     if(cols.length<8)continue;
+    // Los PT agregados a mano (columna Origen = MANUAL) también viven en la hoja
+    // InventarioPT, pero la app los lee aparte en vivo (acción pt_manual, ver
+    // mezclarPtManualEn_). Si aquí también se cargaran, cada uno saldría DOS
+    // veces en cuanto el CSV publicado se actualiza.
+    if(clean(cols[8]).toUpperCase()==='MANUAL')continue;
     rows.push({
       almacen:clean(cols[7]).replace(/\s+/g,''),
       clase:clean(cols[0]),
@@ -6836,6 +6916,10 @@ function guardarPtManual(){
   const clase=(buscarDescClaveExistente_(clave)||{}).clase||'PT';
   const nombre=localStorage.getItem('cic_nombre')||'Sin nombre';
   const fecha=new Date().toLocaleString('es-MX');
+  // Evita doble envío (doble toque / doble clic) del mismo lote.
+  const llaveGuardado=clave+'|'+lote+'|'+ptManualAlm;
+  if(window._ptManualUlt&&window._ptManualUlt.k===llaveGuardado&&Date.now()-window._ptManualUlt.t<4000)return;
+  window._ptManualUlt={k:llaveGuardado,t:Date.now()};
   const idTemp='tmp-'+Date.now();
 
   EMB_LOADED.push({
