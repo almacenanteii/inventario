@@ -673,6 +673,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="NUEVO">🆕 Sin clasificar</div>
     <div class="chip" data-f="INCIDENCIA">⚠️ Incidencias</div>
     <div class="chip" data-f="PRECIERRE" id="chip-precierre">🎯 Pre-cierre C</div>
+    <div class="chip" data-f="AGOTADO" id="chip-agotado">📦 Agotados</div>
   </div>
 </header>
 
@@ -4187,6 +4188,8 @@ function actualizarChipPrecierre_(){
   const c=document.getElementById('chip-precierre');if(!c)return;
   const st=statsPrecierre_();
   c.textContent='🎯 Pre-cierre C ('+st.lotesPend+' por contar de '+st.lotes+')';
+  const ca=document.getElementById('chip-agotado');
+  if(ca)ca.textContent='📦 Agotados ('+(cicData||[]).filter(function(p){return p.estatus==='Agotado';}).length+')';
 }
 function generarFormatoPrecierre(racks,soloPend){
   // Mismo formato que "Imprimir semana" (logo, tabla SAI / Conteo físico /
@@ -5245,7 +5248,7 @@ function getFiltCic(){
   cicHist.forEach(function(h){const k=h.clave+'|'+h.lote;if(!histMap[k])histMap[k]=[];histMap[k].push(h);});
   const semActual=fCicSemana===0?getCurrentSemana():fCicSemana;
   const semClaves=new Set(getSchedForSemana(semActual).map(function(s){return s.clave;}));
-  const spanTodasSemanas=fCic==='ATRASADO'||fCic==='NUEVO'||fCic==='INCIDENCIA'||fCic==='PRECIERRE';
+  const spanTodasSemanas=fCic==='ATRASADO'||fCic==='NUEVO'||fCic==='INCIDENCIA'||fCic==='PRECIERRE'||fCic==='AGOTADO';
   const hoy=new Date(); hoy.setHours(0,0,0,0);
   const parseDMY=function(s){
     if(!s)return null;
@@ -5294,6 +5297,7 @@ function getFiltCic(){
     if(fCic==='DIFERENCIA'&&(diff===null||diff===0))return false;
     if(fCic==='NUEVO'&&schedInfo)return false;
     if(fCic==='PRECIERRE'&&(claseLote_(p)!=='C'||p.estatus==='Agotado'))return false;
+    if(fCic==='AGOTADO'&&p.estatus!=='Agotado')return false;
     if(fCic==='ATRASADO'&&!calificaAtrasado)return false;
     if(fCic==='INCIDENCIA'&&contarAjustes(p.clave,p.lote)<2)return false;
     if(q&&!smartMatch(p.clave,sCic)&&!smartMatch(p.desc,sCic)&&!smartMatch(p.lote,sCic)&&!(ubicMap[k]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sCic);}))return false;
