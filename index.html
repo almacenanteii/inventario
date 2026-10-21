@@ -4391,18 +4391,23 @@ function datosEtiquetaConteo_(clave,lote){
 }
 function htmlEtiquetaConteo_(d){
   const ubic=String(d.ubic||'—');
-  const fsClave=Math.max(11,Math.min(26,Math.floor(72/(Math.max(1,d.clave.length)*0.265))));
-  const fsUb=Math.max(8,Math.min(14,Math.floor(30/(Math.max(1,ubic.length)*0.265))));
-  const fsLote=Math.max(10,Math.min(24,Math.floor((73-ubic.length*fsUb*0.265-4)/(Math.max(1,d.lote.length)*0.265))));
-  return '<div class="etq">'
-    +'<span class="qr">'+qrSvg_(urlLoteApp_(d.clave,d.lote),22)+'<span class="fe">'+escAttr(d.fecha)+'</span></span>'
+  const fsClave=Math.max(11,Math.min(26,Math.floor(64/(Math.max(1,d.clave.length)*0.235))));
+  const fsUb=ubic.length<=7?15:(ubic.length<=14?11:(ubic.length<=24?8:7));
+  const fsLote=Math.max(10,Math.min(20,Math.floor(36/(Math.max(1,d.lote.length)*0.235))));
+  let un=String(d.unidad||'PZAS.').toUpperCase();
+  if(un==='PZ'||un==='PIEZA'||un==='PIEZAS'||un==='PZA')un='PZAS.';
+  return '<div class="etq"><div class="marco">'
     +'<div class="top"><span class="tit">'+escAttr(d.titulo||'CONTEO CÍCLICO')+'</span><span class="cls">CLASE '+escAttr(d.clase||'—')+'</span></div>'
-    +'<div class="clave" style="font-size:'+fsClave+'pt">'+escAttr(d.clave)+'</div>'
-    +'<div class="desc">'+escAttr(d.desc)+'</div>'
-    +'<div class="lotefila"><div class="cel"><span class="lbl">LOTE</span><span class="lote" style="font-size:'+fsLote+'pt">'+escAttr(d.lote)+'</span></div><div class="cel der"><span class="lbl">UBICACIÓN</span><span class="lote" style="font-size:'+fsUb+'pt">'+escAttr(ubic)+'</span></div></div>'
-    +'<div class="cant"><span class="clbl">CANTIDAD CONTADA'+(d.unidad?' ('+escAttr(String(d.unidad).toUpperCase())+')':'')+'</span></div>'
-    +'<div class="firmas"><div class="firma"><span class="clbl">FIRMA:</span><i></i></div><div class="firma"><span class="clbl">REVISÓ:</span><i></i></div></div>'
-  +'</div>';
+    +'<div class="grid">'
+      +'<div class="c cclave"><span class="lbl">CLAVE:</span><span class="clave" style="font-size:'+fsClave+'pt">'+escAttr(d.clave)+'</span><span class="desc">'+escAttr(d.desc)+'</span></div>'
+      +'<div class="c cqr">'+qrSvg_(urlLoteApp_(d.clave,d.lote),21)+'</div>'
+      +'<div class="c clote"><span class="lbl">LOTE:</span><span class="val" style="font-size:'+fsLote+'pt">'+escAttr(d.lote)+'</span></div>'
+      +'<div class="c cub"><span class="lbl">UBICACIÓN:</span><span class="val ubv" style="font-size:'+fsUb+'pt">'+escAttr(ubic)+'</span></div>'
+      +'<div class="c cfe"><span class="lbl">FECHA:</span><span class="val" style="font-size:11pt">'+escAttr(d.fecha)+'</span></div>'
+    +'</div>'
+    +'<div class="cantw"><div class="cbar">CANTIDAD FÍSICA CONTADA ('+escAttr(un)+')</div><div class="cbox"></div></div>'
+    +'<div class="firmas"><div class="firma"><span class="clbl">CONTÓ:</span><i></i></div><div class="firma"><span class="clbl">REVISÓ:</span><i></i></div></div>'
+  +'</div></div>';
 }
 function imprimirEtiquetasConteo_(lista){
   if(!lista.length){alert('No hay lotes contados para etiquetar.');return;}
@@ -4412,22 +4417,24 @@ function imprimirEtiquetasConteo_(lista){
     +'@page{size:104mm 75.8mm;margin:0}'
     +'*{box-sizing:border-box;margin:0;padding:0}html,body{width:104mm;background:#fff}'
     +'body{font-family:Arial,Helvetica,sans-serif;color:#000}'
-    +'.etq{width:104mm;height:75.8mm;padding:2.5mm 4mm;page-break-after:always;overflow:hidden;display:flex;flex-direction:column}'
+    +'.etq{width:104mm;height:75.8mm;padding:1.2mm;page-break-after:always;overflow:hidden}'
     +'.etq:last-child{page-break-after:auto}'
-    +'.top{display:flex;justify-content:space-between;align-items:center;background:#000;color:#fff;padding:0.8mm 2.5mm;font-weight:900;font-size:12pt;letter-spacing:.5pt}'
-    +'.cls{border:1.2pt solid #fff;padding:0 2mm;font-size:12pt}'
-    +'.clave{font-weight:900;margin-top:1.5mm;line-height:1.05;white-space:nowrap}'
-    +'.desc{font-size:9pt;font-weight:700;margin-top:0.8mm;line-height:1.1;max-height:8mm;overflow:hidden}'
-    +'.lotefila{display:flex;justify-content:space-between;align-items:flex-end;gap:2mm;margin-top:1mm}.cel{display:flex;flex-direction:column}.cel.der{text-align:right;align-items:flex-end}'
-    +'.lbl{font-size:7pt;font-weight:700;color:#333;line-height:1}'
-    +'.lote{font-weight:900;line-height:1.05;white-space:nowrap}'
-    +'.pie{display:flex;justify-content:space-between;align-items:flex-end;border-top:1.2pt solid #000;margin-top:1.2mm;padding-top:1mm;font-size:11pt;font-weight:800}'
-    +'.ub{max-width:64mm;line-height:1.1}.fe{font-size:12pt;font-weight:900}'
-    +'.etq{position:relative}.qr{position:absolute;right:2mm;top:10.5mm;width:22mm;text-align:center}.qr svg{display:block}.fe{display:block;font-size:11pt;font-weight:900;line-height:1;margin-top:.3mm}'
-    +'.clave,.desc,.lotefila{padding-right:23mm}'
-    +'.cant{flex:1;border:1.6pt solid #000;margin-top:3.5mm;padding:0.8mm 2mm;min-height:11mm}'
-    +'.firmas{display:flex;gap:6mm;margin-top:1.5mm}.firma{flex:1;height:6mm;display:flex;align-items:flex-end;gap:1.5mm}.firma i{flex:1;border-bottom:1.2pt solid #000;height:4mm}'
-    +'.clbl{font-size:8pt;font-weight:800;letter-spacing:.3pt}'
+    +'.marco{height:100%;border:1.6pt solid #000;border-radius:2mm;display:flex;flex-direction:column;overflow:hidden}'
+    +'.top{display:flex;justify-content:space-between;align-items:center;background:#000;color:#fff;padding:0.9mm 2.5mm;font-weight:900;font-size:14pt;letter-spacing:.4pt}'
+    +'.cls{border:1.2pt solid #fff;padding:0 2mm;font-size:13pt}'
+    +'.grid{display:grid;grid-template-columns:41fr 33fr 26fr;border-bottom:1pt solid #000}'
+    +'.c{border-right:1pt solid #000;border-bottom:1pt solid #000;padding:0.7mm 1.8mm;display:flex;flex-direction:column;min-width:0;overflow:hidden}'
+    +'.c:nth-child(2),.c:nth-child(5){border-right:none}.c:nth-child(n+3){border-bottom:none}'
+    +'.cclave{grid-column:1/3;justify-content:center}.cqr{align-items:center;justify-content:center;padding:0.8mm}.cqr svg{display:block}'
+    +'.lbl{font-size:7.5pt;font-weight:800;line-height:1.1}'
+    +'.clave{font-weight:900;line-height:1.05;white-space:nowrap}'
+    +'.desc{font-size:9.5pt;font-weight:700;line-height:1.1;max-height:8mm;overflow:hidden;margin-top:0.6mm}'
+    +'.val{font-weight:900;line-height:1.1;white-space:nowrap}.ubv{white-space:normal;word-break:break-word}'
+    +'.cantw{flex:1;display:flex;flex-direction:column;margin:1.2mm 1.5mm 0;min-height:0}'
+    +'.cbar{background:#000;color:#fff;font-weight:900;font-size:10pt;padding:0.6mm 2mm;border-radius:1.5mm 1.5mm 0 0}'
+    +'.cbox{flex:1;border:1.6pt solid #000;border-top:none;border-radius:0 0 1.5mm 1.5mm}'
+    +'.firmas{display:flex;margin-top:1mm}.firma{flex:1;display:flex;align-items:flex-end;gap:1.5mm;padding:0 2.5mm 1mm;height:7mm}'
+    +'.firma+.firma{border-left:1.2pt solid #000}.clbl{font-size:10pt;font-weight:900}.firma i{flex:1;border-bottom:1.2pt solid #000;height:3.5mm}'
     +'</style></head><body>'
     +lista.map(htmlEtiquetaConteo_).join('')
     +'<script>window.onload=function(){window.print();}<\/script></body></html>');
