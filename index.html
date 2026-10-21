@@ -194,7 +194,7 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
    carátula desde el menú de arriba (ya no hay botón de imprimir por
    fila) -- se ve como un chip tocable, y naranja sólido cuando está
    seleccionado. */
-.lot-lote-sel{cursor:pointer;display:inline-block;padding:2px 7px;border-radius:6px;border:1.5px dashed var(--bd)}
+.lot-lote-sel{cursor:pointer;display:inline-block;padding:4px 10px;border-radius:8px;border:1.5px dashed var(--bd);font-size:16px;font-weight:700;letter-spacing:.3px}
 .lot-lote-sel:active{background:rgba(232,103,26,.12)}
 .lot-lote-sel.active{background:var(--or);border-color:var(--or);color:#fff;font-weight:800}
 
@@ -2277,7 +2277,7 @@ function renderEnt(){
   empty.classList.add('hidden');
   list.innerHTML=lista.slice(0,400).map(function(x){
     const e=x.e,st=x.st;
-    const estHtml=st.est==='EXT'?'<span class="ent-est noinv">MP · se administra en otro sistema</span>':st.est==='OK'?'<span class="ent-est ok">📍 Ubicado</span>':
+    const estHtml=st.est==='EXT'?'':st.est==='OK'?'<span class="ent-est ok">📍 Ubicado</span>':
       (st.est==='SINUBIC'?'<span class="ent-est sin">⚠️ Sin ubicación</span>':'<span class="ent-est noinv">❓ No está en inventario</span>');
     const ubHtml=(st.est==='NOINV'||st.est==='EXT')?'':ubicRowHtml_(e.clave,e.lote,st.almU);
     const extra=[e.caducidad?'Caduc. '+fechaEntTxt_(e.caducidad):'',e.mov?'Mov. SAI '+e.mov:'',e.factura?'Fact. '+e.factura:'',e.oc?'OC '+e.oc:''].filter(Boolean).join(' · ');
@@ -3028,13 +3028,11 @@ function renderInv(){
             manualBadge+cuarentenaHtml+
             `${conteoHtml}${entHtml}${devHtml}${devLoteHtml}${ubicBtn}`+
             `<div style="font-size:10.5px;color:#777;margin-top:2px">U. Empaque: ${uEmp}</div>`+
-            `<label class="car-contado-chk" style="margin-top:6px;display:inline-flex"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
             `</div>`+
             `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
         }
         return `<div class="lot emb-lote-row" data-clave="${escAttr(p.clave)}" data-desc="${escAttr(p.desc)}" data-lote="${escAttr(l.lote)}" data-almacen="${escAttr(almU)}" data-exist="${l.exist}" data-unidad="${escAttr(l.unidad||'pzas')}">`+
           `<div>${loteLoteHtml}<div class="lot-alm">${almTag(l.almacen)}</div>${cad.txt?`<div class="lot-cad ${cad.cls}">${cad.txt}</div>`:''}${conteoHtml}${entHtml}${devHtml}${devLoteHtml}${ubicBtn}`+
-          `<label class="car-contado-chk" style="margin-top:6px;display:inline-flex"><input type="checkbox" ${contadoChecked} onchange="toggleCarContado(this)"> Ya contado</label>`+
           `</div>`+
           `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
       }).join('');
@@ -5509,7 +5507,7 @@ function entSlaSvg_(semana,st){
       +'<text x="'+x0+'" y="830" font-size="104" font-weight="800" fill="'+col+'">'+val+'</text>'
       +'<text x="'+(x0+wv+gap)+'" y="830" font-size="44" fill="'+C.gris+'">'+sufijo+'</text>';
   };
-  return '<svg id="svg-ent-sla" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1780 890" font-family="Arial, Helvetica, sans-serif" style="width:100%;height:auto;display:block">'
+  return '<svg id="svg-ent-sla" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1780 890" font-family="Arial, Helvetica, sans-serif" style="width:100%;max-width:640px;height:auto;display:block;margin:0 auto">'
     +'<rect width="1780" height="890" fill="#fff"/>'
     +'<text x="890" y="68" font-size="78" font-weight="800" fill="'+C.ink+'" text-anchor="middle">Semana '+semana+'</text>'
     +panel(15,877,'MP','MP','Materia Prima','#FDF0E6',st.MP)
@@ -5534,6 +5532,8 @@ function htmlDashEntradasSla_(){
       +'<button onclick="descargarImagenSla_()" style="padding:7px 12px;border-radius:8px;border:none;background:#00838F;color:#fff;font-size:12px;font-weight:700;cursor:pointer">🖼️ Descargar imagen</button>'
       +'<span class="dash-card-sub" style="margin:0">&lt; 15 min = captura → sistema, por entrada</span>'
     +'</div>'
+    +((st.MP.total+st.EYE.total)>0&&(st.MP.ok+st.MP.mal+st.EYE.ok+st.EYE.mal)===0
+      ?'<div style="background:#FFF3E0;color:#E65100;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;margin-bottom:8px">⚠️ Las entradas de esta semana no traen el SLA (fecha de captura). Actualiza <b>entradas_bitacora.txt</b> en Apps Script y vuelve a correr <b>actualizarEntradasDesdeDrive()</b> (borra antes las propiedades ENT_EYE y ENT_MP).</div>':'')
     +entSlaSvg_(r.w,st)
   +'</div>';
 }
@@ -5541,7 +5541,7 @@ function descargarImagenSla_(){
   const svg=document.getElementById('svg-ent-sla');
   if(!svg){alert('No hay datos de entradas para generar la imagen.');return;}
   const r=entSemanaDash_();
-  const xml=new XMLSerializer().serializeToString(svg).replace('style="width:100%;height:auto;display:block"','width="1780" height="890"');
+  const xml=new XMLSerializer().serializeToString(svg).replace('style="width:100%;max-width:640px;height:auto;display:block;margin:0 auto"','width="1780" height="890"');
   const img=new Image();
   img.onload=function(){
     const cv=document.createElement('canvas');cv.width=1780;cv.height=890;
@@ -7513,7 +7513,6 @@ function renderCar(){
               +conteoHtmlCar
               +'<div class="emb-tarima-eye-status"></div>'
               +'<div class="emb-tarima-add">'
-                +'<label class="car-contado-chk"><input type="checkbox" '+(carContadoManual[g.clave+'|'+l.lote+'|'+almU]?'checked':'')+' onchange="toggleCarContado(this)"> Ya contado</label>'
                 +'<button type="button" onclick="imprimirCaratulaEye(this)">🖨️ Imprimir carátula</button>'
               +'</div>'
             +'</div>';
@@ -7554,7 +7553,6 @@ function renderCar(){
             +'<div class="emb-tarima-chips"></div>'
             +'<div class="emb-tarima-add">'
               +'<input type="number" min="0" step="any" inputmode="decimal" class="emb-add-input" placeholder="piezas de esta tarima..." onkeydown="if(event.key===\'Enter\'){event.preventDefault();imprimirCaratula(this.nextElementSibling);}">'
-              +'<label class="car-contado-chk"><input type="checkbox" '+(carContadoManual[g.clave+'|'+l.lote+'|'+almU]?'checked':'')+' onchange="toggleCarContado(this)"> Ya contado</label>'
               +'<button type="button" onclick="imprimirCaratula(this)">🖨️ Imprimir carátula</button>'
             +'</div>'
             +'<div class="emb-tarima-sum"></div>'
