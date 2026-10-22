@@ -808,6 +808,7 @@ header.h-dev{background:var(--tl)}
     <div class="chip" data-f="proveedor">🟤 A Proveedor</div>
     <div class="chip" data-f="ALERTA">⚠️ Con alerta</div>
     <div class="chip" data-f="CUADRA">✔ Cuadrados</div>
+    <div class="chip" data-f="PENDTRASP">🟡 Pendientes de traspaso</div>
     <div class="chip" data-f="TRASPASADO">🚚 Traspasados</div>
     <div class="chip" data-f="SINMOV">📋 Sin movimiento capturado</div>
     <div class="chip" data-f="UBICADOSINMOV">📍 Ubicado, falta mov</div>
@@ -9084,7 +9085,7 @@ async function loadDevoluciones(){
       if(!porId[row.id]){
         porId[row.id]={id:row.id,folio:row.folio,tipo:row.tipo,op:row.op,codigoPT:row.codigoPT,productoPT:row.productoPT,lotePT:row.lotePT,fecha:row.fecha,registrado:row.registrado,numMovimiento:row.numMovimiento||'',lineas:[]};
       }
-      porId[row.id].lineas.push({codigo:row.codigo,descripcion:row.descripcion,lote:row.lote,cantidad:row.cantidad,fechaTraspaso:row.fechaTraspaso||'',fechaUbicadoSinMov:row.fechaUbicadoSinMov||''});
+      porId[row.id].lineas.push({codigo:row.codigo,descripcion:row.descripcion,lote:row.lote,cantidad:row.cantidad,fechaTraspaso:row.fechaTraspaso||'',fechaUbicadoSinMov:row.fechaUbicadoSinMov||'',fechaPendienteTraspaso:row.fechaPendienteTraspaso||''});
     });
     DEV_LOADED=Object.values(porId).sort(function(a,b){return (b.fecha||'').localeCompare(a.fecha||'');});
     devLoaded=true;
@@ -9159,6 +9160,29 @@ function soloFechaTxt_(fechaTxt){
 // ¿Ya se marcaron TODAS las líneas del folio como traspasadas/destruidas?
 // El marcado es por línea (ver marcarTraspasoLinea_), así que "el folio ya
 // se traspasó" se deriva de que cada renglón tenga su propia fecha.
+// Estado del check del folio: '' (sin marca) -> 'PEND' (pendiente de traspaso)
+// -> 'HECHO' (traspasado). El 3er clic lo regresa a ''.
+function folioFechaPend_(f){
+  return (f.lineas||[]).reduce(function(m,l){return m||l.fechaPendienteTraspaso||'';},'');
+}
+function folioEstadoCheck_(f){
+  if(folioTodasLineasTraspasadas_(f))return 'HECHO';
+  return folioFechaPend_(f)?'PEND':'';
+}
+function cicloCheckFolio_(id){
+  const f=(DEV_LOADED||[]).find(function(x){return x.id===id;});
+  if(!f)return;
+  const est=folioEstadoCheck_(f);
+  const setPend=function(v){
+    const t=v?fechaHoyTxt_():'';
+    (f.lineas||[]).forEach(function(l){l.fechaPendienteTraspaso=t;});
+    fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'marcar_pendiente_traspaso',id:id,marcar:v})})
+      .catch(function(e){console.error('Error marcando pendiente de traspaso:',e);});
+  };
+  if(est===''){ setPend(true); renderDev(); }
+  else if(est==='PEND'){ setPend(false); marcarTraspasoDevolucion(id,true); }
+  else { marcarTraspasoDevolucion(id,false); }
+}
 function folioTodasLineasTraspasadas_(f){
   return f.lineas.length>0&&f.lineas.every(function(l){return l.fechaTraspaso;});
 }
@@ -9173,6 +9197,7 @@ function folioPasaFiltroEstado_(f,estado){
   if(estado==='ALERTA')return f.lineas.some(function(l){return !loteEnSistema_(l.codigo,l.lote,l.cantidad);});
   if(estado==='CUADRA')return folioCuadraMov_(f).cuadraMov&&!folioTodasLineasTraspasadas_(f);
   if(estado==='TRASPASADO')return folioTodasLineasTraspasadas_(f);
+  if(estado==='PENDTRASP')return folioEstadoCheck_(f)==='PEND';
   if(estado==='SINMOV')return !(f.numMovimiento||'').trim();
   // Al menos una línea ya se regresó físicamente pero SAI todavía no le
   // captura el movimiento -- ver marcarUbicadoLinea_. Se queda "some" (no
@@ -9196,7 +9221,7 @@ function getFiltDev(){
   const sel=fDevSet&&fDevSet.size?fDevSet:new Set(['TODOS']);
   const tiposSel=DEV_TIPOS_.filter(function(t){return sel.has(t);});
   DEV_SAL_=calcularSalidasEyejal_(); // se recalcula en cada render (marcas/MOVREP pueden haber cambiado)
-  const estadosSel=['ALERTA','CUADRA','TRASPASADO','SINMOV','UBICADOSINMOV','FALTAEYEJAL'].filter(function(e){return sel.has(e);});
+  const estadosSel=['ALERTA','CUADRA','TRASPASADO','PENDTRASP','SINMOV','UBICADOSINMOV','FALTAEYEJAL'].filter(function(e){return sel.has(e);});
   // Si lo que se buscó es el folio EXACTO de alguna papeleta (comparando
   // normalizado, igual que smartMatch), se enseña NOMÁS esa -- antes,
   // buscar "F-100" también sacaba "F-1000" o cualquier otra que trajera
@@ -9455,7 +9480,7 @@ function renderDev(){
     :'<div class="dev-mov-sinmov">📋 Sin número de movimiento capturado todavía</div>';
     return '<div class="card dev-card t-'+f.tipo+(listoTraspaso&&!todasMarcadas?' dev-card-cuadra':'')+'">'
       +'<div class="dev-card-head">'
-        +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span></div>'
+        +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span>'+checkFolioHtml_(f,esDest)+'</div>'
         +(f.op?'<div class="dev-op-info">OP <b>'+escAttr(f.op)+'</b> · '+escAttr(f.codigoPT)+' — '+escAttr(f.productoPT)+' · Lote '+escAttr(f.lotePT)+'</div>':'')
         +'<div class="dev-meta">'+f.lineas.length+' material'+(f.lineas.length>1?'es':'')+' · '+fmt(totalCant)+' pz · '+escAttr(f.fecha)+(f.registrado?' · '+escAttr(f.registrado):'')+' <span class="dev-del" style="color:var(--tl);margin-right:10px" onclick="editarDevolucion(\''+f.id+'\')">✏️ Editar</span><span class="dev-del" onclick="borrarDevolucion(\''+f.id+'\')">🗑️ Borrar folio</span></div>'
         +movHtml
@@ -9466,6 +9491,15 @@ function renderDev(){
   }).join('');
 }
 
+function checkFolioHtml_(f,esDest){
+  if(esDest)return '';
+  const est=folioEstadoCheck_(f);
+  const cfg={'':{ico:'☐',txt:'Traspaso',bg:'#fff',bd:'#B0BEC5',col:'#607D8B'},
+    'PEND':{ico:'🟡',txt:'Pendiente de traspaso',bg:'#FFF8E1',bd:'#F9A825',col:'#8D6E00'},
+    'HECHO':{ico:'✅',txt:'Traspasado',bg:'#E8F5E9',bd:'#2E7D32',col:'#1B5E20'}}[est];
+  const fecha=est==='PEND'?folioFechaPend_(f):est==='HECHO'?f.lineas.reduce(function(mx,l){return l.fechaTraspaso&&(!mx||l.fechaTraspaso>mx)?l.fechaTraspaso:mx;},''):'';
+  return '<span class="dev-check-folio" onclick="cicloCheckFolio_(\''+f.id+'\')" title="Clic: sin marca → pendiente de traspaso → traspasado → sin marca" style="margin-left:auto;cursor:pointer;display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:14px;border:1.5px solid '+cfg.bd+';background:'+cfg.bg+';color:'+cfg.col+';font-size:11.5px;font-weight:800;white-space:nowrap">'+cfg.ico+' '+cfg.txt+(fecha?' · '+escAttr(fecha):'')+'</span>';
+}
 function fechaHoyTxt_(){
   const hoy=new Date();
   return String(hoy.getDate()).padStart(2,'0')+'/'+String(hoy.getMonth()+1).padStart(2,'0')+'/'+hoy.getFullYear();
