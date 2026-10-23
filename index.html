@@ -4271,7 +4271,7 @@ function generarFormatoPrecierre(racks,soloPend){
 // Plantilla en blanco para surtir una explosión: se llena a mano con la
 // clave, descripción, lote y cantidad surtida de cada material.
 function imprimirFormatoSurtidoExplosion(){
-  const filas=18;
+  const filas=10;
   const win=window.open('','_blank');
   if(!win||!win.document){alert('No se pudo abrir el formato. Permite ventanas emergentes para este sitio e inténtalo de nuevo.');return;}
   const rows=Array.from({length:filas},function(_,i){return '<tr><td class="n">'+(i+1)+'</td><td></td><td></td><td></td><td></td></tr>';}).join('');
@@ -4281,15 +4281,15 @@ function imprimirFormatoSurtidoExplosion(){
     +'.head{display:flex;align-items:center;justify-content:space-between;border-bottom:2pt solid #000;padding-bottom:3mm}'
     +'.head img{height:16mm;width:auto}.tit{font-size:18pt;font-weight:900;text-align:center;flex:1}'
     +'.datos{display:grid;grid-template-columns:1fr 2fr 1fr;gap:3mm;margin:4mm 0}'
-    +'.dato{border-bottom:1pt solid #000;padding-bottom:1mm;font-size:9pt;font-weight:800}'
+    +'.dato{border-bottom:1pt solid #000;padding-bottom:1mm;font-size:11pt;font-weight:800}'
     +'table{width:100%;border-collapse:collapse;table-layout:fixed}'
-    +'th{background:#000;color:#fff;font-size:10pt;padding:2mm;border:1pt solid #000}'
-    +'td{border:1pt solid #000;height:10mm}td.n{text-align:center;font-weight:800;width:9mm}'
-    +'.firmas{display:flex;gap:10mm;margin-top:8mm}.firma{flex:1;border-top:1pt solid #000;text-align:center;font-size:9pt;font-weight:800;padding-top:1mm}'
+    +'th{background:#000;color:#fff;font-size:12pt;padding:3mm 2mm;border:1pt solid #000}'
+    +'td{border:1pt solid #000;height:17mm}td.n{text-align:center;font-weight:900;font-size:13pt;width:11mm}'
+    +'.firmas{display:flex;gap:10mm;margin-top:14mm}.firma{flex:1;border-top:1pt solid #000;text-align:center;font-size:11pt;font-weight:800;padding-top:1mm}'
     +'</style></head><body>'
     +'<div class="head"><img src="'+LOGO_ANTEII_B64+'" alt="Anteii"><div class="tit">SURTIDO DE EXPLOSIÓN</div><div style="width:30mm"></div></div>'
     +'<div class="datos"><div class="dato">OP:</div><div class="dato">PRODUCTO:</div><div class="dato">FECHA:</div></div>'
-    +'<table><colgroup><col style="width:9mm"><col style="width:42mm"><col><col style="width:38mm"><col style="width:34mm"></colgroup>'
+    +'<table><colgroup><col style="width:11mm"><col style="width:44mm"><col><col style="width:40mm"><col style="width:36mm"></colgroup>'
     +'<thead><tr><th>#</th><th>CLAVE</th><th>DESCRIPCIÓN</th><th>LOTE</th><th>CANTIDAD SURTIDA</th></tr></thead><tbody>'+rows+'</tbody></table>'
     +'<div class="firmas"><div class="firma">SURTIÓ</div><div class="firma">VERIFICÓ</div><div class="firma">RECIBIÓ</div></div>'
     +'<script>window.onload=function(){window.print();}<\/script></body></html>');
