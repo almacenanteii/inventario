@@ -3703,7 +3703,7 @@ function generarReporte(semana){
     const v=pctLote_(p,diff);
     if(v===null)return '';
     const rojo=pasaUmbral_(p,diff);
-    return '<div style="font-weight:800;font-size:9px;color:'+(rojo?'#C62828':'#2E7D32')+'">'+(v>0?'+':'')+v.toFixed(1)+'%</div>';
+    return '<div style="font-weight:800;font-size:9px;white-space:nowrap;color:'+(rojo?'#C62828':'#2E7D32')+'">'+(Math.abs(v)>=100?(v>0?'+100':'-100'):(v>0?'+':'')+v.toFixed(1))+'%</div>';
   };
 
   // Stats
@@ -3749,7 +3749,7 @@ function generarReporte(semana){
     // total de la clave), verde si no; el % que se imprime es contra el lote.
     const tieneDiff=diff!==null&&Math.abs(diff)>0.01;
     const diffColor=diff===null?'':(tieneDiff&&pasaUmbral_(p,diff))?'#C62828':'#2E7D32';
-    const diffStr=diff===null?'':(diff===0?'0':(diff>0?'+':'')+diff.toFixed(0));
+    const diffStr=diff===null?'':(diff===0?'0':(diff>0?'+':'')+Math.round(diff).toLocaleString('en-US'));
     const causaTxt=(h&&h[0].causa||'').trim();
     rowsHtml+=
       '<tr style="border-bottom:1px solid #e0e0e0;'+(num%2===0?'background:#fafafa;':'')+'">'+
@@ -3761,7 +3761,7 @@ function generarReporte(semana){
       '<td style="padding:4px 6px;font-size:10px;text-align:right">'+p.existSAI.toLocaleString("en-US")+'</td>'+
       '<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:700;color:'+(conteo!==null?'#333':'#ccc')+'">'+
         (conteo!==null?conteo.toLocaleString("en-US"):'—')+'</td>'+
-      '<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:700;color:'+diffColor+'">'+diffStr+(tieneDiff?pctHtml_(p,diff):'')+'</td>'+
+      '<td style="padding:4px 6px;font-size:10px;text-align:right;font-weight:700;white-space:nowrap;color:'+diffColor+'">'+diffStr+(tieneDiff?pctHtml_(p,diff):'')+'</td>'+
       '<td style="padding:4px 6px;font-size:9px">'+(tieneDiff?(causaTxt||'—'):'')+'</td>'+
       '</tr>';
     num++;
@@ -3835,7 +3835,7 @@ function generarReporte(semana){
         <th style="width:55px;text-align:center">Unidad</th>
         <th style="width:80px;text-align:right">Exist. SAI</th>
         <th style="width:80px;text-align:right">Conteo Físico</th>
-        <th style="width:80px;text-align:right">Diferencia (% lote)</th>
+        <th style="width:100px;text-align:right">Diferencia (% lote)</th>
         <th style="width:140px">Causa probable / Acción tomada</th>
       </tr></thead>
       <tbody>${rowsHtml}</tbody>
@@ -5712,6 +5712,9 @@ function entSlaStats_(semana){
 // de la semana (ej. 46 códigos, 2 incidencias -> 95.7%).
 function entCumpl_(t){return t.total?Math.max(0,100-t.inc/t.total*100):100;}
 function entCumplTxt_(t){const v=Math.round(entCumpl_(t)*10)/10;return (v%1===0?String(v):v.toFixed(1))+'%';}
+// Promedio final = promedio simple del cumplimiento de MP y de EYE.
+function entCumplPromedio_(st){return (entCumpl_(st.MP)+entCumpl_(st.EYE))/2;}
+function entPctTxt_(v){v=Math.round(v*10)/10;return (v%1===0?String(v):v.toFixed(1))+'%';}
 function entSemanaDash_(){
   const ws=Array.from(new Set((ENTRADAS_LOADED||[]).map(function(e){return semanaIso_(e.fecha);}).filter(Boolean))).sort(function(a,b){return b-a;});
   let w=dashEntSem;
@@ -5767,10 +5770,12 @@ function entSlaSvg_(semana,st){
     +panel(15,877,'MP','MP','Materia Prima','#FDF0E6',st.MP)
     +panel(898,860,'EYE','EYE','Envase','#E7F0FB',st.EYE)
     +'<rect x="15" y="667" width="1743" height="198" rx="12" fill="#fff" stroke="'+C.borde+'" stroke-width="2"/>'
-    +'<line x1="597" y1="690" x2="597" y2="845" stroke="'+C.borde+'" stroke-width="2"/><line x1="1180" y1="690" x2="1180" y2="845" stroke="'+C.borde+'" stroke-width="2"/>'
-    +tot(306,'Total MP',st.MP.total,C.ink,'códigos')
-    +tot(888,'Total EYE',st.EYE.total,C.ink,'códigos')
-    +tot(1469,'Total de incidencias',st.inc,st.inc?C.rtxt:C.vtxt,'códigos')
+    +'<line x1="451" y1="690" x2="451" y2="845" stroke="'+C.borde+'" stroke-width="2"/><line x1="887" y1="690" x2="887" y2="845" stroke="'+C.borde+'" stroke-width="2"/><line x1="1322" y1="690" x2="1322" y2="845" stroke="'+C.borde+'" stroke-width="2"/>'
+    +tot(233,'Total MP',st.MP.total,C.ink,'códigos')
+    +tot(669,'Total EYE',st.EYE.total,C.ink,'códigos')
+    +tot(1104,'Total de incidencias',st.inc,st.inc?C.rtxt:C.vtxt,'códigos')
+    +'<text x="1540" y="722" font-size="34" font-weight="800" fill="'+C.ink+'" text-anchor="middle">Promedio final</text>'
+    +'<text x="1540" y="830" font-size="104" font-weight="800" fill="'+(st.inc?C.rtxt:C.vtxt)+'" text-anchor="middle">'+entPctTxt_(entCumplPromedio_(st))+'</text>'
     +'</svg>';
 }
 function htmlDashEntradasSla_(){
@@ -5833,6 +5838,7 @@ function htmlEntradasInfo_(semana){
   return '<div style="margin-top:16px;border-top:2px solid var(--bd);padding-top:12px">'
     +'<div style="font-weight:900;font-size:15px;margin-bottom:8px">📥 Más información de las entradas · Semana '+semana+'</div>'
     +'<div style="display:flex;gap:10px;flex-wrap:wrap">'+tarjeta('MP','#E8671A')+tarjeta('EYE','#1565C0')+'</div>'
+    +'<div style="margin-top:8px;padding:8px 12px;border-radius:10px;background:#E8F5E9;font-size:13px;font-weight:800;display:flex;justify-content:space-between"><span>Promedio final (MP + EYE)</span><span>'+entPctTxt_(entCumplPromedio_(entSlaStats_(semana)))+'</span></div>'
     +lista('Incidencias',ents.filter(entEsIncidencia_),function(e){return escAttr(String(e.obs||e.comentarios||'incidencia').slice(0,60));})
     +lista('Sin fecha de sistema',sinFecha,null)
     +lista('Entradas más lentas (> 15 min)',lentas,function(e){return fmtMin(Math.max(0,Number(e.sla)));})
