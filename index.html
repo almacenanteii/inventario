@@ -5696,18 +5696,22 @@ function actualizarSelectsFechaDash_(){
 let dashEntSem=0;
 function entEsIncidencia_(e){return /incidenc/i.test(String(e.obs||'')+' '+String(e.comentarios||''));}
 function entSlaStats_(semana){
-  const mk=function(){return {ok:0,mal:0,sin:0,incOk:0,incMal:0,total:0};};
+  const mk=function(){return {ok:0,mal:0,sin:0,incOk:0,incMal:0,total:0,inc:0};};
   const st={MP:mk(),EYE:mk(),inc:0};
   (ENTRADAS_LOADED||[]).forEach(function(e){
     if(semanaIso_(e.fecha)!==semana)return;
     const t=st[e.tipo];if(!t)return;
     t.total++;
-    const inc=entEsIncidencia_(e);if(inc)st.inc++;
+    const inc=entEsIncidencia_(e);if(inc){st.inc++;t.inc++;}
     if(e.sla===null||e.sla===undefined||isNaN(Number(e.sla))){t.sin++;return;}
     if(Number(e.sla)<=15){t.ok++;if(inc)t.incOk++;}else{t.mal++;if(inc)t.incMal++;}
   });
   return st;
 }
+// Cumplimiento: parte de 100% y cada incidencia descuenta 1/total de códigos
+// de la semana (ej. 46 códigos, 2 incidencias -> 95.7%).
+function entCumpl_(t){return t.total?Math.max(0,100-t.inc/t.total*100):100;}
+function entCumplTxt_(t){const v=Math.round(entCumpl_(t)*10)/10;return (v%1===0?String(v):v.toFixed(1))+'%';}
 function entSemanaDash_(){
   const ws=Array.from(new Set((ENTRADAS_LOADED||[]).map(function(e){return semanaIso_(e.fecha);}).filter(Boolean))).sort(function(a,b){return b-a;});
   let w=dashEntSem;
@@ -5727,7 +5731,9 @@ function entSlaSvg_(semana,st){
       +'<rect x="'+x0+'" y="100" width="'+w+'" height="552" rx="12" fill="#fff" stroke="'+C.borde+'" stroke-width="2"/>'
       +'<rect x="'+x0+'" y="100" width="'+w+'" height="150" fill="'+bg+'" clip-path="url(#cp'+tipo+')"/>'
       +'<text x="'+(x0+65)+'" y="180" font-size="68" font-weight="800" fill="'+C.ink+'">'+titulo+'</text>'
-      +'<text x="'+(x0+65)+'" y="228" font-size="40" fill="'+C.gris+'">'+sub+'</text>';
+      +'<text x="'+(x0+65)+'" y="228" font-size="40" fill="'+C.gris+'">'+sub+'</text>'
+      +'<text x="'+(x0+w-45)+'" y="180" font-size="68" font-weight="800" fill="'+(t.inc?C.rtxt:C.vtxt)+'" text-anchor="end">'+entCumplTxt_(t)+'</text>'
+      +'<text x="'+(x0+w-45)+'" y="228" font-size="30" fill="'+C.gris+'" text-anchor="end">'+(t.inc?t.inc+' incidencia'+(t.inc>1?'s':'')+' · de 100%':'sin incidencias · 100%')+'</text>';
     const ax=x0+110;
     o+='<line x1="'+ax+'" y1="'+top+'" x2="'+ax+'" y2="'+base+'" stroke="#888" stroke-width="2"/><line x1="'+ax+'" y1="'+base+'" x2="'+(x0+w-30)+'" y2="'+base+'" stroke="#888" stroke-width="2"/>';
     for(let v=0;v<=yMax;v+=2){
@@ -5802,6 +5808,8 @@ function htmlEntradasInfo_(semana){
     return '<div style="flex:1;min-width:230px;border:1px solid var(--bd);border-radius:10px;padding:10px 12px;border-top:4px solid '+color+'">'
       +'<div style="font-weight:800;font-size:14px;margin-bottom:4px">'+tipo+'</div>'
       +fila('Entradas',l.length)
+      +fila('Incidencias',l.filter(entEsIncidencia_).length,l.some(entEsIncidencia_))
+      +fila('Cumplimiento (100% − incidencias)',entCumplTxt_({total:l.length,inc:l.filter(entEsIncidencia_).length}))
       +fila('SLA promedio',prom===null?'—':fmtMin(prom))
       +fila('SLA mediana',med===null?'—':fmtMin(med))
       +fila('SLA más lento',conSla.length?fmtMin(conSla[conSla.length-1]):'—')
@@ -5825,6 +5833,7 @@ function htmlEntradasInfo_(semana){
   return '<div style="margin-top:16px;border-top:2px solid var(--bd);padding-top:12px">'
     +'<div style="font-weight:900;font-size:15px;margin-bottom:8px">📥 Más información de las entradas · Semana '+semana+'</div>'
     +'<div style="display:flex;gap:10px;flex-wrap:wrap">'+tarjeta('MP','#E8671A')+tarjeta('EYE','#1565C0')+'</div>'
+    +lista('Incidencias',ents.filter(entEsIncidencia_),function(e){return escAttr(String(e.obs||e.comentarios||'incidencia').slice(0,60));})
     +lista('Sin fecha de sistema',sinFecha,null)
     +lista('Entradas más lentas (> 15 min)',lentas,function(e){return fmtMin(Math.max(0,Number(e.sla)));})
   +'</div>';
