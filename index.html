@@ -5744,7 +5744,6 @@ function entSlaSvg_(semana,st){
       o+='<text x="'+b.cx+'" y="595" font-size="34" font-weight="800" fill="'+C.ink+'" text-anchor="middle">'+b.lbl+'</text>'
         +'<text x="'+b.cx+'" y="628" font-size="26" fill="'+C.gris+'" text-anchor="middle">'+(b.inc?b.inc+' con incidencia':'Sin incidencias')+'</text>';
     });
-    if(t.sin)o+='<text x="'+(x0+w-24)+'" y="272" font-size="22" fill="'+C.gris+'" text-anchor="end">'+t.sin+' sin fecha de sistema</text>';
     return o;
   };
   const tot=function(cx,tit,val,col,sufijo){
@@ -5784,6 +5783,50 @@ function htmlDashEntradasSla_(){
     +((st.MP.total+st.EYE.total)>0&&(st.MP.ok+st.MP.mal+st.EYE.ok+st.EYE.mal)===0
       ?'<div style="background:#FFF3E0;color:#E65100;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;margin-bottom:8px">⚠️ Las entradas de esta semana no traen el SLA (fecha de captura). Actualiza <b>entradas_bitacora.txt</b> en Apps Script y vuelve a correr <b>actualizarEntradasDesdeDrive()</b> (borra antes las propiedades ENT_EYE y ENT_MP).</div>':'')
     +entSlaSvg_(r.w,st)
+    +htmlEntradasInfo_(r.w)
+  +'</div>';
+}
+// Sección "Más información de las entradas" (debajo de la imagen del reporte,
+// no sale en la imagen que se descarga).
+function htmlEntradasInfo_(semana){
+  const ents=(ENTRADAS_LOADED||[]).filter(function(e){return semanaIso_(e.fecha)===semana&&(e.tipo==='MP'||e.tipo==='EYE');});
+  if(!ents.length)return '';
+  const esNum=function(e){return !(e.sla===null||e.sla===undefined||isNaN(Number(e.sla)));};
+  const fmtMin=function(m){m=Math.round(m);return m<60?m+' min':Math.floor(m/60)+' h '+(m%60)+' min';};
+  const tarjeta=function(tipo,color){
+    const l=ents.filter(function(e){return e.tipo===tipo;});
+    const conSla=l.filter(esNum).map(function(e){return Math.max(0,Number(e.sla));}).sort(function(a,b){return a-b;});
+    const prom=conSla.length?conSla.reduce(function(a,b){return a+b;},0)/conSla.length:null;
+    const med=conSla.length?conSla[Math.floor(conSla.length/2)]:null;
+    const fila=function(k,v,warn){return '<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:13px"><span style="color:#666">'+k+'</span><b'+(warn?' style="color:#C62828"':'')+'>'+v+'</b></div>';};
+    return '<div style="flex:1;min-width:230px;border:1px solid var(--bd);border-radius:10px;padding:10px 12px;border-top:4px solid '+color+'">'
+      +'<div style="font-weight:800;font-size:14px;margin-bottom:4px">'+tipo+'</div>'
+      +fila('Entradas',l.length)
+      +fila('SLA promedio',prom===null?'—':fmtMin(prom))
+      +fila('SLA mediana',med===null?'—':fmtMin(med))
+      +fila('SLA más lento',conSla.length?fmtMin(conSla[conSla.length-1]):'—')
+      +fila('Sin fecha de sistema',l.filter(function(e){return !esNum(e);}).length,l.some(function(e){return !esNum(e);}))
+      +fila('Sin etiqueta',l.filter(function(e){return e.etiqueta!=='X';}).length,l.some(function(e){return e.etiqueta!=='X';}))
+      +fila('Sin movimiento SAI',l.filter(function(e){return !String(e.mov||'').trim();}).length)
+      +'</div>';
+  };
+  const lista=function(titulo,arr,extra){
+    if(!arr.length)return '';
+    return '<div style="margin-top:12px"><div style="font-weight:800;font-size:13px;margin-bottom:4px">'+titulo+' ('+arr.length+')</div>'
+      +arr.map(function(e){
+        return '<div style="display:flex;gap:8px;align-items:baseline;padding:5px 0;border-top:1px solid #eee;font-size:12.5px">'
+          +'<span class="ent-tipo'+(e.tipo==='MP'?' mp':'')+'" style="flex:none">'+escAttr(e.tipo)+'</span>'
+          +'<span style="flex:1;min-width:0"><b>'+escAttr(e.clave)+'</b> · '+escAttr(e.lote)+'<br><span style="color:#777">'+escAttr(e.desc)+'</span></span>'
+          +'<span style="flex:none;text-align:right">'+escAttr(fechaEntTxt_(e.fecha))+(extra?'<br><b>'+extra(e)+'</b>':'')+'</span></div>';
+      }).join('')+'</div>';
+  };
+  const sinFecha=ents.filter(function(e){return !esNum(e);});
+  const lentas=ents.filter(function(e){return esNum(e)&&Number(e.sla)>15;}).sort(function(a,b){return Number(b.sla)-Number(a.sla);}).slice(0,10);
+  return '<div style="margin-top:16px;border-top:2px solid var(--bd);padding-top:12px">'
+    +'<div style="font-weight:900;font-size:15px;margin-bottom:8px">📥 Más información de las entradas · Semana '+semana+'</div>'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap">'+tarjeta('MP','#E8671A')+tarjeta('EYE','#1565C0')+'</div>'
+    +lista('Sin fecha de sistema',sinFecha,null)
+    +lista('Entradas más lentas (> 15 min)',lentas,function(e){return fmtMin(Math.max(0,Number(e.sla)));})
   +'</div>';
 }
 function descargarImagenSla_(){
