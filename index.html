@@ -5694,12 +5694,16 @@ function actualizarSelectsFechaDash_(){
 // negativos (fecha de sistema capturada antes que la de captura). Incidencia =
 // entrada cuya Observaciones/Comentarios menciona la palabra "incidencia".
 let dashEntSem=0;
+// Las entradas de la hoja "CLIENTE 26" (material de cliente, lotes MES…) no
+// llevan SLA ni forman parte del reporte semanal: se quedan fuera de este
+// dashboard (siguen apareciendo en la pestaña Entradas).
+function entEsCliente_(e){return /^\s*cliente/i.test(String(e.hoja||''));}
 function entEsIncidencia_(e){return /incidenc/i.test(String(e.obs||'')+' '+String(e.comentarios||''));}
 function entSlaStats_(semana){
   const mk=function(){return {ok:0,mal:0,sin:0,incOk:0,incMal:0,total:0,inc:0};};
   const st={MP:mk(),EYE:mk(),inc:0};
   (ENTRADAS_LOADED||[]).forEach(function(e){
-    if(semanaIso_(e.fecha)!==semana)return;
+    if(semanaIso_(e.fecha)!==semana||entEsCliente_(e))return;
     const t=st[e.tipo];if(!t)return;
     t.total++;
     const inc=entEsIncidencia_(e);if(inc){st.inc++;t.inc++;}
@@ -5800,7 +5804,9 @@ function htmlDashEntradasSla_(){
 // Sección "Más información de las entradas" (debajo de la imagen del reporte,
 // no sale en la imagen que se descarga).
 function htmlEntradasInfo_(semana){
-  const ents=(ENTRADAS_LOADED||[]).filter(function(e){return semanaIso_(e.fecha)===semana&&(e.tipo==='MP'||e.tipo==='EYE');});
+  const entsSem=(ENTRADAS_LOADED||[]).filter(function(e){return semanaIso_(e.fecha)===semana&&(e.tipo==='MP'||e.tipo==='EYE');});
+  const ents=entsSem.filter(function(e){return !entEsCliente_(e);});
+  const nCliente=entsSem.length-ents.length;
   if(!ents.length)return '';
   const esNum=function(e){return !(e.sla===null||e.sla===undefined||isNaN(Number(e.sla)));};
   const fmtMin=function(m){m=Math.round(m);return m<60?m+' min':Math.floor(m/60)+' h '+(m%60)+' min';};
@@ -5833,12 +5839,30 @@ function htmlEntradasInfo_(semana){
           +'<span style="flex:none;text-align:right">'+escAttr(fechaEntTxt_(e.fecha))+(extra?'<br><b>'+extra(e)+'</b>':'')+'</span></div>';
       }).join('')+'</div>';
   };
+  // Detalle completo de las entradas contadas (para comparar contra el Excel):
+  // trae la hoja de origen y marca en naranja las repetidas (misma clave+lote+cantidad).
+  const detalleTipo=function(tipo){
+    const l=ents.filter(function(e){return e.tipo===tipo;}).sort(function(a,b){return String(a.fecha).localeCompare(String(b.fecha))||String(a.clave).localeCompare(String(b.clave));});
+    if(!l.length)return '';
+    const cnt={};l.forEach(function(e){const k=e.clave+'|'+e.lote+'|'+e.cantidad;cnt[k]=(cnt[k]||0)+1;});
+    const rep=l.filter(function(e){return cnt[e.clave+'|'+e.lote+'|'+e.cantidad]>1;}).length;
+    return '<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:800;font-size:13px">Ver las '+l.length+' entradas de '+tipo+' de esta semana'+(rep?' · <span style="color:#E65100">'+rep+' repetidas</span>':'')+'</summary>'
+      +l.map(function(e,i){
+        const dup=cnt[e.clave+'|'+e.lote+'|'+e.cantidad]>1;
+        return '<div style="display:flex;gap:8px;padding:5px 0;border-top:1px solid #eee;font-size:12px'+(dup?';background:#FFF3E0':'')+'">'
+          +'<span style="flex:none;width:22px;color:#999">'+(i+1)+'</span>'
+          +'<span style="flex:1;min-width:0"><b>'+escAttr(e.clave)+'</b> · '+escAttr(e.lote)+' · '+fmt(e.cantidad)+(e.unidad?' '+escAttr(e.unidad):'')+'<br><span style="color:#777">'+escAttr(e.desc)+'</span></span>'
+          +'<span style="flex:none;text-align:right">'+escAttr(fechaEntTxt_(e.fecha))+'<br><span style="color:#777">'+escAttr(e.hoja||'')+(esNum(e)?' · '+Math.round(e.sla)+' min':' · sin SLA')+'</span></span></div>';
+      }).join('')+'</details>';
+  };
   const sinFecha=ents.filter(function(e){return !esNum(e);});
   const lentas=ents.filter(function(e){return esNum(e)&&Number(e.sla)>15;}).sort(function(a,b){return Number(b.sla)-Number(a.sla);}).slice(0,10);
   return '<div style="margin-top:16px;border-top:2px solid var(--bd);padding-top:12px">'
     +'<div style="font-weight:900;font-size:15px;margin-bottom:8px">📥 Más información de las entradas · Semana '+semana+'</div>'
+    +(nCliente?'<div style="font-size:12px;color:#777;margin-bottom:8px">No se cuentan '+nCliente+' entrada'+(nCliente>1?'s':'')+' de la hoja CLIENTE (material de cliente, sin SLA). Las ves en la pestaña Entradas.</div>':'')
     +'<div style="display:flex;gap:10px;flex-wrap:wrap">'+tarjeta('MP','#E8671A')+tarjeta('EYE','#1565C0')+'</div>'
     +'<div style="margin-top:8px;padding:8px 12px;border-radius:10px;background:#E8F5E9;font-size:13px;font-weight:800;display:flex;justify-content:space-between"><span>Promedio final (MP + EYE)</span><span>'+entPctTxt_(entCumplPromedio_(entSlaStats_(semana)))+'</span></div>'
+    +detalleTipo('MP')+detalleTipo('EYE')
     +lista('Incidencias',ents.filter(entEsIncidencia_),function(e){return escAttr(String(e.obs||e.comentarios||'incidencia').slice(0,60));})
     +lista('Sin fecha de sistema',sinFecha,null)
     +lista('Entradas más lentas (> 15 min)',lentas,function(e){return fmtMin(Math.max(0,Number(e.sla)));})
