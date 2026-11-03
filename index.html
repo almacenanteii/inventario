@@ -433,13 +433,6 @@ header.h-dev{background:var(--tl)}
 .dev-linea-desc{color:var(--gr2);font-size:13px}
 .dev-linea-lote{font-family:monospace;font-size:13.5px;font-weight:700;color:var(--gr2)}
 .dev-linea-cant{font-weight:700;color:var(--gr);flex-shrink:0}
-.dev-lt{width:100%;border-collapse:collapse}
-.dev-lt td{vertical-align:baseline;padding:0 8px 0 0}
-.dev-lt td.dev-lt-clave{white-space:nowrap;width:1%}
-.dev-lt td.dev-lt-lote{white-space:nowrap;width:1%}
-.dev-lt td.dev-lt-lote::before{content:'Lote ';font-family:Arial,sans-serif;font-weight:400;font-size:12px;color:#888}
-.dev-lt td.dev-lt-cant{white-space:nowrap;width:1%;text-align:right;padding-right:0}
-.dev-linea-extras{-webkit-user-select:none;user-select:none}
 .dev-del{color:#C62828;cursor:pointer;font-size:11px;font-weight:700;padding:4px 8px;flex-shrink:0}
 .dev-tipo-btns{display:flex;gap:8px;margin-bottom:12px}
 .dev-tipo-btn{flex:1;padding:12px;border-radius:10px;border:2px solid var(--bd);background:#fff;font-size:13px;font-weight:700;color:var(--gr2);cursor:pointer;text-align:center}
@@ -9374,7 +9367,7 @@ function renderDev(){
     if(kPctSub)kPctSub.textContent=conMov.length?(cuadranN+' de '+conMov.length+' con movimiento capturado'+(sinMovN?' · '+sinMovN+' sin movimiento aún':'')):'ningún folio con movimiento capturado';
     const kSinMov=document.getElementById('k-dev-sinmov'); if(kSinMov)kSinMov.textContent=sinMovN.toLocaleString('en-US');
   }
-  const barEl=document.getElementById('bar-dev'); if(barEl)barEl.textContent=folios.length+' folio'+(folios.length===1?'':'s');
+  const barEl=document.getElementById('bar-dev'); if(barEl)barEl.innerHTML=folios.length+' folio'+(folios.length===1?'':'s')+' &nbsp;<span onclick="copiarDatosDev_(\'*\',this)" style="cursor:pointer;color:#1565C0;font-weight:800;text-decoration:underline">📋 Copiar datos de todos</span>';
 
   const list=document.getElementById('list-dev'),empty=document.getElementById('empty-dev');
   if(!list)return;
@@ -9543,14 +9536,8 @@ function renderDev(){
         '<span class="dev-linea-btn-marcar-ubic" onclick="marcarUbicadoLinea_('+argsLinea+',true)">📍 Ubicado, falta mov</span>'
       :'');
       return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
-        // Clave, descripción, lote y cantidad van en UNA fila de tabla (cada uno en
-        // su celda): al copiar y pegar en Excel caen en columnas distintas. Todo lo
-        // demás (avisos, botones, MOVREP...) va debajo con user-select:none para
-        // que no se cuele en lo que se copia.
-        +'<div style="flex:1;min-width:0">'
-          +'<table class="dev-lt"><tr><td class="dev-lt-clave"><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span></td><td class="dev-lt-desc"><span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span></td><td class="dev-lt-lote"><span class="dev-linea-lote">'+escAttr(l.lote)+'</span></td><td class="dev-lt-cant"><span class="dev-linea-cant">'+fmt(l.cantidad)+'</span></td></tr></table>'
-          +'<div class="dev-linea-extras">'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+ubicadoHtml+ubicHtmlLinea+movCmpLineaHtml+devHtml+(esDest?'':salidaEyejalHtml_(salidaEyejalLinea_(f,liIdx)))+'</div>'
-        +'</div>'
+        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+ubicadoHtml+ubicHtmlLinea+movCmpLineaHtml+devHtml+(esDest?'':salidaEyejalHtml_(salidaEyejalLinea_(f,liIdx)))+'</div>'
+        +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
       +'</div>';
     }).join('');
     const tieneAlerta=folioTieneAlerta(f);
@@ -9581,7 +9568,7 @@ function renderDev(){
       +'<div class="dev-card-head">'
         +'<div class="dev-card-row1"><span class="dev-folio">'+escAttr(f.folio)+'</span><span class="dev-tag t-'+f.tipo+'">'+tagTxt+'</span>'+checkFolioHtml_(f,esDest)+'</div>'
         +(f.op?'<div class="dev-op-info">OP <b>'+escAttr(f.op)+'</b> · '+escAttr(f.codigoPT)+' — '+escAttr(f.productoPT)+' · Lote '+escAttr(f.lotePT)+'</div>':'')
-        +'<div class="dev-meta">'+f.lineas.length+' material'+(f.lineas.length>1?'es':'')+' · '+fmt(totalCant)+' pz · '+escAttr(f.fecha)+(f.registrado?' · '+escAttr(f.registrado):'')+' <span class="dev-del" style="color:var(--tl);margin-right:10px" onclick="editarDevolucion(\''+f.id+'\')">✏️ Editar</span><span class="dev-del" onclick="borrarDevolucion(\''+f.id+'\')">🗑️ Borrar folio</span></div>'
+        +'<div class="dev-meta">'+f.lineas.length+' material'+(f.lineas.length>1?'es':'')+' · '+fmt(totalCant)+' pz · '+escAttr(f.fecha)+(f.registrado?' · '+escAttr(f.registrado):'')+' <span class="dev-del" style="color:var(--tl);margin-right:10px" onclick="editarDevolucion(\''+f.id+'\')">✏️ Editar</span><span class="dev-del" onclick="borrarDevolucion(\''+f.id+'\')">🗑️ Borrar folio</span> <span class="dev-del" style="color:#1565C0;margin-left:10px" onclick="copiarDatosDev_(\''+f.id+'\',this)">📋 Copiar datos</span></div>'
         +movHtml
         +(tieneAlerta?'<div class="dev-linea-warn" style="margin-top:8px">⚠️ Este folio tiene lotes que ya no están en ACOND, o hay menos cantidad de la que se está devolviendo. Verifica antes de mandar el movimiento a SAI.</div>':'')
       +'</div>'
@@ -9590,6 +9577,38 @@ function renderDev(){
   }).join('');
 }
 
+// Copia al portapapeles (separado por tabuladores: pega en columnas de Excel)
+// una fila por material: Fecha | Papeleta | Tipo | Movimiento | Clave | Descripción | Lote | Cantidad |
+// En DEV | En ACOND. id='*' = todos los folios que se están viendo.
+const TIPO_DEV_TXT_={no_utilizado:'No utilizado',destruccion:'Destrucción',proveedor:'A proveedor'};
+function datosDevTSV_(folios){
+  const lim=function(v){return String(v==null?'':v).replace(/[\t\r\n]+/g,' ').trim();};
+  const filas=[];
+  folios.forEach(function(f){
+    (f.lineas||[]).forEach(function(l){
+      filas.push([f.fecha,f.folio,TIPO_DEV_TXT_[f.tipo]||f.tipo,f.numMovimiento||'',l.codigo,l.descripcion,l.lote,l.cantidad,
+        existeEnAlmacenLote_(l.codigo,l.lote,'DEV'),existeAcond_(l.codigo,l.lote)].map(lim).join('\t'));
+    });
+  });
+  return filas.join('\r\n');
+}
+function copiarDatosDev_(id,el){
+  const folios=id==='*'?getFiltDev():(DEV_LOADED||[]).filter(function(x){return x.id===id;});
+  const txt=datosDevTSV_(folios);
+  if(!txt){alert('No hay datos para copiar.');return;}
+  const listo=function(){
+    if(!el)return;
+    const prev=el.textContent;el.textContent='✔ Copiado';
+    setTimeout(function(){el.textContent=prev;},1500);
+  };
+  const respaldo=function(){
+    const ta=document.createElement('textarea');ta.value=txt;ta.style.cssText='position:fixed;opacity:0';
+    document.body.appendChild(ta);ta.select();
+    try{document.execCommand('copy');listo();}catch(e){alert('No se pudo copiar. Intenta de nuevo.');}
+    document.body.removeChild(ta);
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(listo,respaldo);}else respaldo();
+}
 function checkFolioHtml_(f,esDest){
   if(esDest)return '';
   const est=folioEstadoCheck_(f);
