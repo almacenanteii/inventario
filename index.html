@@ -9536,7 +9536,7 @@ function renderDev(){
         '<span class="dev-linea-btn-marcar-ubic" onclick="marcarUbicadoLinea_('+argsLinea+',true)">📍 Ubicado, falta mov</span>'
       :'');
       return '<div class="dev-linea-row'+(alerta?' dev-linea-row-warn':'')+(cuadraLinea?' dev-linea-row-ok':'')+'">'
-        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+ubicadoHtml+ubicHtmlLinea+movCmpLineaHtml+devHtml+(esDest?'':salidaEyejalHtml_(salidaEyejalLinea_(f,liIdx)))+'</div>'
+        +'<div><span class="dev-linea-clave">'+escAttr(l.codigo)+'</span> <span class="dev-linea-desc">'+escAttr(l.descripcion)+'</span><br><span class="dev-linea-lote">Lote '+escAttr(l.lote)+'</span> <span class="dev-linea-copiar" style="cursor:pointer;color:#1565C0;font-size:11.5px;font-weight:800;margin-left:6px" onclick="copiarDatosDev_(\''+f.id+'\',this,'+liIdx+')">📋 Copiar</span>'+(alerta?'<span class="dev-linea-warn-tag">'+warnTxt+'</span>':'')+(cuadraLinea&&!l.fechaTraspaso?'<span class="dev-linea-ok-tag">✔ Coincide con MOVREP</span>':'')+marcadoHtml+ubicadoHtml+ubicHtmlLinea+movCmpLineaHtml+devHtml+(esDest?'':salidaEyejalHtml_(salidaEyejalLinea_(f,liIdx)))+'</div>'
         +'<div class="dev-linea-cant">'+fmt(l.cantidad)+'</div>'
       +'</div>';
     }).join('');
@@ -9578,23 +9578,33 @@ function renderDev(){
 }
 
 // Copia al portapapeles (separado por tabuladores: pega en columnas de Excel)
-// una fila por material: Fecha | Papeleta | Tipo | Movimiento | Clave | Descripción | Lote | Cantidad |
-// En DEV | En ACOND. id='*' = todos los folios que se están viendo.
+// una fila por material: Fecha | Papeleta | Tipo | Movimiento | Clave |
+// Descripción | Lote | Cantidad | En DEV | En ACOND | MOVREP (lo que trae SAI) |
+// Debería traer | Falta traspasar a EYEJAL | Ubicación.
+// id='*' = todos los folios que se están viendo; liIdx = solo esa línea.
 const TIPO_DEV_TXT_={no_utilizado:'No utilizado',destruccion:'Destrucción',proveedor:'A proveedor'};
-function datosDevTSV_(folios){
+function datosDevTSV_(folios,liIdx){
   const lim=function(v){return String(v==null?'':v).replace(/[\t\r\n]+/g,' ').trim();};
   const filas=[];
+  DEV_SAL_=calcularSalidasEyejal_();
   folios.forEach(function(f){
-    (f.lineas||[]).forEach(function(l){
+    const cm=folioCuadraMov_(f);
+    const movCmp=(cm.movMatch&&cm.movCmp)?cm.movCmp:null;
+    (f.lineas||[]).forEach(function(l,i){
+      if(liIdx!==undefined&&liIdx!==null&&i!==liIdx)return;
+      const key=String(l.codigo||'').trim().toUpperCase()+'|'+String(l.lote||'').trim().toUpperCase();
+      const sal=(DEV_SAL_.hayDatos&&almacenDevolucion_(f.tipo)==='DEV')?salidaEyejalLinea_(f,i):null;
       filas.push([f.fecha,f.folio,TIPO_DEV_TXT_[f.tipo]||f.tipo,f.numMovimiento||'',l.codigo,l.descripcion,l.lote,l.cantidad,
-        existeEnAlmacenLote_(l.codigo,l.lote,'DEV'),existeAcond_(l.codigo,l.lote)].map(lim).join('\t'));
+        existeEnAlmacenLote_(l.codigo,l.lote,'DEV'),existeAcond_(l.codigo,l.lote),
+        movCmp?(movCmp.real[key]||0):'',movCmp?(movCmp.capt[key]||0):'',
+        sal?sal.falta:'',ubicTexto_(l.codigo,l.lote)||''].map(lim).join('\t'));
     });
   });
   return filas.join('\r\n');
 }
-function copiarDatosDev_(id,el){
+function copiarDatosDev_(id,el,liIdx){
   const folios=id==='*'?getFiltDev():(DEV_LOADED||[]).filter(function(x){return x.id===id;});
-  const txt=datosDevTSV_(folios);
+  const txt=datosDevTSV_(folios,liIdx);
   if(!txt){alert('No hay datos para copiar.');return;}
   const listo=function(){
     if(!el)return;
