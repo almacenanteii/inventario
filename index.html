@@ -1018,7 +1018,7 @@ header.h-dev{background:var(--tl)}
 <div class="kpis hidden" id="kpis-salida">
   <div class="kpi"><div class="kpi-lbl">Tarimas</div><div class="kpi-val gv" id="k-salida-tarimas">—</div><div class="kpi-sub">en este filtro</div></div>
   <div class="kpi"><div class="kpi-lbl">Piezas</div><div class="kpi-val gv" id="k-salida-piezas">—</div><div class="kpi-sub">en este filtro</div></div>
-  <div class="kpi"><div class="kpi-lbl">Seleccionadas</div><div class="kpi-val" style="color:var(--tl)" id="k-salida-sel">0</div><div class="kpi-sub">para confirmar salida</div></div>
+  <div class="kpi"><div class="kpi-lbl">Seleccionadas</div><div class="kpi-val" style="color:var(--tl)" id="k-salida-sel">0</div><div class="kpi-sub" id="k-salida-sel-pz">para confirmar salida</div></div>
 </div>
 
 <div class="bar" id="bar-inv"></div>
@@ -1558,6 +1558,7 @@ const fmt=function(n){if(n===null||n===undefined)return '—';return n.toLocaleS
 function cadInfo(s){
   if(!s)return{cls:'cad-ok',txt:''};
   const p=s.split('/');if(p.length<3)return{cls:'cad-ok',txt:s};
+  if(+p[2]<1971)return{cls:'cad-ok',txt:''};
   const diff=(new Date(+p[2],+p[1]-1,+p[0])-new Date())/864e5;
   if(diff<0)return{cls:'cad-venc',txt:'⚠ Vencido · '+s};
   if(diff<90)return{cls:'cad-warn',txt:'⏳ Por vencer · '+s};
@@ -7247,8 +7248,16 @@ function getFiltEmb(){
 function buildEmbGroups(){
   const rows=getFiltEmb();
   const gm={};
+  // Un mismo clave+lote+almacén repetido (no manual) se muestra una sola vez
+  // (el primero); si no, cada copia jala la misma tarima y la duplica.
+  const vistos={};
   rows.forEach(function(r){
     const almU=(r.almacen||'').toUpperCase();
+    if(r.origen!=='MANUAL'){
+      const kd=r.clave+'|'+String(r.lote||'').trim().toUpperCase()+'|'+almU;
+      if(vistos[kd])return;
+      vistos[kd]=1;
+    }
     const key=r.clave;
     if(!gm[key])gm[key]={clase:r.clase,clave:r.clave,desc:r.desc,lotes:[],alms:new Set()};
     gm[key].lotes.push(r);
@@ -7507,10 +7516,12 @@ function renderSalidaEmbarque(){
   // así "Confirmar salida" nunca actúa sobre algo que ya no ves en pantalla.
   const idsVisibles=new Set(rows.map(function(t){return t.id;}));
   Array.from(salidaSel).forEach(function(id){ if(!idsVisibles.has(id))salidaSel.delete(id); });
+  const selPz=rows.reduce(function(s,t){return s+(salidaSel.has(t.id)?(t.piezas||0):0);},0);
   const kSel=document.getElementById('k-salida-sel'); if(kSel)kSel.textContent=salidaSel.size.toLocaleString('en-US');
+  const kSelPz=document.getElementById('k-salida-sel-pz'); if(kSelPz)kSelPz.textContent=salidaSel.size?fmt(selPz)+' pz para confirmar salida':'para confirmar salida';
   const btn=document.getElementById('btn-confirmar-salida');
   if(btn){
-    btn.textContent='🚛 Confirmar salida ('+salidaSel.size+')';
+    btn.textContent='🚛 Confirmar salida ('+salidaSel.size+(salidaSel.size?' · '+fmt(selPz)+' pz':'')+')';
     btn.disabled=salidaSel.size===0;
     btn.classList.toggle('hidden',fSalida!=='PENDIENTES');
   }
