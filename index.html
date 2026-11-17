@@ -2869,7 +2869,18 @@ function prepararUbicacionNueva_(clave,texto){
 }
 
 // ---- Selector "Guardó:" (obligatorio al agregar o mover una ubicación) ----
+// Lista oficial: pestaña "Personas" del Sheet (se carga al abrir la app). Si
+// existe, el selector solo ofrece a esas personas (sin escribir nombres libres).
+let personasLista=[];
+async function cargarPersonas_(){
+  try{
+    const r=await fetch(APPS_URL+'?accion=personas&t='+Date.now());
+    const rows=await r.json();
+    if(Array.isArray(rows))personasLista=rows.map(function(n){return String(n||'').replace(/\s+/g,' ').trim();}).filter(Boolean);
+  }catch(e){console.warn('No se pudo cargar la lista de personas:',e);}
+}
 function quienesUbic_(){
+  if(personasLista.length)return personasLista.slice().sort(function(a,b){return a.localeCompare(b,'es');});
   const set={};
   const add=function(n){
     n=String(n||'').replace(/\s+/g,' ').trim();
@@ -2895,7 +2906,7 @@ function quienSelector_(){
   sel.style.cssText='width:100%;padding:10px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:14px;background:#fff';
   const o0=document.createElement('option');o0.value='';o0.textContent='— Selecciona —';sel.appendChild(o0);
   quienesUbic_().forEach(function(n){const o=document.createElement('option');o.value=n;o.textContent=n;sel.appendChild(o);});
-  const oo=document.createElement('option');oo.value='__otro';oo.textContent='➕ Otra persona (escribir nombre)';sel.appendChild(oo);
+  if(!personasLista.length){const oo=document.createElement('option');oo.value='__otro';oo.textContent='➕ Otra persona (escribir nombre)';sel.appendChild(oo);}
   wrap.appendChild(sel);
   const otro=document.createElement('input');
   otro.type='text';otro.placeholder='Nombre completo';otro.autocomplete='off';
@@ -6941,6 +6952,7 @@ async function loadInventario(){
   // En cuanto llegan, se vuelve a pintar la lista para que aparezcan encima.
   cargarEnriquecimientosInventario_();
   cargarCatalogoUbicaciones_();
+  cargarPersonas_();
   cargarEntradas_();
 }
 
