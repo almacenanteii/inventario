@@ -1619,10 +1619,27 @@ function almTag(a){
 // cambio) se sigue mostrando en cualquier almacén de ese lote, para no
 // perder de vista ubicaciones ya capturadas mientras no se vuelvan a
 // guardar con el almacén específico.
+// Cuántas filas de inventario (almacenes) tiene un clave+lote. Se cachea por
+// inventario cargado para no recorrerlo en cada pintado.
+let _filasLoteCache_={ref:null,n:-1,map:{}};
+function filasDeLote_(clave,lote){
+  const ALL=window._ALL_A||[];
+  if(_filasLoteCache_.ref!==ALL||_filasLoteCache_.n!==ALL.length){
+    const map={};
+    ALL.forEach(function(p){p.lotes.forEach(function(l){const k=p.clave+'|'+l.lote;map[k]=(map[k]||0)+1;});});
+    _filasLoteCache_={ref:ALL,n:ALL.length,map:map};
+  }
+  return _filasLoteCache_.map[clave+'|'+lote]||0;
+}
 function ubicEntradasAlmacen_(clave,lote,almacen){
   const arr=ubicMap[clave+'|'+lote]||[];
   const almU=(almacen||'').toUpperCase();
   if(!almU)return arr;
+  // Si el lote existe en UN solo almacén, todas sus ubicaciones son de esa
+  // fila aunque se hayan guardado con otro almacén en la etiqueta (ej. el
+  // lote estaba en otro almacén cuando se ubicó y luego se traspasó). El
+  // filtro por almacén solo aplica cuando el lote está en dos almacenes.
+  if(filasDeLote_(clave,lote)<=1)return arr;
   return arr.filter(function(u){return !u.almacen||(u.almacen||'').toUpperCase()===almU;});
 }
 function ubicTexto_(clave,lote,almacen){
@@ -3684,7 +3701,7 @@ function renderInv(){
       const qInv=sInv.trim();
       const esBusquedaSoloUbic=!!qInv&&!smartMatch(p.clave,sInv)&&!smartMatch(p.desc,sInv)&&!p.lotes.some(function(l){return smartMatch(l.lote,sInv);});
       let lotesAMostrar=esBusquedaSoloUbic?
-        p.lotes.filter(function(l){return (ubicMap[p.clave+'|'+l.lote]||[]).some(function(u){return ubicMatchQuery_(u.ubicacion,sInv);});}):
+        p.lotes.filter(function(l){return ubicEntradasAlmacen_(p.clave,l.lote,(l.almacen||'').toUpperCase()).some(function(u){return ubicMatchQuery_(u.ubicacion,sInv);});}):
         p.lotes;
       if(fInvSinUbic)lotesAMostrar=lotesAMostrar.filter(function(l){return loteSinUbic_(p.clave,l);});
       const lots=lotesAMostrar.map(l=>{
