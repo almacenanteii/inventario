@@ -153,15 +153,15 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .loc-copy:active{opacity:1;background:#f0f0f0}
 .loc-edit.paste-mode{outline:2px dashed #E8671A;outline-offset:2px;border-radius:8px;animation:pulseLoc 1.2s infinite}
 @keyframes pulseLoc{0%,100%{outline-color:#E8671A}50%{outline-color:#ffcc80}}
-.loc-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
-.loc-chip{display:inline-flex;align-items:stretch;background:#fff;border:1.5px solid #FFD9B3;border-radius:14px;overflow:hidden;box-shadow:0 2px 6px rgba(232,103,26,.12)}
-.loc-chip .loc-badge{display:inline-flex;align-items:center;gap:6px;border:none;border-radius:0;background:#FFF3E0;color:#E8671A;padding:0 14px;font-size:16px;font-weight:800;font-family:inherit;letter-spacing:.3px;min-height:44px}
-.loc-move,.loc-del{display:inline-flex;align-items:center;justify-content:center;min-width:46px;min-height:44px;margin:0;padding:0 4px;cursor:pointer;opacity:1;border-radius:0;border-left:1.5px solid #FFE3C7;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.loc-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:5px}
+.loc-chip{display:inline-flex;align-items:stretch;background:#fff;border:1.5px solid #FFD9B3;border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(232,103,26,.12)}
+.loc-chip .loc-badge{display:inline-flex;align-items:center;gap:5px;border:none;border-radius:0;background:#FFF3E0;color:#E8671A;padding:0 10px;font-size:13px;font-weight:800;font-family:inherit;letter-spacing:.2px;min-height:36px}
+.loc-move,.loc-del{display:inline-flex;align-items:center;justify-content:center;min-width:38px;min-height:36px;margin:0;padding:0 2px;cursor:pointer;opacity:1;border-radius:0;border-left:1.5px solid #FFE3C7;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
 .loc-move{background:#E8F3FD}
 .loc-move:active{background:#CBE3FA}
 .loc-del{background:#FDECEC}
 .loc-del:active{background:#F9CFCF}
-.loc-add{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 20px;border-radius:14px;background:linear-gradient(180deg,#F57C2B,#E8601A);color:#fff;cursor:pointer;font-size:14px;font-weight:700;line-height:1;flex-shrink:0;box-shadow:0 3px 8px rgba(232,103,26,.35);-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.loc-add{white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;border-radius:12px;background:linear-gradient(180deg,#F57C2B,#E8601A);color:#fff;cursor:pointer;font-size:12.5px;font-weight:700;line-height:1;flex-shrink:0;box-shadow:0 3px 8px rgba(232,103,26,.35);-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
 .loc-add:active{filter:brightness(.92);transform:scale(.98)}
 .loc-add.paste-mode{outline:2px dashed #E8671A;outline-offset:1px;background:#fff3e0;animation:pulseLoc 1.2s infinite}
 
@@ -202,6 +202,35 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .lot-lote-sel{cursor:pointer;display:inline-block;padding:4px 10px;border-radius:8px;border:1.5px dashed var(--bd);font-size:16px;font-weight:700;letter-spacing:.3px}
 .lot-lote-sel:active{background:rgba(232,103,26,.12)}
 .lot-lote-sel.active{background:var(--or);border-color:var(--or);color:#fff;font-weight:800}
+/* ===== Inventario: tarjeta con estilo nuevo (solo #list-inv) ===== */
+#list-inv .card{border-radius:16px;border:1px solid #ECEFF1;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+#list-inv .card-head{padding:12px 14px 10px}
+#list-inv .card-row1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:0}
+#list-inv .inv-top-l{flex:1;min-width:0}
+#list-inv .card-head .clave{display:inline-flex;width:fit-content;align-items:center;gap:6px;background:var(--or);color:#fff;border-radius:10px;padding:5px 11px;font-size:12px;letter-spacing:.4px}
+#list-inv .card-head .clave::before{content:"";width:15px;height:15px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M12 3l8 4.5v9L12 21l-8-4.5v-9z'/%3E%3Cpath d='M4 7.5l8 4.5 8-4.5M12 12v9'/%3E%3C/svg%3E") center/contain no-repeat}
+#list-inv .card-head .pill{flex-shrink:0;background:#F3F4F6;color:var(--or);border-radius:14px;padding:6px 12px;font-size:19px;font-weight:800;line-height:1.1;text-align:center;box-shadow:inset 0 0 0 1px #ECEFF1}
+#list-inv .card-head .pill::before{content:"";display:inline-block;width:17px;height:17px;margin-right:6px;vertical-align:-2px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E8671A' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M12 3l8 4.5v9L12 21l-8-4.5v-9z'/%3E%3Cpath d='M4 7.5l8 4.5 8-4.5M12 12v9'/%3E%3C/svg%3E") center/contain no-repeat}
+#list-inv .card-head .pill::after{content:"PIEZAS";display:block;font-size:9px;font-weight:600;letter-spacing:.6px;color:#78909C;margin-top:1px}
+#list-inv .card-head .desc{font-size:16px;font-weight:800;color:#263238;margin:6px 0 0}
+#list-inv .card-head .card-meta{gap:6px;margin-top:10px}
+.inv-chip{white-space:nowrap;display:inline-flex;align-items:center;gap:5px;background:#F1F3F5;color:#37474F;border-radius:10px;padding:5px 10px;font-size:11.5px;font-weight:700}
+.inv-chip svg{width:13px;height:13px;flex-shrink:0}
+.inv-chip-sin{color:#b0b0b0;font-style:italic;font-weight:600}
+#list-inv .card-head .tag{padding:5px 11px;border-radius:10px;font-size:11.5px}
+#list-inv .lots{position:relative;border-top:2px solid #ECEFF1;padding:6px 10px 10px;background:#fff}
+#list-inv .lots::before{content:"";position:absolute;top:-2px;left:0;width:56px;height:2px;background:var(--or)}
+#list-inv .lot{border:1px solid #ECEFF1;border-radius:14px;margin-top:8px;padding:10px 12px;box-shadow:0 1px 4px rgba(0,0,0,.05);background:#fff}
+#list-inv .lot:last-child{border-bottom:1px solid #ECEFF1}
+#list-inv .lot-lote-sel{border:none;padding:2px 6px;margin-left:-6px;font-size:17px;font-weight:800;color:#263238;font-family:inherit;letter-spacing:.3px}
+#list-inv .lot-lote-sel.active{border-radius:8px;color:#fff}
+#list-inv .lot .tag{padding:3px 10px;border-radius:10px;font-size:11px}
+#list-inv .lot-conteo{font-size:11.5px;margin-top:4px}
+#list-inv .lot-right{display:flex;flex-direction:column;align-items:center;background:#F3F4F6;border-radius:12px;padding:6px 11px;align-self:start;box-shadow:inset 0 0 0 1px #ECEFF1}
+#list-inv .lot-qty{font-size:16px;font-weight:800;line-height:1.1;color:#263238}
+#list-inv .lot-qty::before{content:"";display:inline-block;width:14px;height:14px;margin-right:5px;vertical-align:-2px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2378909C' stroke-width='2' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M12 3l8 4.5v9L12 21l-8-4.5v-9z'/%3E%3Cpath d='M4 7.5l8 4.5 8-4.5M12 12v9'/%3E%3C/svg%3E") center/contain no-repeat}
+#list-inv .lot-unit{font-size:9px;font-weight:600;letter-spacing:.6px;text-transform:uppercase;color:#78909C}
+
 
 .hlot{padding:9px 14px;border-bottom:1px solid #f5f5f5;display:grid;grid-template-columns:1fr auto;gap:6px;align-items:start}
 .hlot:last-child{border-bottom:none}
@@ -1618,10 +1647,10 @@ function ubicMatchQuery_(ubicacion,rawQuery){
 // ya que el sistema de ubicaciones es genérico por clave+lote, sin importar
 // de qué hoja/almacén venga el producto.
 const UBIC_SVG_={
-  pin:'<svg viewBox="0 0 24 24" width="18" height="18" fill="#E8671A" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
-  move:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#1E88E5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/></svg>',
-  del:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#E53935" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
-  plus:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
+  pin:'<svg viewBox="0 0 24 24" width="14" height="14" fill="#E8671A" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>',
+  move:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#1E88E5" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h15M15 4l4 4-4 4M20 16H5M9 12l-4 4 4 4"/></svg>',
+  del:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#E53935" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>'
 };
 function ubicRowHtml_(clave,lote,almacen){
   const entradas=ubicEntradasAlmacen_(clave,lote,almacen);
@@ -3541,9 +3570,11 @@ function renderInv(){
           `<div class="lot-right"><div class="lot-qty">${fmt(l.exist)}</div><div class="lot-unit">${l.unidad||'pzas'}</div></div></div>`;
       }).join('');
       const schedInfoInv=SCHED.find(function(s){return s.clave===p.clave;});
+      const INV_ICO_CAL='<svg viewBox="0 0 24 24" fill="none" stroke="#37474F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
+      const INV_ICO_TAG='<svg viewBox="0 0 24 24" fill="none" stroke="#37474F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.2"/></svg>';
       const schedHtmlInv=schedInfoInv?
-        `<div style="font-size:10.5px;color:#1F4E79;font-weight:700;margin-top:3px">📅 Semana ${schedInfoInv.semana_cal} · Clase ${schedInfoInv.abc}</div>`:
-        `<div style="font-size:10.5px;color:#b0b0b0;font-style:italic;margin-top:3px">Sin clasificar</div>`;
+        `<span class="inv-chip">${INV_ICO_CAL}Semana ${schedInfoInv.semana_cal}</span><span class="inv-chip">${INV_ICO_TAG}Clase ${schedInfoInv.abc}</span>`:
+        `<span class="inv-chip inv-chip-sin">Sin clasificar</span>`;
       const sel=invClaveSel.has(p.clave);
       // Dato informativo de DEV (pendiente de traspaso a EYEJAL) -- el pill
       // naranja de arriba sigue siendo la existencia real (la dominante) y
@@ -3558,7 +3589,7 @@ function renderInv(){
       const metaLotesTxt=esBusquedaSoloUbic?
         `${lotesAMostrar.length} lote${lotesAMostrar.length>1?'s':''} en esta ubicación (de ${p.lotes.length} en total)`:
         `${p.lotes.length} lote${p.lotes.length>1?'s':''}`;
-      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><span class="clave c-or">${p.clave}</span><span class="pill p-or">${fmt(p.totalExist)}</span></div>${devLineaClaveInv}<div class="desc">${p.desc}</div><div class="card-meta">${metaLotesTxt}&nbsp;${p.alms.map(almTag).join('')}</div>${schedHtmlInv}</div><div class="lots">${lots}</div></div>`;
+      return`<div class="card${sel?' card-sel':''}" data-clave-sel="${escAttr(p.clave)}"><div class="card-head card-head-clickable" onclick="seleccionarClaveInv(this)"><div class="card-row1"><div class="inv-top-l"><span class="clave c-or">${p.clave}</span><div class="desc">${p.desc}</div></div><span class="pill p-or">${fmt(p.totalExist)}</span></div>${devLineaClaveInv}<div class="card-meta"><span class="inv-chip"><svg viewBox="0 0 24 24" fill="none" stroke="#37474F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5M3 17.5l9 5 9-5" opacity=".6"/></svg>${metaLotesTxt}</span>${p.alms.map(almTag).join('')}${schedHtmlInv}</div></div><div class="lots">${lots}</div></div>`;
     }).join('')
   ).join('');
   actualizarMenuImprimirInv_();
