@@ -153,14 +153,18 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .loc-copy:active{opacity:1;background:#f0f0f0}
 .loc-edit.paste-mode{outline:2px dashed #E8671A;outline-offset:2px;border-radius:8px;animation:pulseLoc 1.2s infinite}
 @keyframes pulseLoc{0%,100%{outline-color:#E8671A}50%{outline-color:#ffcc80}}
-.loc-row{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:4px}
-.loc-chip{display:inline-flex;align-items:center;gap:2px}
-.loc-move{display:inline-block;padding:2px 6px;cursor:pointer;font-size:12px;font-weight:900;color:#1565C0;opacity:.7;border-radius:5px}
-.loc-move:active{opacity:1;background:#E3F2FD}
-.loc-del{display:inline-block;padding:2px 6px;cursor:pointer;font-size:11px;font-weight:900;color:#C62828;opacity:.6;border-radius:5px}
-.loc-del:active{opacity:1;background:#ffebee}
-.loc-add{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:#f5f5f5;color:#666;cursor:pointer;font-size:12px;flex-shrink:0}
-.loc-add:active{background:#eee}
+.loc-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.loc-chip{display:inline-flex;align-items:stretch;background:#fff;border:1.5px solid #ffcc80;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.loc-chip .loc-badge{border:none;border-radius:0;background:#fff3e0;padding:0 12px;font-size:13px;min-height:40px}
+.loc-copy,.loc-move,.loc-del{display:inline-flex;align-items:center;justify-content:center;min-width:42px;min-height:40px;margin:0;padding:0 4px;cursor:pointer;font-size:17px;font-weight:900;opacity:1;border-radius:0;border-left:1.5px solid #ffe0b2;background:#fff;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.loc-copy{background:#FAFAFA;color:#546E7A}
+.loc-copy:active{background:#ECEFF1}
+.loc-move{background:#E3F2FD;color:#1565C0}
+.loc-move:active{background:#BBDEFB}
+.loc-del{background:#FFEBEE;color:#C62828}
+.loc-del:active{background:#FFCDD2}
+.loc-add{display:inline-flex;align-items:center;justify-content:center;width:42px;height:42px;border-radius:12px;background:#E8671A;color:#fff;cursor:pointer;font-size:22px;font-weight:700;line-height:1;flex-shrink:0;box-shadow:0 2px 5px rgba(232,103,26,.35);-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.loc-add:active{background:#CF5A14;transform:scale(.96)}
 .loc-add.paste-mode{outline:2px dashed #E8671A;outline-offset:1px;background:#fff3e0;animation:pulseLoc 1.2s infinite}
 
 .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
@@ -1635,7 +1639,7 @@ function ubicRowHtml_(clave,lote,almacen){
   }
   const pasteMode=ubicCopiada!==null;
   const addCls=pasteMode?' paste-mode':'';
-  const addAttr=pasteMode?'📥':'➕';
+  const addAttr=pasteMode?'📥':'+';
   const addTitle=pasteMode?'Pegar ubicación copiada aquí':'Agregar ubicación';
   // OJO: "sugerida" va en data-sugerida, NO en data-ubic -- antes se metía
   // directo en data-ubic y editarUbicacion() la precargaba YA ESCRITA en el
