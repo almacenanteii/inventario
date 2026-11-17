@@ -2510,8 +2510,8 @@ function exportarEntradasExcel(){
 // muestra todos). Coordenadas aproximadas del plano real del almacén.
 const PLANO_RACKS_={
   '01':{x:110,y:62,w:1040,h:38},
-  '02':{x:218,y:185,w:830,h:40},'03':{x:218,y:268,w:830,h:40},
-  '04':{x:218,y:372,w:900,h:40},
+  '02':{x:218,y:185,w:830,h:40},'03':{x:218,y:235,w:830,h:40},
+  '04':{x:218,y:350,w:900,h:40},
   '05':{x:85,y:735,w:70,h:465},
   '06':{x:262,y:735,w:62,h:465},'07':{x:348,y:735,w:62,h:465},
   '08':{x:508,y:735,w:62,h:465},'09':{x:596,y:735,w:62,h:465},
@@ -2530,47 +2530,42 @@ function planoUbiHtml_(statsPorRack,estados){
   const ORD=['E','D','C','B','AA','A'];
   let svg='<svg viewBox="0 0 1240 1330" class="plano-svg" xmlns="http://www.w3.org/2000/svg">'+
     '<path d="M70 40H1170V668H845V1300H70Z" fill="#E3E6EA" stroke="#1B365D" stroke-width="10" stroke-linejoin="round"/>'+
-    '<rect x="215" y="412" width="940" height="248" fill="#D5D9DE" stroke="#1B365D" stroke-width="3"/>'+
-    '<text x="685" y="545" text-anchor="middle" font-size="34" fill="#90A4AE" font-weight="700">Área de producción</text>';
+    '<rect x="215" y="390" width="940" height="270" fill="#D5D9DE" stroke="#1B365D" stroke-width="3"/>'+
+    '<text x="685" y="535" text-anchor="middle" font-size="34" fill="#90A4AE" font-weight="700">Área de producción</text>';
   Object.keys(PLANO_RACKS_).forEach(function(r){
     const g=PLANO_RACKS_[r];
     const st=statsPorRack[r]||{libre:0,ocupada:0,bloqueada:0,total:0};
     const pct=st.total?(st.ocupada+st.bloqueada)/st.total:0;
-    const fill=!st.total?'#CFD8DC':(pct<.5?'#A5D6A7':(pct<.85?'#FFE082':'#FFAB91'));
+    const color=!st.total?'#CFD8DC':(pct<.5?'#66BB6A':(pct<.85?'#FFCA28':'#EF6C00'));
     const pctOcup=Math.round(pct*100);
     const sel=fUbiRack===r;
-    svg+='<g class="plano-rack" onclick="tocarRackPlano_(\''+r+'\')" style="cursor:pointer">'+
-      '<rect x="'+g.x+'" y="'+g.y+'" width="'+g.w+'" height="'+g.h+'" rx="8" fill="'+fill+'" stroke="'+(sel?'#E8671A':'#37474F')+'" stroke-width="'+(sel?10:4)+'"/>';
     const vertical=g.h>g.w;
-    // Racks vecinos (6-7, 8-9): la etiqueta del izquierdo se corre a la
-    // izquierda y la del derecho a la derecha para que no se encimen.
     const rn=parseInt(r,10);
-    const corrimiento=(rn===6||rn===8)?-36:((rn===7||rn===9)?36:0);
-    const cx=g.x+g.w/2+(vertical?corrimiento:0);
-    const cy=g.y+g.h/2;
-    const nivs=ORD.filter(function(n){return niv[r]&&niv[r][n];});
+    // La barra se llena según lo ocupado del rack: de izquierda a derecha
+    // (racks 1-4, la posición 01 está a la izquierda) o de abajo hacia
+    // arriba (racks 5-10, la posición 01 está abajo).
+    const llenoLen=Math.round((vertical?g.h:g.w)*pct);
+    const fx=vertical?g.x:g.x,fw=vertical?g.w:llenoLen;
+    const fy=vertical?g.y+g.h-llenoLen:g.y,fh=vertical?llenoLen:g.h;
+    svg+='<g class="plano-rack" onclick="tocarRackPlano_(\''+r+'\')" style="cursor:pointer">'+
+      '<clipPath id="cp-'+r+'"><rect x="'+g.x+'" y="'+g.y+'" width="'+g.w+'" height="'+g.h+'" rx="8"/></clipPath>'+
+      '<rect x="'+g.x+'" y="'+g.y+'" width="'+g.w+'" height="'+g.h+'" rx="8" fill="#ECEFF1"/>'+
+      (llenoLen>0?'<rect x="'+fx+'" y="'+fy+'" width="'+fw+'" height="'+fh+'" fill="'+color+'" clip-path="url(#cp-'+r+')"/>':'')+
+      '<rect x="'+g.x+'" y="'+g.y+'" width="'+g.w+'" height="'+g.h+'" rx="8" fill="none" stroke="'+(sel?'#E8671A':'#37474F')+'" stroke-width="'+(sel?10:4)+'"/>';
+    const cx=g.x+g.w/2,cy=g.y+g.h/2;
     if(vertical){
-      const lw=84,alto=64+nivs.length*30+34;
-      let y0=cy-alto/2;
-      svg+='<rect x="'+(cx-lw/2)+'" y="'+y0+'" width="'+lw+'" height="'+alto+'" rx="16" fill="#0D2A4F"/>'+
-        '<text x="'+cx+'" y="'+(y0+38)+'" text-anchor="middle" font-size="32" font-weight="800" fill="#fff">R'+parseInt(r,10)+'</text>';
-      nivs.forEach(function(n,i){
-        const q=niv[r][n];
-        const tx=n+' '+q.libre+'/'+q.total;
-        svg+='<text x="'+cx+'" y="'+(y0+68+i*30)+'" text-anchor="middle" font-size="19" font-weight="700" fill="#FFE082"'+(tx.length>6?' textLength="76" lengthAdjust="spacingAndGlyphs"':'')+'>'+tx+'</text>';
-      });
-      svg+='<text x="'+cx+'" y="'+(y0+alto-12)+'" text-anchor="middle" font-size="26" font-weight="800" fill="#fff">'+pctOcup+'%</text>';
+      svg+='<rect x="'+(cx-36)+'" y="'+(cy-42)+'" width="72" height="84" rx="14" fill="#0D2A4F"/>'+
+        '<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="28" font-weight="800" fill="#fff">R'+rn+'</text>'+
+        '<text x="'+cx+'" y="'+(cy+28)+'" text-anchor="middle" font-size="26" font-weight="800" fill="#FFE082">'+pctOcup+'%</text>';
     }else{
-      const lw=700;
-      svg+='<rect x="'+(cx-lw/2)+'" y="'+(cy-40)+'" width="'+lw+'" height="80" rx="16" fill="#0D2A4F"/>'+
-        '<text x="'+cx+'" y="'+(cy-8)+'" text-anchor="middle" font-size="32" font-weight="800" fill="#fff">R'+parseInt(r,10)+' <tspan fill="#FFE082" font-size="26">· '+st.libre+'/'+st.total+'</tspan> · '+pctOcup+'%</text>'+
-        '<text x="'+cx+'" y="'+(cy+28)+'" text-anchor="middle" font-size="22" font-weight="700" fill="#FFE082">'+nivs.map(function(n){return n+' '+niv[r][n].libre+'/'+niv[r][n].total;}).join('  ·  ')+'</text>';
+      svg+='<rect x="'+(cx-110)+'" y="'+(cy-21)+'" width="220" height="42" rx="14" fill="#0D2A4F"/>'+
+        '<text x="'+cx+'" y="'+(cy+10)+'" text-anchor="middle" font-size="28" font-weight="800" fill="#fff">R'+rn+' <tspan fill="#FFE082">· '+pctOcup+'%</tspan></text>';
     }
     svg+='</g>';
   });
   svg+='</svg>';
   return '<div class="plano-wrap"><div class="plano-tit">🗺️ Plano del almacén <span>toca un rack para verlo</span></div><div class="plano-scroll">'+svg+'</div>'+
-    '<div class="plano-leyenda"><b>libres/total por nivel · % ocupado</b><i style="background:#A5D6A7"></i>menos de 50% lleno<i style="background:#FFE082"></i>50–85%<i style="background:#FFAB91"></i>más de 85%</div></div>';
+    '<div class="plano-leyenda"><b>barra = % ocupado</b><i style="background:#66BB6A"></i>menos de 50%<i style="background:#FFCA28"></i>50–85%<i style="background:#EF6C00"></i>más de 85%</div></div>';
 }
 function tocarRackPlano_(r){
   fUbiRack=(fUbiRack===r)?'TODOS':r;
