@@ -163,6 +163,17 @@ header.h-inv{background:var(--or)} header.h-abc{background:var(--gn)} header.h-q
 .loc-del:active{background:#F9CFCF}
 .loc-add{white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;border-radius:12px;background:linear-gradient(180deg,#F57C2B,#E8601A);color:#fff;cursor:pointer;font-size:12.5px;font-weight:700;line-height:1;flex-shrink:0;box-shadow:0 3px 8px rgba(232,103,26,.35);-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
 .loc-add:active{filter:brightness(.92);transform:scale(.98)}
+.plano-wrap{background:#fff;border:1px solid #ECEFF1;border-radius:16px;padding:10px 10px 12px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.plano-tit{font-size:13px;font-weight:800;color:#6D4C41;margin:2px 4px 6px}
+.plano-tit span{font-weight:600;color:#90A4AE;font-size:11px;margin-left:6px}
+.plano-svg{width:100%;height:auto;display:block;max-height:70vh}
+.plano-rack:active rect:first-child{filter:brightness(.92)}
+.plano-leyenda{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:11px;color:#546E7A;margin:8px 4px 0}
+.plano-leyenda i{display:inline-block;width:14px;height:14px;border-radius:4px;border:1px solid #90A4AE;margin-left:8px}
+.ubi-rack-nota{font-size:10px;font-weight:600;color:#90A4AE;margin-left:6px}
+.loc-dudosa{flex-basis:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;background:#FFF8E1;border:1.5px solid #FFE082;border-radius:12px;padding:7px 10px;font-size:11.5px;color:#6D4C41;line-height:1.35}
+.loc-confirm{flex-shrink:0;background:#2E7D32;color:#fff;border-radius:10px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.loc-confirm:active{filter:brightness(.9)}
 .loc-add.paste-mode{outline:2px dashed #E8671A;outline-offset:1px;background:#fff3e0;animation:pulseLoc 1.2s infinite}
 
 .tag{font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px}
@@ -611,7 +622,7 @@ header.h-dev{background:var(--tl)}
         <button class="menu-item" onclick="imprimirBitacoraUbicaciones();cerrarMenusImprimir()">🖨️ Bitácora de ubicaciones</button>
         <button class="menu-item" id="btn-sinubic-fmt" onclick="imprimirLotesSinUbicacion();cerrarMenusImprimir()">📍 Lotes sin ubicación (imprimir)</button>
         <button class="menu-item" id="btn-sinubic-xls" onclick="exportarLotesSinUbicacion();cerrarMenusImprimir()">📊 Lotes sin ubicación (Excel)</button>
-        <button class="menu-item" onclick="verUbicacionesHuerfanas();cerrarMenusImprimir()">🗑️ Ubicaciones huérfanas (limpiar)</button>
+        <button class="menu-item" id="menu-huerfanas" onclick="verUbicacionesHuerfanas();cerrarMenusImprimir()">🗑️ Ubicaciones huérfanas (limpiar)</button>
         <button class="menu-item" style="color:#999" onclick="limpiarSeleccionInv()">✕ Quitar selección</button>
       </div>
     </div>
@@ -880,7 +891,7 @@ header.h-dev{background:var(--tl)}
     <div style="display:flex;gap:6px">
       <button onclick="agregarUbicacionCatalogoPrompt_()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar</button>
       <button onclick="bloquearUbicacionPrompt_()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🔒 Bloquear</button>
-      <button onclick="verUbicacionesHuerfanas()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🗑️ Huérfanas</button>
+      <button id="btn-huerfanas" onclick="verUbicacionesHuerfanas()" style="background:#fff;color:#6D4C41;border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">🗑️ Huérfanas</button>
     </div>
   </div>
   <div class="update-bar" id="ubi-update-bar">📅 Cargando ubicaciones...</div>
@@ -1669,6 +1680,12 @@ function ubicRowHtml_(clave,lote,almacen){
   if(entradas.length===0){
     chipsHtml='<span class="loc-badge loc-empty">Sin ubicación</span>';
   }
+  // Lote que volvió a entrar después de guardar su ubicación: se pide
+  // confirmar que la ubicación sigue siendo la correcta.
+  const dudosas=entradas.map(function(u){const f=ubicDudosaEntrada_(u);return f?{u:u,f:f}:null;}).filter(Boolean);
+  const dudosaHtml=dudosas.map(function(d){
+    return '<div class="loc-dudosa"><span>⚠️ <b>'+escAttr(d.u.ubicacion)+'</b>: el lote volvió a entrar el '+escAttr(d.f)+', después de ubicarlo. ¿Sigue ahí?</span><span class="loc-confirm" data-id="'+escAttr(d.u.id||'')+'" onclick="event.stopPropagation();confirmarUbicacion(this)">Sí, sigue</span></div>';
+  }).join('');
   const pasteMode=ubicCopiada!==null;
   const addCls=pasteMode?' paste-mode':'';
   const addAttr=pasteMode?'📥 Pegar ubicación':UBIC_SVG_.plus+'<span>Agregar ubicación</span>';
@@ -1680,7 +1697,7 @@ function ubicRowHtml_(clave,lote,almacen){
   // clave. Ahora el cuadro siempre sale vacío; la sugerencia nomás se
   // ofrece como botón aparte que hay que tocar a propósito para usarla.
   const addBtn='<span class="loc-add'+addCls+'" data-clave="'+escAttr(clave)+'" data-lote="'+escAttr(lote)+'" data-almacen="'+escAttr(almacen||'')+'" data-sugerida="'+escAttr(sugerida)+'" onclick="editarUbicacion(this)" title="'+addTitle+'">'+addAttr+'</span>';
-  return '<div class="loc-row">'+chipsHtml+addBtn+'</div>';
+  return '<div class="loc-row">'+chipsHtml+addBtn+dudosaHtml+'</div>';
 }
 
 // Vuelve a pintar la pestaña que esté activa en este momento. Se usa desde
@@ -2106,6 +2123,7 @@ function ubicacionesHuerfanas_(){
 // las que ya se usan (mismo formato de racks/niveles) en vez de escribir
 // todo desde cero cada vez.
 function refrescarUbicDatalist_(){
+  actualizarContadorHuerfanas_();
   const dl=document.getElementById('ubic-datalist');
   if(!dl)return;
   const set=new Set();
@@ -2172,9 +2190,16 @@ function verUbicacionesHuerfanas(){
     });
   }
 
+  if(huerfanas.length){
+    const btnArch=document.createElement('button');
+    btnArch.textContent='📦 Archivar todas ('+huerfanas.length+')';
+    btnArch.style.cssText='width:100%;margin-top:14px;padding:13px;border:none;border-radius:10px;font-size:13px;font-weight:700;background:#6D4C41;color:#fff;cursor:pointer';
+    btnArch.onclick=function(){archivarHuerfanas_();};
+    box.appendChild(btnArch);
+  }
   const btnClose=document.createElement('button');
   btnClose.textContent='Cerrar';
-  btnClose.style.cssText='width:100%;margin-top:14px;padding:11px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#7a7a7a';
+  btnClose.style.cssText='width:100%;margin-top:10px;padding:11px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#7a7a7a';
   btnClose.onclick=function(){overlay.remove();};
   box.appendChild(btnClose);
 
@@ -2479,6 +2504,58 @@ function exportarEntradasExcel(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
+// Plano del almacén (vista de arriba): cada rack se pinta según qué tan lleno
+// está. Tocar un rack filtra el mapa de abajo a ese rack (tocarlo otra vez
+// muestra todos). Coordenadas aproximadas del plano real del almacén.
+const PLANO_RACKS_={
+  '01':{x:110,y:62,w:1040,h:38},
+  '02':{x:218,y:185,w:830,h:40},'03':{x:218,y:250,w:830,h:40},
+  '04':{x:218,y:350,w:900,h:40},
+  '05':{x:85,y:735,w:70,h:465},
+  '06':{x:262,y:735,w:62,h:465},'07':{x:348,y:735,w:62,h:465},
+  '08':{x:508,y:735,w:62,h:465},'09':{x:596,y:735,w:62,h:465},
+  '10':{x:752,y:735,w:70,h:465}
+};
+function planoUbiHtml_(statsPorRack){
+  let svg='<svg viewBox="0 0 1240 1330" class="plano-svg" xmlns="http://www.w3.org/2000/svg">'+
+    '<path d="M70 40H1170V668H845V1300H70Z" fill="#E3E6EA" stroke="#1B365D" stroke-width="10" stroke-linejoin="round"/>'+
+    '<rect x="215" y="390" width="940" height="270" fill="#D5D9DE" stroke="#1B365D" stroke-width="3"/>'+
+    '<text x="685" y="535" text-anchor="middle" font-size="34" fill="#90A4AE" font-weight="700">Área libre</text>';
+  Object.keys(PLANO_RACKS_).forEach(function(r){
+    const g=PLANO_RACKS_[r];
+    const st=statsPorRack[r]||{libre:0,ocupada:0,bloqueada:0,total:0};
+    const pct=st.total?(st.ocupada+st.bloqueada)/st.total:0;
+    const fill=!st.total?'#CFD8DC':(pct<.5?'#A5D6A7':(pct<.85?'#FFE082':'#FFAB91'));
+    const sel=fUbiRack===r;
+    svg+='<g class="plano-rack" onclick="tocarRackPlano_(\''+r+'\')" style="cursor:pointer">'+
+      '<rect x="'+g.x+'" y="'+g.y+'" width="'+g.w+'" height="'+g.h+'" rx="8" fill="'+fill+'" stroke="'+(sel?'#E8671A':'#37474F')+'" stroke-width="'+(sel?10:4)+'"/>';
+    const vertical=g.h>g.w;
+    const cx=g.x+g.w/2;
+    // Racks vecinos (6-7, 8-9) escalonados para que sus etiquetas no se encimen.
+    const cy=g.y+g.h/2+(vertical&&parseInt(r,10)%2===1&&parseInt(r,10)!==5?80:(vertical&&parseInt(r,10)%2===0&&parseInt(r,10)!==10?-80:0));
+    if(vertical){
+      const lw=84;
+      svg+='<rect x="'+(cx-lw/2)+'" y="'+(cy-46)+'" width="'+lw+'" height="92" rx="16" fill="#0D2A4F"/>'+
+        '<text x="'+cx+'" y="'+(cy-6)+'" text-anchor="middle" font-size="32" font-weight="800" fill="#fff">R'+parseInt(r,10)+'</text>'+
+        '<text x="'+cx+'" y="'+(cy+28)+'" text-anchor="middle" font-size="22" font-weight="700" fill="#FFE082">'+st.libre+'/'+st.total+'</text>';
+    }else{
+      svg+='<rect x="'+(cx-230)+'" y="'+(cy-25)+'" width="460" height="50" rx="16" fill="#0D2A4F"/>'+
+        '<text x="'+cx+'" y="'+(cy+11)+'" text-anchor="middle" font-size="32" font-weight="800" fill="#fff">Rack '+parseInt(r,10)+' <tspan fill="#FFE082" font-size="26">· '+st.libre+'/'+st.total+'</tspan></text>';
+    }
+    svg+='</g>';
+  });
+  svg+='</svg>';
+  return '<div class="plano-wrap"><div class="plano-tit">🗺️ Plano del almacén <span>toca un rack para verlo</span></div>'+svg+
+    '<div class="plano-leyenda"><b>libres/total</b><i style="background:#A5D6A7"></i>menos de 50% lleno<i style="background:#FFE082"></i>50–85%<i style="background:#FFAB91"></i>más de 85%</div></div>';
+}
+function tocarRackPlano_(r){
+  fUbiRack=(fUbiRack===r)?'TODOS':r;
+  renderUbi();
+  if(fUbiRack!=='TODOS'){
+    const el=document.getElementById('ubi-rack-'+r);
+    if(el&&el.scrollIntoView)el.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+}
 function renderUbi(){
   const estados=estadoUbicaciones_();
   // Chips del filtro por rack -- se arman en vivo con los racks que de
@@ -2555,7 +2632,7 @@ function renderUbi(){
   // no hace falta tocar nada más. "AA" (solo existe en el rack 8) se puso
   // pegado junto a "A".
   const ORDEN_NIVELES=['E','D','C','B','AA','A'];
-  let html='';
+  let html=planoUbiHtml_(statsPorRack);
   racks.forEach(function(r){
     const entriesRack=porRack[r];
     const nivelesPresentes=Array.from(new Set(entriesRack.map(function(e){return e.nivel;})));
@@ -2571,7 +2648,8 @@ function renderUbi(){
     const st=statsPorRack[r]||{libre:0,total:0};
     const nombreRack=nombresRacks[r]||'';
     const nombreRackHtml=nombreRack?' <span class="ubi-rack-nombre">· '+escAttr(nombreRack)+'</span>':'';
-    html+='<div class="ubi-rack-title">Rack '+escAttr(r)+nombreRackHtml+' <span class="ubi-rack-libres">🟢 '+st.libre+' disponibles de '+st.total+'</span> <span class="ubi-rack-editar" onclick="editarNombreRack(\''+escAttr(r)+'\')" title="'+(nombreRack?'Editar o quitar el nombre':'Ponerle nombre a este rack')+'">✏️</span></div>';
+    const notaPos=parseInt(r,10)>=5?'pos. 01 = abajo del plano':'pos. 01 = lado izquierdo';
+    html+='<div class="ubi-rack-title" id="ubi-rack-'+escAttr(r)+'">Rack '+escAttr(r)+nombreRackHtml+' <span class="ubi-rack-nota">'+notaPos+'</span> <span class="ubi-rack-libres">🟢 '+st.libre+' disponibles de '+st.total+'</span> <span class="ubi-rack-editar" onclick="editarNombreRack(\''+escAttr(r)+'\')" title="'+(nombreRack?'Editar o quitar el nombre':'Ponerle nombre a este rack')+'">✏️</span></div>';
     html+='<div class="rack-box"><div class="rack-diagram" style="grid-template-columns:38px repeat('+maxPos+',minmax(64px,1fr))">';
     html+='<div class="rack-cell rack-hdr"></div>';
     for(let p=1;p<=maxPos;p++){html+='<div class="rack-cell rack-hdr">'+(p<10?'0'+p:p)+'</div>';}
@@ -2897,11 +2975,11 @@ function prepararUbicacionNueva_(clave,texto){
   }else{
     if(!confirm('⚠️ "'+norm+'" no tiene formato de código del catálogo (ej. 05C08), así que NO aparecerá en el mapa de la pestaña Ubicaciones.\n\n¿Guardarla de todos modos?'))return null;
   }
+  // Casilla ya ocupada por OTRA clave: ya no basta un "OK". El que llama
+  // decide (guardar pide contraseña; mover ya la pidió) y queda registrada
+  // como compartida en el historial.
   const conflicto=buscarConflictoUbicacion_(clave,norm);
-  if(conflicto){
-    if(!confirm('⚠️ La ubicación "'+norm+'" ya está asignada a la clave '+conflicto.clave+' (lote '+conflicto.lote+').\n\n¿De todos modos quieres asignarla también aquí, a '+clave+'?'))return null;
-  }
-  return {ubicacion:norm,agregarCat:agregarCat};
+  return {ubicacion:norm,agregarCat:agregarCat,conflicto:conflicto||null};
 }
 
 // ---- Selector "Guardó:" (obligatorio al agregar o mover una ubicación) ----
@@ -3030,6 +3108,20 @@ function guardarUbicacion(clave,lote,ubicacion,almacen,quien){
   if(existentes.some(function(u){return (u.ubicacion||'').trim().toLowerCase()===ubicacion.toLowerCase()&&(u.almacen||'').toUpperCase()===almacen;})){
     return;
   }
+  if(prep.conflicto){
+    // Casilla ocupada por otra clave: solo con contraseña.
+    const c=prep.conflicto;
+    alert('⛔ La ubicación "'+ubicacion+'" ya está ocupada por '+c.clave+' (lote '+c.lote+').\n\nNo se puede asignar a '+clave+' sin permiso. Si de verdad van a compartir la casilla, en el siguiente paso escribe la contraseña; si no, elige otra ubicación.');
+    pedirClaveBorrarUbicacion_('compartir la casilla "'+ubicacion+'" (ocupada por '+c.clave+') con '+clave).then(function(pw){
+      if(!pw)return;
+      continuarGuardarUbic_(clave,lote,almacen,ubicacion,quien,prep,c.clave+' · '+c.lote,pw);
+    });
+    return;
+  }
+  continuarGuardarUbic_(clave,lote,almacen,ubicacion,quien,prep,'','');
+}
+function continuarGuardarUbic_(clave,lote,almacen,ubicacion,quien,prep,compartidaCon,pw){
+  const key=clave+'|'+lote;
   const fecha=new Date().toLocaleString('es-MX');
   // El Id lo genera la app: el servidor lo respeta y, si llega repetido, NO
   // vuelve a agregar la fila (reintentar nunca duplica).
@@ -3042,7 +3134,9 @@ function guardarUbicacion(clave,lote,ubicacion,almacen,quien){
   refrescarUbicDatalist_();
   renderActiveTab_();
   if(prep.agregarCat)agregarUbicacionCatalogo_(ubicacion,true);
-  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'ubicacion',id:id,clave:clave,lote:lote,almacen:almacen,ubicacion:ubicacion,registrado:quien,fecha:fecha})})
+  const body={accion:'ubicacion',id:id,clave:clave,lote:lote,almacen:almacen,ubicacion:ubicacion,registrado:quien,fecha:fecha};
+  if(compartidaCon){body.compartidaCon=compartidaCon;body.claveBorrado=pw;}
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(body)})
     .catch(function(e){console.error('Error guardando ubicación:',e);});
   verificarUbic_(
     function(rows){return rows.some(function(r){return r.id===id||ubicIgual_(r,entry);});},
@@ -3082,7 +3176,7 @@ async function pedirClaveBorrarUbicacion_(detalle){
 }
 // Ventana para borrar: pide QUIÉN borra (obligatorio) y la contraseña.
 // Devuelve {quien,pw} o null si se canceló o la contraseña no es correcta.
-function pedirQuienYClaveBorrado_(detalle){
+function pedirQuienYClaveBorrado_(detalle,titulo,btnTxt){
   return new Promise(function(resolve){
     const old=document.getElementById('ubic-borrar-modal');if(old)old.remove();
     const overlay=document.createElement('div');
@@ -3092,14 +3186,14 @@ function pedirQuienYClaveBorrado_(detalle){
     box.style.cssText='background:#fff;border-radius:16px;padding:24px;width:100%;max-width:380px';
     const t=document.createElement('div');
     t.style.cssText='font-size:14px;font-weight:800;color:#C62828;margin-bottom:4px';
-    t.textContent='🗑️ Borrar ubicación';
+    t.textContent=titulo||'🗑️ Borrar ubicación';
     box.appendChild(t);
     const d=document.createElement('div');
     d.style.cssText='font-size:12px;color:#7a7a7a;line-height:1.5';
-    d.textContent=detalle+'. Esto no se puede deshacer.';
+    d.textContent=detalle+(titulo?'':'. Esto no se puede deshacer.');
     box.appendChild(d);
     const q=quienSelector_();
-    q.el.firstChild.textContent='👤 ¿Quién la borra? (obligatorio)';
+    q.el.firstChild.textContent=titulo?'👤 ¿Quién lo hace? (obligatorio)':'👤 ¿Quién la borra? (obligatorio)';
     box.appendChild(q.el);
     const lbl=document.createElement('div');
     lbl.style.cssText='font-size:11.5px;font-weight:700;color:#7a7a7a;margin:10px 0 4px';
@@ -3116,7 +3210,7 @@ function pedirQuienYClaveBorrado_(detalle){
     bc.style.cssText='flex:1;padding:13px;border:1.5px solid #e2e2e2;border-radius:10px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#7a7a7a';
     bc.onclick=function(){overlay.remove();resolve(null);};
     const bo=document.createElement('button');
-    bo.textContent='Borrar';
+    bo.textContent=btnTxt||'Borrar';
     bo.style.cssText='flex:2;padding:13px;border:none;border-radius:10px;font-size:13px;font-weight:700;background:#C62828;color:#fff;cursor:pointer';
     bo.onclick=async function(){
       const quien=q.get();
@@ -3179,6 +3273,74 @@ function borrarUbicacionPorId_(id,claveBorrado,quien){
 }
 
 // ---- Mover una ubicación (con contraseña, queda en HistorialUbicaciones) ----
+// ¿Esta ubicación es dudosa? Sí si el lote volvió a entrar (bitácora de
+// Entradas) en un día POSTERIOR al día en que se guardó la ubicación: pudo
+// agotarse y reingresar, y la ubicación vieja ya no es de fiar.
+function ubicDudosaEntrada_(u){
+  const arr=entPorLote[String(u.clave).toUpperCase()+'|'+String(u.lote).toUpperCase()];
+  if(!arr||!arr.length||!u.fecha)return '';
+  const f=parseFechaMX_(String(u.fecha));
+  if(!f||isNaN(f.getTime())||f.getFullYear()<2000)return '';
+  const dUb=new Date(f.getFullYear(),f.getMonth(),f.getDate()).getTime();
+  let ult='';
+  arr.forEach(function(e){const m=String(e.fecha||'').match(/^(\d{4})-(\d\d)-(\d\d)/);if(!m)return;const t=new Date(+m[1],+m[2]-1,+m[3]).getTime();if(t>dUb&&(!ult||String(e.fecha)>ult))ult=String(e.fecha);});
+  return ult?fechaEntTxt_(ult):'';
+}
+async function confirmarUbicacion(el){
+  const id=el.dataset.id;
+  const u=ubicPorId_(id);
+  if(!u)return;
+  const quien=await pedirQuienGuardo_('Confirmar que '+u.ubicacion+' sigue siendo la ubicación de '+u.clave+' · '+u.lote);
+  if(!quien)return;
+  const fecha=new Date().toLocaleString('es-MX');
+  const anterior={registrado:u.registrado,fecha:u.fecha};
+  u.registrado=quien;u.fecha=fecha;
+  renderActiveTab_();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'confirmar_ubicacion',id:id,registrado:quien,fecha:fecha})})
+    .catch(function(e){console.error('Error confirmando ubicación:',e);});
+  verificarUbic_(
+    function(rows){return rows.some(function(r){return r.id===id&&r.fecha===fecha;});},
+    null,
+    function(sinCon){
+      u.registrado=anterior.registrado;u.fecha=anterior.fecha;
+      recargarUbicaciones();
+      avisoUbicFallo_('La confirmación de "'+u.ubicacion+'" ('+u.clave+' · '+u.lote+')',sinCon);
+    }
+  );
+}
+// Archiva TODAS las huérfanas (lotes que ya no están en el inventario): se
+// pasan a la hoja UbicacionesArchivo y no reviven si el lote vuelve a entrar.
+async function archivarHuerfanas_(){
+  // Salvaguarda: con el inventario sin cargar TODO saldría como huérfano.
+  if(!(window._ALL_A||[]).length){alert('El inventario todavía no está cargado. Espera a que cargue y vuelve a intentarlo.');return;}
+  const lista=ubicacionesHuerfanas_().filter(function(u){return u.id&&String(u.id).indexOf('tmp-')!==0;});
+  if(!lista.length){alert('No hay ubicaciones huérfanas por archivar.');return;}
+  const r=await pedirQuienYClaveBorrado_('Vas a archivar '+lista.length+' ubicación'+(lista.length===1?'':'es')+' de lotes que ya no están en el inventario. Se guardan en la hoja UbicacionesArchivo (no se pierden) y dejan de aparecer; si el lote vuelve a entrar habrá que ubicarlo de nuevo.','📦 Archivar huérfanas','Archivar');
+  if(!r)return;
+  const ids=lista.map(function(u){return u.id;});
+  ids.forEach(function(id){ubicBorrando_.add(id);});
+  Object.keys(ubicMap).forEach(function(key){ubicMap[key]=ubicMap[key].filter(function(x){return ids.indexOf(x.id)===-1;});});
+  const m=document.getElementById('ubic-huerfanas-modal');if(m)m.remove();
+  refrescarUbicDatalist_();
+  renderActiveTab_();
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'archivar_ubicaciones',ids:ids,registrado:r.quien,claveBorrado:r.pw})})
+    .catch(function(e){console.error('Error archivando ubicaciones:',e);});
+  verificarUbic_(
+    function(rows){return !rows.some(function(x){return ids.indexOf(x.id)!==-1;});},
+    function(){ids.forEach(function(id){ubicBorrando_.delete(id);});alert('✓ '+ids.length+' ubicación'+(ids.length===1?'':'es')+' archivada'+(ids.length===1?'':'s')+'.');},
+    function(sinCon){
+      ids.forEach(function(id){ubicBorrando_.delete(id);});
+      recargarUbicaciones();
+      avisoUbicFallo_('El archivado de las huérfanas',sinCon);
+    }
+  );
+}
+function actualizarContadorHuerfanas_(){
+  let n=0;try{n=(window._ALL_A||[]).length?ubicacionesHuerfanas_().length:0;}catch(e){}
+  const t=n?' ('+n+')':'';
+  const b1=document.getElementById('btn-huerfanas');if(b1)b1.textContent='🗑️ Huérfanas'+t;
+  const b2=document.getElementById('menu-huerfanas');if(b2)b2.textContent='🗑️ Ubicaciones huérfanas (limpiar)'+t;
+}
 function ubicPorId_(id){
   let ubic=null;
   Object.keys(ubicMap).forEach(function(key){(ubicMap[key]||[]).forEach(function(u){if(u.id===id)ubic=u;});});
@@ -3227,6 +3389,7 @@ function moverUbicacion(el){
     const prep=prepararUbicacionNueva_(u.clave,nueva);
     if(!prep)return;
     if(prep.ubicacion.toUpperCase()===(u.ubicacion||'').trim().toUpperCase()){alert('Esa ya es la ubicación actual.');return;}
+    if(prep.conflicto&&!confirm('⛔ La ubicación "'+prep.ubicacion+'" ya está ocupada por '+prep.conflicto.clave+' (lote '+prep.conflicto.lote+').\n\nSi continúas, la casilla quedará COMPARTIDA y se registra en el historial. ¿Continuar?'))return;
     const pw=await pedirClaveBorrarUbicacion_('mover '+u.clave+' · lote '+u.lote+' de "'+u.ubicacion+'" a "'+prep.ubicacion+'"');
     if(!pw)return;
     overlay.remove();
@@ -3239,6 +3402,7 @@ function moverUbicacion(el){
   inp.focus();
 }
 function ejecutarMoverUbic_(u,prep,quien,pw){
+  const compartidaCon=prep.conflicto?(prep.conflicto.clave+' · '+prep.conflicto.lote):'';
   const newId=idUbicNuevo_();
   const fecha=new Date().toLocaleString('es-MX');
   const nueva={id:newId,clave:u.clave,lote:u.lote,almacen:u.almacen||'',ubicacion:prep.ubicacion,registrado:quien,fecha:fecha};
@@ -3251,7 +3415,7 @@ function ejecutarMoverUbic_(u,prep,quien,pw){
   refrescarUbicDatalist_();
   renderActiveTab_();
   if(prep.agregarCat)agregarUbicacionCatalogo_(prep.ubicacion,true);
-  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'mover_ubicacion',id:u.id,newId:newId,ubicacion:prep.ubicacion,registrado:quien,fecha:fecha,claveBorrado:pw})})
+  fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'mover_ubicacion',id:u.id,newId:newId,ubicacion:prep.ubicacion,registrado:quien,fecha:fecha,claveBorrado:pw,compartidaCon:compartidaCon})})
     .catch(function(e){console.error('Error moviendo ubicación:',e);});
   verificarUbic_(
     function(rows){
