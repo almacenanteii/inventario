@@ -828,6 +828,7 @@ header.h-dev{background:var(--tl)}
         <button class="menu-item" onclick="generarReporteSalidasEyejal();cerrarMenusImprimir()">📄 Pendientes DEV → EYEJAL</button>
         <button class="menu-item" onclick="exportarSalidasEyejalExcel();cerrarMenusImprimir()">📊 Traspaso DEV → EYEJAL (Excel, todas las líneas)</button>
         <button class="menu-item" onclick="abrirReporteDevPorDia();cerrarMenusImprimir()">📅 Reporte por día (fechas / todo)</button>
+        <button class="menu-item" onclick="abrirRutaUbicDev();cerrarMenusImprimir()">🗺️ Ruta de ubicación (marcadas “Ubicado”)</button>
       </div>
     </div>
     <button onclick="abrirModalDevolucion()" style="background:#fff;color:var(--tl);border:2px solid #fff;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;margin-left:6px">+ Nuevo folio</button>
@@ -10288,6 +10289,226 @@ function marcarUbicadoLinea_(id,codigo,lote,marcar){
   renderDev();
   fetch(APPS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify({accion:'marcar_ubicado_devolucion',id:id,codigo:codigo,lote:lote,marcar:marcar})})
     .catch(function(e){console.error('Error marcando ubicado sin mov de línea:',e);});
+}
+
+// ===== Ruta de ubicación de Devoluciones =====
+// Imprime el recorrido para ubicar físicamente las líneas de devolución que
+// ya se marcaron con "📍 Ubicado, falta mov", dentro de un rango de fechas
+// (por fecha de captura del folio o por fecha en que se dio clic al botón).
+// Código de ubicación: RR + NIVEL + POSICIÓN. Ej. "05C05" = rack 05, nivel C,
+// posición 05. Geometría del mapa (SVG 400x462) tomada del layout del almacén.
+const ALM_GEOM = {
+  1:  { x0: 13,  y0: 5,   x1: 386, y1: 22,  n: 13, h: true,  b0: 30,  b1: 373 },
+  2:  { x0: 54,  y0: 55,  x1: 354, y1: 67,  n: 10, h: true,  b0: 112, b1: 340 },
+  3:  { x0: 54,  y0: 73,  x1: 354, y1: 86,  n: 10, h: true,  b0: 112, b1: 340 },
+  4:  { x0: 54,  y0: 114, x1: 380, y1: 127, n: 8,  h: true,  b0: 112, b1: 367 },
+  5:  { x0: 12,  y0: 253, x1: 30,  y1: 422, n: 12, h: false, b0: 268, b1: 409 },
+  6:  { x0: 69,  y0: 253, x1: 88,  y1: 422, n: 12, h: false, b0: 268, b1: 409 },
+  7:  { x0: 101, y0: 253, x1: 120, y1: 422, n: 12, h: false, b0: 268, b1: 409 },
+  8:  { x0: 158, y0: 253, x1: 177, y1: 422, n: 11, h: false, b0: 275, b1: 409 },
+  9:  { x0: 190, y0: 253, x1: 209, y1: 422, n: 12, h: false, b0: 268, b1: 409 },
+  10: { x0: 247, y0: 253, x1: 265, y1: 422, n: 12, h: false, b0: 268, b1: 409 }
+};
+// Pasillos en el orden en que se recorren; dir = sentido en que se camina.
+const ALM_RUTA = [
+  { racks: [1, 2],  dir: 'O-E' },
+  { racks: [3, 4],  dir: 'E-O' },
+  { racks: [5, 6],  dir: 'N-S' },
+  { racks: [7, 8],  dir: 'S-N' },
+  { racks: [9, 10], dir: 'N-S' }
+];
+// Posición 01: racks 1-4 al oeste (izquierda); racks 5-10 al sur (abajo).
+const ALM_POS01 = { h: 'O', v: 'S' };
+function almParseUbic(txt) {
+  const m = String(txt || '').trim().toUpperCase().match(/^(\d{1,2})\s*([A-Z]{1,2})\s*(\d{1,3})$/);
+  if (!m) return null;
+  return { rack: parseInt(m[1], 10), nivel: m[2], pos: parseInt(m[3], 10) };
+}
+function almNivelOrden(n) { return n === 'AA' ? 0 : (n.length === 1 ? n.charCodeAt(0) - 64 : 30); }
+function almPunto(u) {
+  const g = ALM_GEOM[u.rack]; if (!g) return null;
+  const pos = Math.min(Math.max(u.pos, 1), g.n);
+  const pos01 = g.h ? ALM_POS01.h : ALM_POS01.v;
+  const frac = (pos - 0.5) / g.n;
+  const desdeInicio = (pos01 === 'O' || pos01 === 'N');
+  const t = g.b0 + (desdeInicio ? frac : 1 - frac) * (g.b1 - g.b0);
+  return g.h ? { cx: t, cy: (g.y0 + g.y1) / 2 } : { cx: (g.x0 + g.x1) / 2, cy: t };
+}
+// Número que dice en qué orden se pasa por esa ubicación (menor = primero).
+function almClaveRuta(u) {
+  const pt = almPunto(u);
+  for (let i = 0; i < ALM_RUTA.length; i++) {
+    const p = ALM_RUTA[i];
+    if (!p.racks.includes(u.rack) || !pt) continue;
+    const d = p.dir;
+    const coord = d === 'O-E' ? pt.cx : d === 'E-O' ? 400 - pt.cx : d === 'N-S' ? pt.cy : 462 - pt.cy;
+    return i * 1e6 + Math.round(coord) * 1000 + almNivelOrden(u.nivel);
+  }
+  return 7e6;
+}
+// Mapa del almacén (SVG, blanco y negro) con recorrido y paradas numeradas.
+// paradas = [{ n, locs: [{ rack, pos }] }]
+function almSvgMapa(paradas) {
+  const usados = new Set();
+  paradas.forEach(p => p.locs.forEach(l => usados.add(l.rack)));
+  let s = `<svg viewBox="0 0 400 462" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;font-family:Arial,sans-serif">
+    <defs>
+      <pattern id="hach" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="#000" stroke-width="1.2"/></pattern>
+      <marker id="flecha" viewBox="0 0 6 6" refX="3" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#000"/></marker>
+    </defs>
+    <polygon points="0,0 400,0 400,229 280,229 280,460 0,460" fill="#fff" stroke="#000" stroke-width="3"/>`;
+  [[65, 239, 64, 10], [151, 238, 63, 12], [126, 255, 9, 31]].forEach(z => {
+    s += `<rect x="${z[0]}" y="${z[1]}" width="${z[2]}" height="${z[3]}" fill="url(#hach)" stroke="#000" stroke-width="1.5"/>`;
+  });
+  s += `<text x="97" y="233" font-size="8" font-weight="bold" text-anchor="middle">ENTREGA</text>
+        <text x="182" y="233" font-size="8" font-weight="bold" text-anchor="middle">ENTREGA</text>`;
+  Object.keys(ALM_GEOM).forEach(k => {
+    const g = ALM_GEOM[k], usado = usados.has(parseInt(k, 10));
+    s += `<rect x="${g.x0}" y="${g.y0}" width="${g.x1 - g.x0}" height="${g.y1 - g.y0}" fill="${usado ? '#cfcfcf' : '#fff'}" stroke="#000" stroke-width="${usado ? 2.5 : 1}"/>`;
+    for (let i = 1; i < g.n; i++) {
+      if (g.h) { const x = g.b0 + i * (g.b1 - g.b0) / g.n; s += `<line x1="${x}" y1="${g.y0}" x2="${x}" y2="${g.y1}" stroke="#777" stroke-width=".6"/>`; }
+      else     { const y = g.b0 + i * (g.b1 - g.b0) / g.n; s += `<line x1="${g.x0}" y1="${y}" x2="${g.x1}" y2="${y}" stroke="#777" stroke-width=".6"/>`; }
+    }
+    let lx, ly;
+    if (k === '1')      { lx = (g.x0 + g.x1) / 2; ly = g.y1 + 8; }
+    else if (g.h)       { lx = g.x0 - 11;         ly = (g.y0 + g.y1) / 2; }
+    else                { lx = (g.x0 + g.x1) / 2; ly = g.y1 + 9; }
+    s += `<text x="${lx}" y="${ly}" font-size="9" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="#000">R${k}</text>`;
+  });
+  s += `<polyline points="97,244 26,244 26,36 378,36 378,100 26,100 26,244 49,244 49,439 140,439 140,244 228,244 228,439"
+          fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="5,3" marker-mid="url(#flecha)" marker-end="url(#flecha)"/>`;
+  // Pasillo de abajo: también se puede regresar por aquí (solo dibujo).
+  s += `<polyline points="228,439 140,439" fill="none" stroke="#000" stroke-width="1.6" stroke-dasharray="5,3"/>
+        <path d="M190,435 L180,439 L190,443 z" fill="#000"/>`;
+  const ocupado = {};
+  paradas.forEach(p => p.locs.forEach(l => {
+    const g = ALM_GEOM[l.rack]; if (!g) return;
+    const pos = Math.min(Math.max(l.pos, 1), g.n);
+    const pt = almPunto(l);
+    let cx = pt.cx, cy = pt.cy;
+    const key = l.rack + '|' + pos;
+    const veces = ocupado[key] = (ocupado[key] || 0) + 1;
+    const off = (veces - 1) * 13;
+    if (g.h) cx += off; else cy += off;
+    s += `<circle cx="${cx}" cy="${cy}" r="6.5" fill="#000" stroke="#fff" stroke-width="1"/>
+          <text x="${cx}" y="${cy}" font-size="${p.n > 9 ? 7 : 8.5}" font-weight="bold" fill="#fff" text-anchor="middle" dominant-baseline="central">${p.n}</text>`;
+  }));
+  return s + '</svg>';
+}
+
+// Líneas que entran a la ruta: marcadas con "Ubicado, falta mov" (y todavía no
+// traspasadas), de papeletas que NO son de destrucción, cuya fecha (de captura
+// del folio o de marcado del botón) cae dentro del rango.
+function calcularRutaUbicDev_(desdeISO,hastaISO,tipoFecha){
+  const filas=[];
+  (DEV_LOADED||[]).forEach(function(f){
+    if(String(f.tipo||'').trim()==='destruccion')return;
+    (f.lineas||[]).forEach(function(l){
+      if(!l.fechaUbicadoSinMov||l.fechaTraspaso)return;
+      const iso=fechaDevISO_(tipoFecha==='marcado'?l.fechaUbicadoSinMov:f.fecha);
+      if(!iso||(desdeISO&&iso<desdeISO)||(hastaISO&&iso>hastaISO))return;
+      const ubicTxt=ubicTexto_(l.codigo,l.lote)||'';
+      const locs=ubicTxt.split(',').map(function(x){return x.trim();}).filter(Boolean);
+      const rackLocs=locs.map(almParseUbic).filter(Boolean);
+      let grupo,claveRuta;
+      if(!locs.length){grupo='SIN';claveRuta=9e6;}
+      else if(rackLocs.length){grupo='RACK';claveRuta=Math.min.apply(null,rackLocs.map(almClaveRuta));}
+      else if(locs.some(function(x){return /^AN[-\s]?/i.test(x);})){grupo='AN';claveRuta=8e6;}
+      else{grupo='OTRA';claveRuta=8.5e6;}
+      filas.push({f:f,l:l,ubicTxt:ubicTxt,rackLocs:rackLocs,grupo:grupo,claveRuta:claveRuta});
+    });
+  });
+  filas.sort(function(a,b){
+    return (a.claveRuta-b.claveRuta)||a.ubicTxt.localeCompare(b.ubicTxt,'es',{numeric:true})||String(a.l.codigo).localeCompare(String(b.l.codigo));
+  });
+  return filas;
+}
+function isoATxtDev_(iso){const p=String(iso||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:'';}
+
+function abrirRutaUbicDev(){
+  const old=document.getElementById('dev-ruta-modal');if(old)old.remove();
+  const overlay=document.createElement('div');
+  overlay.id='dev-ruta-modal';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px';
+  const box=document.createElement('div');
+  box.style.cssText='background:#fff;border-radius:16px;padding:22px;width:100%;max-width:380px';
+  box.innerHTML=
+    '<div style="font-size:15px;font-weight:800;color:#00796B;margin-bottom:4px">🗺️ Ruta de ubicación</div>'+
+    '<div style="font-size:12px;color:#7a7a7a;line-height:1.5;margin-bottom:12px">Solo entran las líneas marcadas con <b>📍 Ubicado, falta mov</b> dentro de las fechas que elijas.</div>'+
+    '<div style="display:flex;gap:8px"><div style="flex:1"><div style="font-size:11px;font-weight:700;color:#7a7a7a;margin-bottom:3px">Desde</div><input type="date" id="ruta-desde" style="width:100%;padding:9px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px"></div>'+
+    '<div style="flex:1"><div style="font-size:11px;font-weight:700;color:#7a7a7a;margin-bottom:3px">Hasta</div><input type="date" id="ruta-hasta" style="width:100%;padding:9px;border:1.5px solid #e2e2e2;border-radius:8px;font-size:13px"></div></div>'+
+    '<div style="font-size:11px;font-weight:700;color:#7a7a7a;margin:12px 0 4px">Buscar por</div>'+
+    '<label style="display:block;font-size:13px;margin:3px 0"><input type="radio" name="ruta-tipo" value="captura" checked> Fecha de captura del folio</label>'+
+    '<label style="display:block;font-size:13px;margin:3px 0"><input type="radio" name="ruta-tipo" value="marcado"> Fecha en que di clic a “Ubicado”</label>'+
+    '<div id="ruta-resumen" style="margin-top:12px;padding:9px 11px;border-radius:8px;background:#F5F5F5;font-size:12.5px;font-weight:700;color:#455A64">Elige las fechas</div>'+
+    '<div style="display:flex;gap:8px;margin-top:14px"><button id="ruta-cancel" style="flex:1;padding:12px;border:1.5px solid #e2e2e2;border-radius:10px;font-size:13px;font-weight:700;background:#fff;cursor:pointer;color:#7a7a7a">Cancelar</button>'+
+    '<button id="ruta-ok" disabled style="flex:2;padding:12px;border:none;border-radius:10px;font-size:13px;font-weight:700;background:#00796B;color:#fff;cursor:pointer;opacity:.45">🖨️ Imprimir ruta</button></div>';
+  overlay.appendChild(box);document.body.appendChild(overlay);
+  const d1=box.querySelector('#ruta-desde'),d2=box.querySelector('#ruta-hasta'),res=box.querySelector('#ruta-resumen'),ok=box.querySelector('#ruta-ok');
+  // Si ya hay fechas en el filtro de arriba de Devoluciones, se usan como punto de partida.
+  d1.value=dDesde||'';d2.value=dHasta||'';
+  const tipo=function(){return box.querySelector('input[name="ruta-tipo"]:checked').value;};
+  const refrescar=function(){
+    if(!d1.value||!d2.value){res.textContent='Elige las fechas (Desde y Hasta)';ok.disabled=true;ok.style.opacity='.45';return;}
+    if(d1.value>d2.value){res.textContent='“Desde” no puede ser después de “Hasta”';ok.disabled=true;ok.style.opacity='.45';return;}
+    const filas=calcularRutaUbicDev_(d1.value,d2.value,tipo());
+    const pzs=filas.reduce(function(s,r){return s+(parseFloat(r.l.cantidad)||0);},0);
+    res.textContent=filas.length?(filas.length+' línea'+(filas.length===1?'':'s')+' · '+fmt(pzs)+' pz'):'No hay líneas marcadas en ese rango';
+    ok.disabled=!filas.length;ok.style.opacity=filas.length?'1':'.45';
+  };
+  [d1,d2].forEach(function(i){i.addEventListener('change',refrescar);});
+  box.querySelectorAll('input[name="ruta-tipo"]').forEach(function(r){r.addEventListener('change',refrescar);});
+  box.querySelector('#ruta-cancel').onclick=function(){overlay.remove();};
+  ok.onclick=function(){imprimirRutaUbicDev_(d1.value,d2.value,tipo());overlay.remove();};
+  refrescar();
+}
+
+function imprimirRutaUbicDev_(desdeISO,hastaISO,tipoFecha){
+  DEV_SAL_=calcularSalidasEyejal_();
+  const filas=calcularRutaUbicDev_(desdeISO,hastaISO,tipoFecha);
+  if(!filas.length){alert('No hay líneas marcadas en ese rango.');return;}
+  // Número de parada = orden de la tabla; en el mapa solo van las de rack.
+  const paradas=[];
+  filas.forEach(function(r,i){r.n=i+1;if(r.rackLocs.length)paradas.push({n:r.n,locs:r.rackLocs});});
+  const racksUsados=Array.from(new Set(paradas.flatMap(function(p){return p.locs.map(function(l){return l.rack;});}))).sort(function(a,b){return a-b;});
+  const pzs=filas.reduce(function(s,r){return s+(parseFloat(r.l.cantidad)||0);},0);
+  const TXT_GRUPO={RACK:'',AN:'Anaqueles de etiquetas (AN-…)',OTRA:'Otras ubicaciones (fuera del mapa de racks)',SIN:'⚠️ SIN UBICACIÓN REGISTRADA'};
+  let grupoAnt='',filasHtml='';
+  filas.forEach(function(r){
+    if(r.grupo!==grupoAnt){
+      grupoAnt=r.grupo;
+      if(TXT_GRUPO[r.grupo])filasHtml+='<tr class="grp"><td colspan="8">'+TXT_GRUPO[r.grupo]+'</td></tr>';
+    }
+    filasHtml+='<tr'+(r.grupo==='SIN'?' class="sin"':'')+'>'+
+      '<td class="n">'+r.n+'</td><td class="chk">☐</td>'+
+      '<td class="ub">'+(r.ubicTxt?escAttr(r.ubicTxt):'—')+'</td>'+
+      '<td class="cl">'+escAttr(r.l.codigo)+'</td>'+
+      '<td>'+escAttr(r.l.descripcion||'')+'</td>'+
+      '<td class="lo">'+escAttr(r.l.lote)+'</td>'+
+      '<td class="ca">'+fmt(parseFloat(r.l.cantidad)||0)+'</td>'+
+      '<td class="fo">'+escAttr(r.f.folio)+'<br><span>'+escAttr(String(r.f.fecha||'').split(',')[0])+'</span></td></tr>';
+  });
+  const rangoTxt=isoATxtDev_(desdeISO)+' al '+isoATxtDev_(hastaISO);
+  const porTxt=tipoFecha==='marcado'?'fecha en que se marcó “Ubicado”':'fecha de captura del folio';
+  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Ruta de ubicación — Devoluciones</title><style>'+
+    '@page{size:letter portrait;margin:9mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#000;margin:0;font-size:11px}'+
+    '.top{display:flex;gap:14px;align-items:flex-start}.info{flex:1}.info h1{font-size:20px;margin:0 0 4px}.info .meta{font-size:11px;line-height:1.6}'+
+    '.map{width:78mm;flex-shrink:0;border:2px solid #000;padding:4px}.map .tit{font-weight:bold;font-size:11px;text-align:center;margin-bottom:2px}'+
+    '.ley{font-size:9.5px;line-height:1.5;margin-top:6px}'+
+    'table{width:100%;border-collapse:collapse;margin-top:10px}th{background:#eee;font-size:10px;text-align:left;border:1px solid #000;padding:4px}'+
+    'td{border:1px solid #000;padding:4px;vertical-align:middle;font-size:11px}td.n{text-align:center;font-weight:bold;font-size:15px;width:28px}td.chk{text-align:center;font-size:16px;width:24px}'+
+    'td.ub{font-size:16px;font-weight:bold;white-space:nowrap}td.cl{font-weight:bold;white-space:nowrap}td.lo{white-space:nowrap}td.ca{text-align:right;font-weight:bold;font-size:13px}td.fo{font-size:10px;white-space:nowrap}td.fo span{color:#555}'+
+    'tr.grp td{background:#ddd;font-weight:bold;font-size:11px}tr.sin td{border:2px solid #000}tr{page-break-inside:avoid}'+
+    '</style></head><body><div class="top"><div class="info"><h1>🗺️ RUTA DE UBICACIÓN · DEVOLUCIONES</h1>'+
+    '<div class="meta"><b>Fechas:</b> '+rangoTxt+'<br><b>Buscado por:</b> '+porTxt+'<br><b>Líneas:</b> '+filas.length+' · <b>Piezas:</b> '+fmt(pzs)+'<br><b>Impreso:</b> '+escAttr(fechaHoyTxt_())+
+    '<br><b>Racks con material:</b> '+(racksUsados.length?racksUsados.join(', '):'—')+'</div>'+
+    '<div class="ley">● # = parada (mismo # de la tabla)<br>- - ► recorrido sugerido<br>▨ ENTREGA<br>Marca ☐ al acomodar cada línea.</div></div>'+
+    '<div class="map"><div class="tit">MAPA DE UBICACIÓN</div>'+almSvgMapa(paradas)+'</div></div>'+
+    '<table><thead><tr><th>#</th><th></th><th>Ubicación</th><th>Clave</th><th>Descripción</th><th>Lote</th><th>Cant.</th><th>Folio · fecha</th></tr></thead><tbody>'+filasHtml+'</tbody></table>'+
+    '<script>window.onload=function(){window.print();}<\/script></body></html>';
+  const win=window.open('','_blank');
+  if(!win){alert('Permite las ventanas emergentes para imprimir.');return;}
+  win.document.write(html);win.document.close();
 }
 
 // Marca (o deshace) TODAS las líneas del folio de un jalón -- lo usa el
